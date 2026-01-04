@@ -1,0 +1,110 @@
+{% extends "base/base.html" %}
+{% block title %}Pedidos{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-bold text-gray-800">Pedidos</h1>
+
+  <a href="{% url 'order_create' %}"
+     class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm font-medium">
+     + Novo pedido
+  </a>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+      <tr>
+        <th class="p-3 text-left">Código</th>
+        <th class="p-3 text-left">Cliente</th>
+        <th class="p-3 text-left">Tipo</th>
+        <th class="p-3 text-left">Status</th>
+        <th class="p-3 text-left">Ações</th>
+      </tr>
+    </thead>
+
+    <tbody class="divide-y">
+      {% for order in orders %}
+      <tr class="hover:bg-gray-50">
+        <!-- Código -->
+        <td class="p-3 font-mono text-xs text-gray-700">
+          {{ order.code }}
+        </td>
+
+        <!-- Cliente -->
+        <td class="p-3">
+          <div class="font-medium text-gray-800">
+            {{ order.customer.name }}
+          </div>
+        </td>
+
+        <!-- Tipo -->
+        <td class="p-3">
+          {% if order.delivery_type == "pickup" %}
+            <span class="inline-flex items-center px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">
+              Retirada
+            </span>
+          {% else %}
+            <span class="inline-flex items-center px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
+              Entrega
+            </span>
+          {% endif %}
+        </td>
+
+        <!-- Status -->
+        <td class="p-3">
+          {% if order.delivery_status == "ready_for_pickup" %}
+            <span class="text-purple-700 font-medium">
+              Pronto para retirada
+            </span>
+          {% else %}
+            <span class="text-gray-700">
+              {{ order.status_display }}
+            </span>
+          {% endif %}
+        </td>
+
+        <!-- Ações -->
+        <td class="p-3 space-x-1">
+          {# ENTREGA #}
+          {% if order.delivery_type == "delivery" %}
+            {% if order.delivery_status == "pending" %}
+              <a href="{% url 'order_mark_shipped' order.id %}"
+                 class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+                 Enviar
+              </a>
+            {% elif order.delivery_status == "shipped" %}
+              <a href="{% url 'order_mark_delivered' order.id %}"
+                 class="inline-block bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs">
+                 Entregar
+              </a>
+            {% endif %}
+          {% endif %}
+
+          {# RETIRADA #}
+          {% if order.delivery_type == "pickup" and order.delivery_status == "pending" %}
+            <a href="{% url 'order_ready_for_pickup' order.id %}"
+               class="inline-block bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs">
+               Liberar retirada
+            </a>
+          {% endif %}
+
+          {# IMPRIMIR #}
+          <a href="{% url 'order_label' order.id %}"
+             target="_blank"
+             class="inline-block border border-gray-300 hover:bg-gray-100 px-3 py-1 rounded text-xs text-gray-700">
+             Imprimir
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="p-6 text-center text-gray-500">
+          Nenhum pedido cadastrado ainda.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

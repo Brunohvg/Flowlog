@@ -1,0 +1,10 @@
+<nav class="bg-white shadow-sm">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <span class="font-bold text-xl text-indigo-600">Flowlog</span>
+
+    <div class="flex items-center gap-4 text-sm">
+      <span class="text-gray-600">{{ request.user.email }}</span>
+      <a href="{% url 'logout' %}" class="text-red-500 hover:underline">Sair</a>
+    </div>
+  </div>
+</nav>

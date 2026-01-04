@@ -1,0 +1,200 @@
+{% extends "base/base.html" %}
+{% block title %}Novo Pedido{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow">
+
+  <h1 class="text-2xl font-bold text-gray-800 mb-8">
+    Novo Pedido
+  </h1>
+
+  <form method="post" class="space-y-8">
+    {% csrf_token %}
+
+    <!-- ================= CLIENTE ================= -->
+    <section>
+      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
+        Cliente
+      </h2>
+
+      <div class="grid grid-cols-2 gap-4">
+        <input
+          name="customer_name"
+          required
+          placeholder="Nome do cliente"
+          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
+        />
+
+        <input
+          name="customer_phone"
+          required
+          placeholder="Telefone / WhatsApp"
+          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
+        />
+      </div>
+    </section>
+
+    <!-- ================= PEDIDO ================= -->
+    <section>
+      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
+        Pedido
+      </h2>
+
+      <div class="grid grid-cols-2 gap-4">
+        <input
+          name="total_value"
+          required
+          placeholder="Valor total (R$)"
+          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
+        />
+
+        <select
+          name="delivery_type"
+          id="delivery_type"
+          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
+        >
+          <option value="delivery">Entrega</option>
+          <option value="pickup">Retirada na loja</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ================= ENDEREÇO ================= -->
+    <section id="address_section" class="transition-all">
+      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
+        Endereço de Entrega
+      </h2>
+
+      <input
+        id="cep"
+        placeholder="CEP"
+        class="w-full border rounded px-3 py-2 mb-3"
+      />
+
+      <input id="street" placeholder="Rua"
+        class="w-full border rounded px-3 py-2 mb-3" />
+
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input id="number" placeholder="Número"
+          class="w-full border rounded px-3 py-2" />
+
+        <input id="complement" placeholder="Complemento"
+          class="w-full border rounded px-3 py-2" />
+      </div>
+
+      <input id="neighborhood" placeholder="Bairro"
+        class="w-full border rounded px-3 py-2 mb-3" />
+
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input id="city" placeholder="Cidade"
+          class="w-full border rounded px-3 py-2" />
+        <input id="state" placeholder="Estado"
+          class="w-full border rounded px-3 py-2" />
+      </div>
+
+      <input id="reference" placeholder="Ponto de referência"
+        class="w-full border rounded px-3 py-2" />
+    </section>
+
+    <!-- ================= OBSERVAÇÕES ================= -->
+    <section>
+      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
+        Observações
+      </h2>
+
+      <textarea
+        name="notes"
+        rows="3"
+        placeholder="Observações adicionais"
+        class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
+      ></textarea>
+    </section>
+
+    <!-- Campo final enviado ao backend -->
+    <textarea
+      name="delivery_address"
+      id="delivery_address"
+      class="hidden"
+    ></textarea>
+
+    <!-- ================= AÇÕES ================= -->
+    <div class="flex justify-end gap-3 pt-4 border-t">
+      <a href="{% url 'order_list' %}"
+         class="px-4 py-2 border rounded text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+
+      <button
+        type="submit"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded text-sm font-medium">
+        Criar pedido
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+const deliveryType = document.getElementById("delivery_type");
+const addressSection = document.getElementById("address_section");
+const deliveryAddress = document.getElementById("delivery_address");
+const cepInput = document.getElementById("cep");
+
+const fields = [
+  "street","number","complement","neighborhood",
+  "city","state","reference","cep"
+].map(id => document.getElementById(id));
+
+function toggleAddress() {
+  const isPickup = deliveryType.value === "pickup";
+
+  addressSection.style.display = isPickup ? "none" : "block";
+
+  if (isPickup) {
+    fields.forEach(f => f.value = "");
+    deliveryAddress.value = "";
+  }
+}
+
+deliveryType.addEventListener("change", toggleAddress);
+
+cepInput.addEventListener("blur", () => {
+  const cep = cepInput.value.replace(/\D/g, "");
+  if (cep.length !== 8) return;
+
+  fetch(`https://viacep.com.br/ws/${cep}/json/`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.erro) return;
+
+      street.value = data.logradouro || "";
+      neighborhood.value = data.bairro || "";
+      city.value = data.localidade || "";
+      state.value = data.uf || "";
+
+      updateAddress();
+    });
+});
+
+function updateAddress() {
+  const parts = [];
+
+  if (street.value) {
+    let line = street.value;
+    if (number.value) line += `, ${number.value}`;
+    if (complement.value) line += ` - ${complement.value}`;
+    parts.push(line);
+  }
+
+  if (neighborhood.value) parts.push(neighborhood.value);
+  if (city.value && state.value) parts.push(`${city.value}/${state.value}`);
+  if (reference.value) parts.push(`Referência: ${reference.value}`);
+  if (cepInput.value) parts.push(`CEP: ${cepInput.value}`);
+
+  deliveryAddress.value = parts.join("\n");
+}
+
+fields.forEach(el => el.addEventListener("input", updateAddress));
+toggleAddress();
+</script>
+{% endblock %}

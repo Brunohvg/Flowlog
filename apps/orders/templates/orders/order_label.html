@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiqueta {{ order.code }}</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      margin: 0;
+      padding: 12px;
+    }
+
+    .label {
+      border: 1px dashed #333;
+      padding: 12px;
+      width: 350px;
+    }
+
+    h1 {
+      font-size: 16px;
+      margin: 0 0 8px 0;
+      text-align: center;
+    }
+
+    .code {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .section {
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .address {
+      white-space: pre-line;
+      border: 1px solid #ddd;
+      padding: 6px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 4px;
+      margin-top: 2px;
+    }
+
+    .delivery {
+      background: #e0f2fe;
+    }
+
+    .pickup {
+      background: #fef3c7;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+
+<body onload="window.print()">
+
+  <div class="label">
+
+    <h1>Pedido</h1>
+
+    <div class="code">
+      {{ order.code }}
+    </div>
+
+    <div class="section">
+      <div class="title">Cliente</div>
+      {{ order.customer.name }}
+    </div>
+
+    <div class="section">
+      <div class="title">Tipo</div>
+      {% if order.delivery_type == "delivery" %}
+        <span class="badge delivery">Entrega</span>
+      {% else %}
+        <span class="badge pickup">Retirada na loja</span>
+      {% endif %}
+    </div>
+
+    <div class="section">
+      <div class="title">Pagamento</div>
+      {{ order.get_payment_status_display }}
+    </div>
+
+    <div class="section">
+      <div class="title">Status do Pedido</div>
+      {{ order.get_order_status_display }}
+    </div>
+
+    {% if order.delivery_type == "delivery" %}
+      <div class="section">
+        <div class="title">Endereço</div>
+        <div class="address">
+          {{ order.delivery_address }}
+        </div>
+      </div>
+    {% else %}
+      <div class="section">
+        <strong>RETIRADA NA LOJA</strong>
+      </div>
+    {% endif %}
+
+  </div>
+
+</body>
+</html>

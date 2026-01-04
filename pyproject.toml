@@ -1,0 +1,62 @@
+[project]
+name = "flowlog"
+version = "0.1.0"
+description = "Sistema de Gerenciamento de Pedidos e Pagamentos"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+
+
+# ===============================
+# DEPENDÊNCIAS DA APLICAÇÃO
+# ===============================
+dependencies = [
+    "django>=5.2,<6.0",
+    "djangorestframework>=3.15,<4.0",
+    "evolutionapi>=0.1.2",
+    "python-decouple>=3.8",
+    "requests>=2.32",
+    "psycopg2-binary>=2.9",
+    "drf-spectacular>=0.27",
+    "whitenoise>=6.6",
+    "celery>=5.6.1",
+    "redis>=7.1.0",
+    "django-celery-results>=2.6.0",
+]
+
+# ===============================
+# DEPENDÊNCIAS POR CONTEXTO
+# ===============================
+[dependency-groups]
+
+# DEV: qualidade, testes, lint
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "coverage>=7.4",
+    "ruff>=0.4",
+    "black>=24.1",
+    "isort>=5.13",
+]
+
+# INFRA: execução e async
+infra = ["gunicorn>=21.2", "celery>=5.3", "redis>=5.0"]
+
+# ===============================
+# FERRAMENTAS (UMA FONTE DE VERDADE)
+# ===============================
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+select = ["E", "F", "I", "DJ"]
+ignore = ["DJ001"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
