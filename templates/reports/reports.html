@@ -1,0 +1,236 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Relatórios - Flowlog{% endblock %}
+{% block page_title %}Relatórios{% endblock %}
+{% block page_subtitle %}Análises detalhadas do seu negócio{% endblock %}
+
+{% block content %}
+
+<!-- Filtro Período -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+  <div class="flex bg-white rounded-xl border border-slate-200 p-1">
+    <a href="?period=7" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '7' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">7 dias</a>
+    <a href="?period=30" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '30' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">30 dias</a>
+    <a href="?period=90" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '90' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">90 dias</a>
+    <a href="?period=365" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '365' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">1 ano</a>
+  </div>
+  
+  <button onclick="window.print()" class="btn btn-secondary btn-sm">
+    <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+  </button>
+</div>
+
+<!-- Resumo -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-slate-800">{{ summary.total_orders|default:0 }}</p>
+    <p class="text-sm text-slate-500">Total de Pedidos</p>
+  </div>
+  
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-emerald-600">R$ {{ summary.total_revenue|currency }}</p>
+    <p class="text-sm text-slate-500">Faturamento</p>
+  </div>
+  
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="receipt" class="w-5 h-5 text-blue-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-slate-800">R$ {{ summary.avg_ticket|currency }}</p>
+    <p class="text-sm text-slate-500">Ticket Médio</p>
+  </div>
+  
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="calendar" class="w-5 h-5 text-amber-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-slate-800">{{ start_date|date:"d/m/Y" }}</p>
+    <p class="text-sm text-slate-500">Desde</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  
+  <!-- Por Status -->
+  <div class="card p-5">
+    <h3 class="font-bold text-slate-800 mb-4">Pedidos por Status</h3>
+    
+    <div class="space-y-4">
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Pendentes</span>
+          <span class="font-semibold text-slate-800">{{ status_data.pending }}</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div class="bg-amber-500 h-2.5 rounded-full" style="width: {% widthratio status_data.pending summary.total_orders 100 %}%"></div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Enviados</span>
+          <span class="font-semibold text-slate-800">{{ status_data.shipped }}</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div class="bg-blue-500 h-2.5 rounded-full" style="width: {% widthratio status_data.shipped summary.total_orders 100 %}%"></div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Entregues</span>
+          <span class="font-semibold text-slate-800">{{ status_data.delivered }}</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div class="bg-emerald-500 h-2.5 rounded-full" style="width: {% widthratio status_data.delivered summary.total_orders 100 %}%"></div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Cancelados</span>
+          <span class="font-semibold text-slate-800">{{ status_data.cancelled }}</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div class="bg-red-500 h-2.5 rounded-full" style="width: {% widthratio status_data.cancelled summary.total_orders 100 %}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Por Pagamento -->
+  <div class="card p-5">
+    <h3 class="font-bold text-slate-800 mb-4">Situação de Pagamento</h3>
+    
+    <div class="grid grid-cols-2 gap-4">
+      <div class="p-4 bg-emerald-50 rounded-xl text-center">
+        <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+        </div>
+        <p class="text-2xl font-bold text-slate-800">{{ payment_data.paid.count|default:0 }}</p>
+        <p class="text-sm text-slate-500 mb-1">Pagos</p>
+        <p class="text-lg font-bold text-emerald-600">R$ {{ payment_data.paid.value|currency }}</p>
+      </div>
+      
+      <div class="p-4 bg-amber-50 rounded-xl text-center">
+        <div class="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="clock" class="w-6 h-6 text-white"></i>
+        </div>
+        <p class="text-2xl font-bold text-slate-800">{{ payment_data.pending.count|default:0 }}</p>
+        <p class="text-sm text-slate-500 mb-1">Pendentes</p>
+        <p class="text-lg font-bold text-amber-600">R$ {{ payment_data.pending.value|currency }}</p>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Por Tipo de Entrega -->
+<div class="card p-5 mb-6">
+  <h3 class="font-bold text-slate-800 mb-4">Detalhamento por Tipo de Entrega</h3>
+  
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th class="text-right">Qtd</th>
+          <th class="text-right">%</th>
+          <th class="text-right">Valor Total</th>
+          <th class="text-right">Ticket Médio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in type_data %}
+        <tr>
+          <td>
+            <div class="flex items-center gap-2">
+              {% if item.type == 'motoboy' %}
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><i data-lucide="bike" class="w-4 h-4 text-blue-600"></i></div>
+              {% elif item.type == 'sedex' %}
+                <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><i data-lucide="zap" class="w-4 h-4 text-rose-600"></i></div>
+              {% elif item.type == 'pac' %}
+                <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><i data-lucide="package" class="w-4 h-4 text-emerald-600"></i></div>
+              {% else %}
+                <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center"><i data-lucide="store" class="w-4 h-4 text-amber-600"></i></div>
+              {% endif %}
+              <span class="font-medium">{{ item.label }}</span>
+            </div>
+          </td>
+          <td class="text-right font-semibold">{{ item.count }}</td>
+          <td class="text-right">{% if summary.total_orders > 0 %}{% widthratio item.count summary.total_orders 100 %}%{% else %}0%{% endif %}</td>
+          <td class="text-right font-semibold">R$ {{ item.value|currency }}</td>
+          <td class="text-right">{% if item.count > 0 %}R$ {% widthratio item.value item.count 1 %}{% else %}R$ 0{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-slate-50">
+        <tr>
+          <td class="font-bold">Total</td>
+          <td class="text-right font-bold">{{ summary.total_orders|default:0 }}</td>
+          <td class="text-right font-semibold">100%</td>
+          <td class="text-right font-bold">R$ {{ summary.total_revenue|currency }}</td>
+          <td class="text-right font-semibold">R$ {{ summary.avg_ticket|currency }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Top Clientes -->
+<div class="card p-5">
+  <h3 class="font-bold text-slate-800 mb-4">Top 10 Clientes</h3>
+  
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cliente</th>
+          <th>Telefone</th>
+          <th class="text-right">Pedidos</th>
+          <th class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for customer in top_customers %}
+        <tr>
+          <td>
+            <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full inline-flex items-center justify-center text-xs font-bold">{{ forloop.counter }}</span>
+          </td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">{{ customer.name|slice:":1"|upper }}</div>
+              <span class="font-medium">{{ customer.name }}</span>
+            </div>
+          </td>
+          <td class="text-slate-500">{{ customer.phone }}</td>
+          <td class="text-right font-semibold">{{ customer.total_orders }}</td>
+          <td class="text-right font-bold text-emerald-600">R$ {{ customer.total_value|currency }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center py-8 text-slate-500">Sem dados para o período</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

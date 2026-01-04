@@ -1,0 +1,73 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Enviar Pedido - Flowlog{% endblock %}
+{% block page_title %}Enviar Pedido{% endblock %}
+{% block page_subtitle %}{{ order.code }}{% endblock %}
+
+{% block content %}
+
+<div class="max-w-xl mx-auto">
+  
+  <div class="mb-6">
+    <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary btn-sm">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar
+    </a>
+  </div>
+  
+  <div class="card p-6 mb-6">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center
+        {% if order.delivery_type == 'sedex' %}bg-rose-100{% elif order.delivery_type == 'pac' %}bg-emerald-100{% else %}bg-blue-100{% endif %}">
+        {% if order.delivery_type == 'sedex' %}<i data-lucide="zap" class="w-7 h-7 text-rose-600"></i>
+        {% elif order.delivery_type == 'pac' %}<i data-lucide="package" class="w-7 h-7 text-emerald-600"></i>
+        {% else %}<i data-lucide="bike" class="w-7 h-7 text-blue-600"></i>{% endif %}
+      </div>
+      <div class="flex-1">
+        <h3 class="text-lg font-bold text-slate-800">{{ order.get_delivery_type_display }}</h3>
+        <p class="text-slate-500">R$ {{ order.total_value|currency }}</p>
+      </div>
+      {% if order.requires_tracking %}
+      <span class="badge bg-amber-100 text-amber-700"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Rastreio obrigatório</span>
+      {% endif %}
+    </div>
+  </div>
+  
+  <form method="post" class="card p-6">
+    {% csrf_token %}
+    
+    <div class="mb-6">
+      <label class="form-label">Código de Rastreio {% if order.requires_tracking %}<span class="text-red-500">*</span>{% endif %}</label>
+      <input type="text" name="tracking_code" class="form-input font-mono uppercase tracking-wider text-lg" placeholder="{% if order.is_correios %}Ex: BR123456789BR{% else %}Opcional{% endif %}" {% if order.requires_tracking %}required{% endif %} autocomplete="off">
+      
+      {% if form.tracking_code.errors %}
+      <p class="mt-2 text-sm text-red-600 flex items-center gap-1">
+        <i data-lucide="alert-circle" class="w-4 h-4"></i> {{ form.tracking_code.errors.0 }}
+      </p>
+      {% endif %}
+      
+      {% if order.is_correios %}
+      <p class="mt-2 text-sm text-slate-500 flex items-center gap-1">
+        <i data-lucide="info" class="w-4 h-4"></i> O rastreio dos Correios tem 13 caracteres
+      </p>
+      {% endif %}
+    </div>
+    
+    {% if order.delivery_address %}
+    <div class="p-4 bg-slate-50 rounded-xl mb-6">
+      <p class="text-sm font-semibold text-slate-500 mb-2">Endereço de entrega</p>
+      <p class="text-slate-700 whitespace-pre-line text-sm">{{ order.delivery_address }}</p>
+    </div>
+    {% endif %}
+    
+    <div class="flex gap-3">
+      <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary flex-1">
+        <i data-lucide="truck" class="w-4 h-4"></i> Marcar como Enviado
+      </button>
+    </div>
+  </form>
+  
+</div>
+
+{% endblock %}

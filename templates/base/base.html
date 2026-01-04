@@ -1,19 +1,271 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Flowlog{% endblock %}</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' },
+            sidebar: { DEFAULT: '#0f172a', light: '#1e293b' }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    
+    /* Layout */
+    .page-container { display: flex; min-height: 100vh; }
+    .sidebar { width: 260px; background: #0f172a; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transition: transform 0.3s; }
+    .main-content { flex: 1; margin-left: 260px; min-height: 100vh; background: #f1f5f9; }
+    
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+    }
+    
+    /* Sidebar */
+    .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #94a3b8; border-radius: 10px; margin: 2px 12px; transition: all 0.2s; font-size: 14px; }
+    .nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .nav-link.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+    .nav-link i { width: 20px; height: 20px; }
+    
+    /* Cards */
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+    
+    /* Form Elements - IMPORTANTE */
+    .form-input {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #1e293b;
+      background-color: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+    }
+    .form-input::placeholder { color: #94a3b8; }
+    
+    .form-select {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      padding-right: 40px;
+      font-size: 15px;
+      color: #1e293b;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 12px center;
+      background-repeat: no-repeat;
+      background-size: 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      appearance: none;
+      cursor: pointer;
+    }
+    .form-select:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+      outline: none;
+    }
+    
+    .form-textarea {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      color: #1e293b;
+      background-color: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      resize: vertical;
+      min-height: 100px;
+    }
+    .form-textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+      outline: none;
+    }
+    
+    .form-label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 12px; transition: all 0.2s; cursor: pointer; border: none; }
+    .btn-primary { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+    .btn-primary:hover { background: #4f46e5; box-shadow: 0 6px 16px rgba(99,102,241,0.4); }
+    .btn-secondary { background: #f1f5f9; color: #475569; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-success { background: #10b981; color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 8px 14px; font-size: 13px; }
+    
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 20px; }
+    
+    /* Table */
+    .data-table { width: 100%; }
+    .data-table th { padding: 14px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; background: #f8fafc; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .data-table td { padding: 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    .data-table tbody tr:hover { background: #f8fafc; }
+    
+    /* Stat Card */
+    .stat-card { padding: 20px; }
+    .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    
+    /* Overlay */
+    .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; display: none; }
+    .sidebar-overlay.show { display: block; }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
 </head>
 
-<body class="bg-gray-100 min-h-screen text-gray-800">
+<body class="bg-slate-100">
 
-  {% include "base/navbar.html" %}
+  <div id="overlay" class="sidebar-overlay lg:hidden" onclick="toggleSidebar()"></div>
 
-  <main class="max-w-7xl mx-auto px-6 py-8">
-    {% include "base/messages.html" %}
-    {% block content %}{% endblock %}
-  </main>
+  <div class="page-container">
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar flex flex-col">
+      
+      <div class="p-5 border-b border-white/10">
+        <a href="{% url 'dashboard' %}" class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center">
+            <i data-lucide="package" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <div class="text-white font-bold text-lg">Flowlog</div>
+            <div class="text-slate-400 text-xs">Gestão de Pedidos</div>
+          </div>
+        </a>
+      </div>
+      
+      <nav class="flex-1 py-4 overflow-y-auto">
+        <div class="px-4 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Menu</div>
+        
+        <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+          <i data-lucide="layout-dashboard"></i> Dashboard
+        </a>
+        <a href="{% url 'order_list' %}" class="nav-link {% if 'order' in request.resolver_match.url_name and 'create' not in request.resolver_match.url_name %}active{% endif %}">
+          <i data-lucide="shopping-bag"></i> Pedidos
+        </a>
+        <a href="{% url 'order_create' %}" class="nav-link {% if request.resolver_match.url_name == 'order_create' %}active{% endif %}">
+          <i data-lucide="plus-circle"></i> Novo Pedido
+        </a>
+        <a href="{% url 'customer_list' %}" class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
+          <i data-lucide="users"></i> Clientes
+        </a>
+        
+        <div class="px-4 mt-6 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Análises</div>
+        <a href="{% url 'reports' %}" class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+          <i data-lucide="bar-chart-3"></i> Relatórios
+        </a>
+        
+        <div class="px-4 mt-6 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
+        <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+          <i data-lucide="settings"></i> Configurações
+        </a>
+        <a href="{% url 'profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+          <i data-lucide="user-circle"></i> Meu Perfil
+        </a>
+      </nav>
+      
+      <div class="p-4 border-t border-white/10">
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+            {{ request.user.first_name|slice:":1"|default:request.user.email|slice:":1"|upper }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-white text-sm font-medium truncate">{{ request.user.get_full_name|default:request.user.email }}</div>
+            <div class="text-slate-400 text-xs truncate">{{ request.tenant.name }}</div>
+          </div>
+          <form method="post" action="{% url 'logout' %}" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title="Sair">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      
+    </aside>
+    
+    <!-- Main -->
+    <main class="main-content">
+      
+      <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="px-4 lg:px-6 py-4 flex items-center gap-4">
+          <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5 text-slate-600"></i>
+          </button>
+          
+          <div class="flex-1">
+            <h1 class="text-lg font-bold text-slate-800">{% block page_title %}Dashboard{% endblock %}</h1>
+            <p class="text-sm text-slate-500 hidden sm:block">{% block page_subtitle %}{% endblock %}</p>
+          </div>
+          
+          <a href="{% url 'profile' %}" class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+            {{ request.user.first_name|slice:":1"|default:request.user.email|slice:":1"|upper }}
+          </a>
+        </div>
+      </header>
+      
+      {% if messages %}
+      <div class="px-4 lg:px-6 pt-4">
+        {% for message in messages %}
+        <div class="mb-3 p-4 rounded-xl flex items-center gap-3 {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800{% elif message.tags == 'error' %}bg-red-50 text-red-800{% else %}bg-blue-50 text-blue-800{% endif %}">
+          <i data-lucide="{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}x-circle{% else %}info{% endif %}" class="w-5 h-5 flex-shrink-0"></i>
+          <span class="text-sm font-medium">{{ message }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      <div class="p-4 lg:p-6">
+        {% block content %}{% endblock %}
+      </div>
+      
+    </main>
+    
+  </div>
+
+  <script>
+    lucide.createIcons();
+    
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+  </script>
+  
+  {% block scripts %}{% endblock %}
 
 </body>
 </html>

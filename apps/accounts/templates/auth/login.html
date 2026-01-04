@@ -1,51 +1,170 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Login | Flowlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Flowlog</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .gradient-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+    }
+    .input-field {
+      width: 100%;
+      padding: 14px 16px 14px 48px;
+      font-size: 15px;
+      color: #1e293b;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      background: #fff;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+    .input-field::placeholder { color: #94a3b8; }
+    .btn-login {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+    .floating-shape {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.1;
+      animation: float 20s infinite ease-in-out;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+  </style>
 </head>
-
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-
-  <div class="w-full max-w-md bg-white rounded shadow p-8">
-    <h1 class="text-2xl font-bold text-center text-indigo-600 mb-6">
-      Flowlog
-    </h1>
-
-    {% if form.errors %}
-      <div class="mb-4 bg-red-100 text-red-800 text-sm px-4 py-3 rounded">
-        E-mail ou senha inválidos.
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+  
+  <!-- Floating shapes -->
+  <div class="floating-shape bg-indigo-400 w-96 h-96 -top-48 -left-48" style="animation-delay: 0s;"></div>
+  <div class="floating-shape bg-purple-400 w-64 h-64 top-1/4 -right-32" style="animation-delay: -5s;"></div>
+  <div class="floating-shape bg-blue-400 w-80 h-80 -bottom-40 left-1/4" style="animation-delay: -10s;"></div>
+  
+  <div class="glass-card w-full max-w-md rounded-3xl shadow-2xl p-8 relative z-10">
+    
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <i data-lucide="package" class="w-8 h-8 text-white"></i>
       </div>
+      <h1 class="text-2xl font-bold text-slate-800">Flowlog</h1>
+      <p class="text-slate-500 text-sm mt-1">Gestão inteligente de pedidos</p>
+    </div>
+    
+    <!-- Errors -->
+    {% if form.errors %}
+    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+      <div class="flex items-center gap-2 text-red-700">
+        <i data-lucide="alert-circle" class="w-5 h-5"></i>
+        <span class="text-sm font-medium">E-mail ou senha incorretos</span>
+      </div>
+    </div>
     {% endif %}
-
-    <form method="post" class="space-y-4">
+    
+    <!-- Form -->
+    <form method="post" class="space-y-5">
       {% csrf_token %}
-
-      <input
-        type="email"
-        name="username"
-        placeholder="E-mail"
-        required
-        autofocus
-        class="w-full border rounded px-3 py-2"
-      />
-
-      <input
-        type="password"
-        name="password"
-        placeholder="Senha"
-        required
-        class="w-full border rounded px-3 py-2"
-      />
-
-      <button
-        type="submit"
-        class="w-full bg-indigo-600 text-white py-2 rounded font-medium">
+      
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">E-mail</label>
+        <div class="relative">
+          <i data-lucide="mail" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="email" 
+            name="username" 
+            required 
+            autofocus
+            class="input-field"
+            placeholder="seu@email.com"
+          >
+        </div>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Senha</label>
+        <div class="relative">
+          <i data-lucide="lock" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="password" 
+            name="password" 
+            required
+            id="password-input"
+            class="input-field"
+            placeholder="••••••••"
+          >
+          <button type="button" onclick="togglePassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <i data-lucide="eye" id="eye-icon" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="flex items-center justify-between text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="remember" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          <span class="text-slate-600">Lembrar-me</span>
+        </label>
+      </div>
+      
+      <button type="submit" class="btn-login flex items-center justify-center gap-2">
         Entrar
+        <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
+      
     </form>
+    
+    <!-- Footer -->
+    <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+      <p class="text-sm text-slate-500">
+        Flowlog © 2026 • Sistema de Gestão
+      </p>
+    </div>
+    
   </div>
-
+  
+  <script>
+    lucide.createIcons();
+    
+    function togglePassword() {
+      const input = document.getElementById('password-input');
+      const icon = document.getElementById('eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        input.type = 'password';
+        icon.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+  </script>
 </body>
 </html>

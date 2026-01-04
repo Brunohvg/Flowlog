@@ -1,0 +1,162 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Clientes - Flowlog{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+{% block page_subtitle %}Gerencie sua base de clientes{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card stat-card">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.total_customers }}</p>
+        <p class="text-xs text-slate-500">Total</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="user-plus" class="w-5 h-5 text-emerald-600"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.new_this_month }}</p>
+        <p class="text-xs text-slate-500">Este mês</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="repeat" class="w-5 h-5 text-blue-600"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.repeat_customers }}</p>
+        <p class="text-xs text-slate-500">Recorrentes</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="receipt" class="w-5 h-5 text-amber-600"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-slate-800">R$ {{ stats.avg_ticket|currency }}</p>
+        <p class="text-xs text-slate-500">Ticket Médio</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Busca -->
+<div class="card p-4 mb-6">
+  <div class="flex items-center gap-4">
+    <div class="flex-1 relative">
+      <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+      <input type="text" id="search-input" placeholder="Buscar cliente..." class="form-input pl-12">
+    </div>
+    <span class="text-sm text-slate-500">{{ stats.total_customers }} clientes</span>
+  </div>
+</div>
+
+<!-- Lista -->
+<div class="card overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Telefone</th>
+          <th class="text-right">Pedidos</th>
+          <th class="text-right">Total Gasto</th>
+          <th>Último Pedido</th>
+          <th class="text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="customers-table">
+        {% for customer in customers %}
+        <tr class="customer-row" data-name="{{ customer.name|lower }}" data-phone="{{ customer.phone }}">
+          <td>
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {{ customer.name|slice:":1"|upper }}
+              </div>
+              <span class="font-medium text-slate-800">{{ customer.name }}</span>
+            </div>
+          </td>
+          <td>
+            <a href="https://wa.me/55{{ customer.phone_normalized }}" target="_blank" class="text-emerald-600 hover:text-emerald-700 flex items-center gap-1 text-sm">
+              <i data-lucide="message-circle" class="w-3 h-3"></i> {{ customer.phone }}
+            </a>
+          </td>
+          <td class="text-right font-semibold">{{ customer.total_orders }}</td>
+          <td class="text-right font-semibold text-emerald-600">R$ {{ customer.total_value|currency }}</td>
+          <td class="text-sm text-slate-500">
+            {% if customer.last_order_date %}{{ customer.last_order_date|date:"d/m/Y" }}{% else %}—{% endif %}
+          </td>
+          <td>
+            <div class="flex items-center justify-end gap-1">
+              <a href="{% url 'customer_detail' customer.id %}" class="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="Ver">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </a>
+              <a href="{% url 'order_create' %}?customer={{ customer.id }}" class="p-2 hover:bg-indigo-100 rounded-lg text-indigo-600" title="Novo pedido">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center py-12">
+            <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+            <p class="text-slate-500">Nenhum cliente cadastrado</p>
+            <p class="text-sm text-slate-400">Os clientes são criados automaticamente ao criar pedidos</p>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  {% if customers.has_other_pages %}
+  <div class="p-4 border-t border-slate-100 flex items-center justify-between">
+    <p class="text-sm text-slate-500">{{ customers.start_index }}-{{ customers.end_index }} de {{ customers.paginator.count }}</p>
+    <div class="flex gap-1">
+      {% if customers.has_previous %}
+      <a href="?page={{ customers.previous_page_number }}" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+      {% endif %}
+      <span class="px-3 py-2 text-sm">Página {{ customers.number }}</span>
+      {% if customers.has_next %}
+      <a href="?page={{ customers.next_page_number }}" class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const search = document.getElementById('search-input');
+  const rows = document.querySelectorAll('.customer-row');
+  
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    rows.forEach(row => {
+      const match = row.dataset.name.includes(q) || row.dataset.phone.includes(q);
+      row.style.display = match ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

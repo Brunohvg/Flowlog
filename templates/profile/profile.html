@@ -1,0 +1,94 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Meu Perfil - Flowlog{% endblock %}
+{% block page_title %}Meu Perfil{% endblock %}
+{% block page_subtitle %}Gerencie suas informações{% endblock %}
+
+{% block content %}
+
+<div class="max-w-4xl mx-auto">
+  
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Avatar e Stats -->
+    <div class="space-y-4">
+      <div class="card p-6 text-center">
+        <div class="w-24 h-24 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
+          {{ user.first_name|slice:":1"|default:user.email|slice:":1"|upper }}
+        </div>
+        <h3 class="text-lg font-bold text-slate-800">{{ user.get_full_name|default:user.email }}</h3>
+        <p class="text-sm text-slate-500">{{ user.email }}</p>
+        <p class="text-xs text-slate-400 mt-1">{{ request.tenant.name }}</p>
+      </div>
+      
+      <div class="card p-5">
+        <h4 class="font-bold text-slate-800 mb-4">Estatísticas</h4>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="text-center p-3 bg-slate-50 rounded-xl">
+            <p class="text-2xl font-bold text-slate-800">{{ user_stats.total_orders }}</p>
+            <p class="text-xs text-slate-500">Pedidos</p>
+          </div>
+          <div class="text-center p-3 bg-slate-50 rounded-xl">
+            <p class="text-2xl font-bold text-emerald-600">R$ {{ user_stats.total_revenue|currency }}</p>
+            <p class="text-xs text-slate-500">Vendas</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Form -->
+    <div class="lg:col-span-2">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <div class="card p-6">
+          <h3 class="font-bold text-slate-800 mb-5">Dados Pessoais</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">Nome</label>
+              <input type="text" name="first_name" value="{{ user.first_name }}" class="form-input" placeholder="Seu nome">
+            </div>
+            <div>
+              <label class="form-label">Sobrenome</label>
+              <input type="text" name="last_name" value="{{ user.last_name }}" class="form-input" placeholder="Seu sobrenome">
+            </div>
+            <div class="md:col-span-2">
+              <label class="form-label">E-mail</label>
+              <input type="email" value="{{ user.email }}" disabled class="form-input bg-slate-50">
+              <p class="text-xs text-slate-500 mt-1">O e-mail não pode ser alterado</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card p-6">
+          <h3 class="font-bold text-slate-800 mb-5">Alterar Senha</h3>
+          <p class="text-sm text-slate-500 mb-4">Deixe em branco para manter a senha atual</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">Nova Senha</label>
+              <input type="password" name="new_password" class="form-input" placeholder="••••••••">
+            </div>
+            <div>
+              <label class="form-label">Confirmar Senha</label>
+              <input type="password" name="confirm_password" class="form-input" placeholder="••••••••">
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+    
+  </div>
+  
+</div>
+
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base/base.html" %}
+
+{% block title %}Configurações - Flowlog{% endblock %}
+{% block page_title %}Configurações{% endblock %}
+{% block page_subtitle %}Personalize o sistema{% endblock %}
+
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+  
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    
+    <!-- Empresa -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="building-2" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Dados da Empresa</h3>
+          <p class="text-sm text-slate-500">Informações do seu negócio</p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Nome da Empresa</label>
+          <input type="text" value="{{ tenant.name }}" disabled class="form-input bg-slate-50">
+        </div>
+        <div>
+          <label class="form-label">E-mail</label>
+          <input type="email" value="{{ tenant.contact_email }}" disabled class="form-input bg-slate-50">
+        </div>
+      </div>
+    </div>
+    
+    <!-- WhatsApp -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="message-circle" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Notificações WhatsApp</h3>
+          <p class="text-sm text-slate-500">Configure as mensagens automáticas</p>
+        </div>
+      </div>
+      
+      <!-- Toggle -->
+      <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-6">
+        <div>
+          <p class="font-semibold text-slate-800">Ativar notificações</p>
+          <p class="text-sm text-slate-500">Enviar mensagens automáticas</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
+          <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-indigo-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+        </label>
+      </div>
+      
+      <!-- Mensagens -->
+      <div class="space-y-5">
+        <div>
+          <label class="form-label">Pedido Criado <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}, {valor}</span></label>
+          <textarea name="msg_order_created" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
+        </div>
+        
+        <div>
+          <label class="form-label">Pedido Enviado <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}</span></label>
+          <textarea name="msg_order_shipped" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
+        </div>
+        
+        <div>
+          <label class="form-label">Pedido Entregue <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}</span></label>
+          <textarea name="msg_order_delivered" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
+        </div>
+        
+        <div>
+          <label class="form-label">Pronto para Retirada <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}, {valor}</span></label>
+          <textarea name="msg_order_ready_for_pickup" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Dicas -->
+    <div class="card p-5 bg-blue-50 border-blue-200">
+      <div class="flex items-start gap-3">
+        <i data-lucide="lightbulb" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
+        <div class="text-sm text-blue-700">
+          <p class="font-semibold mb-1">Variáveis disponíveis:</p>
+          <p><code class="bg-blue-100 px-1 rounded">{nome}</code> Nome do cliente, <code class="bg-blue-100 px-1 rounded">{codigo}</code> Código do pedido, <code class="bg-blue-100 px-1 rounded">{valor}</code> Valor formatado</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <i data-lucide="check" class="w-4 h-4"></i> Salvar
+      </button>
+    </div>
+  </form>
+  
+</div>
+
+{% endblock %}

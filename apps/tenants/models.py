@@ -43,8 +43,8 @@ class TenantSettings(BaseModel):
         "Mensagem: Pedido Criado",
         help_text="Placeholders disponíveis: {nome}, {codigo}, {valor}",
         default=(
-            "Olá {nome}!\n\n"
-            "Seu pedido *{codigo}* foi recebido.\n"
+            "Olá {nome}! 🎉\n\n"
+            "Seu pedido *{codigo}* foi recebido!\n"
             "Valor: R$ {valor}\n\n"
             "Obrigado pela preferência!"
         ),
@@ -52,11 +52,10 @@ class TenantSettings(BaseModel):
 
     msg_order_shipped = models.TextField(
         "Mensagem: Pedido Enviado",
-        help_text="Placeholders disponíveis: {nome}, {codigo}",
+        help_text="Placeholders disponíveis: {nome}, {codigo}. Rastreio é adicionado automaticamente.",
         default=(
-            "Olá {nome}!\n\n"
-            "Seu pedido *{codigo}* foi enviado.\n\n"
-            "Em breve chegará no endereço informado."
+            "Olá {nome}! 📦\n\n"
+            "Seu pedido *{codigo}* foi enviado!\n"
         ),
     )
 
@@ -64,9 +63,20 @@ class TenantSettings(BaseModel):
         "Mensagem: Pedido Entregue",
         help_text="Placeholders disponíveis: {nome}, {codigo}",
         default=(
-            "Olá {nome}!\n\n"
-            "Seu pedido *{codigo}* foi entregue.\n\n"
+            "Olá {nome}! ✅\n\n"
+            "Seu pedido *{codigo}* foi entregue!\n\n"
             "Obrigado por comprar conosco!"
+        ),
+    )
+
+    msg_order_ready_for_pickup = models.TextField(
+        "Mensagem: Pronto para Retirada",
+        help_text="Placeholders disponíveis: {nome}, {codigo}, {valor}",
+        default=(
+            "Olá {nome}! 🏬\n\n"
+            "Seu pedido *{codigo}* está pronto para retirada!\n"
+            "Valor: R$ {valor}\n\n"
+            "Aguardamos você em nossa loja! 😊"
         ),
     )
 

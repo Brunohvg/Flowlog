@@ -1,0 +1,98 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Editar {{ order.code }} - Flowlog{% endblock %}
+{% block page_title %}Editar Pedido{% endblock %}
+{% block page_subtitle %}{{ order.code }}{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+  
+  <div class="mb-6">
+    <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary btn-sm">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar
+    </a>
+  </div>
+  
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    
+    <!-- Info do Pedido (não editável) -->
+    <div class="card p-6">
+      <h3 class="font-bold text-slate-800 mb-4">Informações do Pedido</h3>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <div class="p-4 bg-slate-50 rounded-xl">
+          <p class="text-xs text-slate-500 mb-1">Código</p>
+          <p class="font-mono font-bold text-slate-800">{{ order.code }}</p>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl">
+          <p class="text-xs text-slate-500 mb-1">Cliente</p>
+          <p class="font-medium text-slate-800">{{ order.customer.name }}</p>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl">
+          <p class="text-xs text-slate-500 mb-1">Tipo de Entrega</p>
+          <p class="text-slate-800">{{ order.get_delivery_type_display }}</p>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl">
+          <p class="text-xs text-slate-500 mb-1">Status</p>
+          <p class="text-slate-800">{{ order.get_delivery_status_display }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Valor -->
+    <div class="card p-6">
+      <h3 class="font-bold text-slate-800 mb-4">Valor</h3>
+      
+      <div>
+        <label class="form-label">Valor Total (R$)</label>
+        <input type="text" name="total_value" value="{{ order.total_value }}" class="form-input" id="value-input" placeholder="0,00">
+      </div>
+    </div>
+    
+    <!-- Endereço -->
+    {% if order.delivery_type != 'pickup' %}
+    <div class="card p-6">
+      <h3 class="font-bold text-slate-800 mb-4">Endereço de Entrega</h3>
+      
+      <div>
+        <label class="form-label">Endereço Completo</label>
+        <textarea name="delivery_address" rows="4" class="form-textarea">{{ order.delivery_address }}</textarea>
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Observações -->
+    <div class="card p-6">
+      <h3 class="font-bold text-slate-800 mb-4">Observações</h3>
+      
+      <div>
+        <label class="form-label">Notas do Pedido</label>
+        <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações...">{{ order.notes }}</textarea>
+      </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex items-center gap-3">
+      <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary flex-1">
+        <i data-lucide="check" class="w-4 h-4"></i> Salvar Alterações
+      </button>
+    </div>
+    
+  </form>
+  
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('value-input').addEventListener('input', function(e) {
+    let v = e.target.value.replace(/[^\d,\.]/g, '');
+    e.target.value = v;
+  });
+</script>
+{% endblock %}

@@ -1,124 +1,313 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <title>Etiqueta {{ order.code }}</title>
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 12px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    @page {
+      size: A5 landscape; /* Meia folha A4 = A5 (148mm x 210mm) */
       margin: 0;
-      padding: 12px;
     }
-
-    .label {
-      border: 1px dashed #333;
-      padding: 12px;
-      width: 350px;
-    }
-
-    h1 {
-      font-size: 16px;
-      margin: 0 0 8px 0;
-      text-align: center;
-    }
-
-    .code {
-      font-family: monospace;
-      font-size: 14px;
-      font-weight: bold;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .section {
-      margin-bottom: 8px;
-    }
-
-    .title {
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-
-    .address {
-      white-space: pre-line;
-      border: 1px solid #ddd;
-      padding: 6px;
-      margin-top: 4px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 6px;
+    
+    body {
+      font-family: 'Inter', Arial, sans-serif;
       font-size: 11px;
-      border-radius: 4px;
-      margin-top: 2px;
+      background: #f0f0f0;
+      padding: 15px;
     }
-
-    .delivery {
-      background: #e0f2fe;
+    
+    .label {
+      width: 200mm;
+      height: 140mm;
+      background: #fff;
+      margin: 0 auto;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #ddd;
     }
-
-    .pickup {
+    
+    /* Header colorido */
+    .header {
+      padding: 12px 16px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header.motoboy { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+    .header.sedex { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .header.pac { background: linear-gradient(135deg, #10b981, #047857); }
+    .header.pickup { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .type-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    
+    .type-name {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .order-code {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+    }
+    
+    /* Body */
+    .body {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    .section {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    
+    .section-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    
+    .customer-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+    
+    .customer-phone {
+      font-size: 13px;
+      color: #475569;
+    }
+    
+    .value-box {
+      text-align: center;
+    }
+    
+    .value-amount {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    
+    .value-status {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .status-paid { background: #dcfce7; color: #166534; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    
+    .address-section {
+      grid-column: span 2;
+    }
+    
+    .address-text {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #334155;
+      white-space: pre-line;
+    }
+    
+    /* Pickup */
+    .pickup-notice {
+      grid-column: span 2;
       background: #fef3c7;
+      border: 2px dashed #f59e0b;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
     }
-
+    .pickup-notice .icon { font-size: 28px; margin-bottom: 6px; }
+    .pickup-notice .text { font-size: 14px; font-weight: 700; color: #92400e; }
+    
+    /* Tracking */
+    .tracking-section {
+      grid-column: span 2;
+      background: #eef2ff;
+      border: 2px solid #6366f1;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .tracking-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #4f46e5;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .tracking-code {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 3px;
+      color: #3730a3;
+    }
+    
+    /* Notes */
+    .notes-section {
+      grid-column: span 2;
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
+    }
+    .notes-text {
+      font-size: 11px;
+      color: #92400e;
+      font-style: italic;
+    }
+    
+    /* Footer */
+    .footer {
+      padding: 10px 16px;
+      background: #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    /* Print */
     @media print {
-      body {
-        padding: 0;
-      }
+      body { background: #fff; padding: 0; }
+      .label { border: none; box-shadow: none; }
+      .no-print { display: none !important; }
     }
+    
+    /* Botões */
+    .actions {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      margin: 0 5px;
+    }
+    .btn-print { background: #6366f1; color: #fff; }
+    .btn-back { background: #e2e8f0; color: #475569; }
   </style>
 </head>
-
-<body onload="window.print()">
+<body>
+  
+  <div class="actions no-print">
+    <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn btn-back" onclick="window.close()">← Voltar</button>
+  </div>
 
   <div class="label">
-
-    <h1>Pedido</h1>
-
-    <div class="code">
-      {{ order.code }}
-    </div>
-
-    <div class="section">
-      <div class="title">Cliente</div>
-      {{ order.customer.name }}
-    </div>
-
-    <div class="section">
-      <div class="title">Tipo</div>
-      {% if order.delivery_type == "delivery" %}
-        <span class="badge delivery">Entrega</span>
-      {% else %}
-        <span class="badge pickup">Retirada na loja</span>
-      {% endif %}
-    </div>
-
-    <div class="section">
-      <div class="title">Pagamento</div>
-      {{ order.get_payment_status_display }}
-    </div>
-
-    <div class="section">
-      <div class="title">Status do Pedido</div>
-      {{ order.get_order_status_display }}
-    </div>
-
-    {% if order.delivery_type == "delivery" %}
-      <div class="section">
-        <div class="title">Endereço</div>
-        <div class="address">
-          {{ order.delivery_address }}
+    
+    <div class="header {{ order.delivery_type }}">
+      <div class="header-left">
+        <div class="type-icon">
+          {% if order.delivery_type == 'motoboy' %}🏍️
+          {% elif order.delivery_type == 'sedex' %}⚡
+          {% elif order.delivery_type == 'pac' %}📦
+          {% else %}🏬{% endif %}
         </div>
+        <div class="type-name">{{ order.get_delivery_type_display }}</div>
       </div>
-    {% else %}
+      <div class="order-code">{{ order.code }}</div>
+    </div>
+    
+    <div class="body">
+      
+      <!-- Cliente -->
       <div class="section">
-        <strong>RETIRADA NA LOJA</strong>
+        <div class="section-title">Cliente</div>
+        <div class="customer-name">{{ order.customer.name }}</div>
+        <div class="customer-phone">📱 {{ order.customer.phone }}</div>
       </div>
-    {% endif %}
-
+      
+      <!-- Valor -->
+      <div class="section value-box">
+        <div class="section-title">Valor Total</div>
+        <div class="value-amount">R$ {{ order.total_value|floatformat:2 }}</div>
+        <span class="value-status {% if order.payment_status == 'paid' %}status-paid{% else %}status-pending{% endif %}">
+          {% if order.payment_status == 'paid' %}✓ Pago{% else %}Pendente{% endif %}
+        </span>
+      </div>
+      
+      <!-- Endereço ou Retirada -->
+      {% if order.delivery_type == 'pickup' %}
+        <div class="pickup-notice">
+          <div class="icon">🏬</div>
+          <div class="text">RETIRADA NA LOJA</div>
+        </div>
+      {% elif order.delivery_address %}
+        <div class="section address-section">
+          <div class="section-title">Endereço de Entrega</div>
+          <div class="address-text">{{ order.delivery_address }}</div>
+        </div>
+      {% endif %}
+      
+      <!-- Rastreio -->
+      {% if order.tracking_code %}
+      <div class="tracking-section">
+        <div class="tracking-label">Código de Rastreio</div>
+        <div class="tracking-code">{{ order.tracking_code }}</div>
+      </div>
+      {% endif %}
+      
+      <!-- Observações -->
+      {% if order.notes %}
+      <div class="notes-section">
+        <div class="section-title">Observações</div>
+        <div class="notes-text">{{ order.notes }}</div>
+      </div>
+      {% endif %}
+      
+    </div>
+    
+    <div class="footer">
+      <span>{{ order.created_at|date:"d/m/Y H:i" }}</span>
+      <span>{{ request.tenant.name }}</span>
+    </div>
+    
   </div>
 
 </body>

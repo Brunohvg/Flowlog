@@ -1,200 +1,266 @@
 {% extends "base/base.html" %}
-{% block title %}Novo Pedido{% endblock %}
+
+{% block title %}Novo Pedido - Flowlog{% endblock %}
+{% block page_title %}Novo Pedido{% endblock %}
+{% block page_subtitle %}Cadastre um novo pedido{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow">
 
-  <h1 class="text-2xl font-bold text-gray-800 mb-8">
-    Novo Pedido
-  </h1>
-
-  <form method="post" class="space-y-8">
+<div class="max-w-3xl mx-auto">
+  
+  <form method="post" class="space-y-6">
     {% csrf_token %}
-
-    <!-- ================= CLIENTE ================= -->
-    <section>
-      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
-        Cliente
-      </h2>
-
-      <div class="grid grid-cols-2 gap-4">
-        <input
-          name="customer_name"
-          required
-          placeholder="Nome do cliente"
-          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
-        />
-
-        <input
-          name="customer_phone"
-          required
-          placeholder="Telefone / WhatsApp"
-          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
-        />
+    
+    <!-- Cliente -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="user" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Dados do Cliente</h3>
+          <p class="text-sm text-slate-500">O cliente será identificado pelo telefone</p>
+        </div>
       </div>
-    </section>
-
-    <!-- ================= PEDIDO ================= -->
-    <section>
-      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
-        Pedido
-      </h2>
-
-      <div class="grid grid-cols-2 gap-4">
-        <input
-          name="total_value"
-          required
-          placeholder="Valor total (R$)"
-          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
-        />
-
-        <select
-          name="delivery_type"
-          id="delivery_type"
-          class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
-        >
-          <option value="delivery">Entrega</option>
-          <option value="pickup">Retirada na loja</option>
-        </select>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Nome do Cliente *</label>
+          <input type="text" name="customer_name" required class="form-input" placeholder="Nome completo" value="{{ request.POST.customer_name }}">
+        </div>
+        
+        <div>
+          <label class="form-label">WhatsApp *</label>
+          <input type="tel" name="customer_phone" required class="form-input" placeholder="(00) 00000-0000" id="phone-input" value="{{ request.POST.customer_phone }}">
+        </div>
+        
+        <div class="md:col-span-2">
+          <label class="form-label">CPF <span class="text-slate-400 font-normal">(opcional)</span></label>
+          <input type="text" name="customer_cpf" class="form-input" placeholder="000.000.000-00" id="cpf-input" value="{{ request.POST.customer_cpf }}">
+          <p class="text-xs text-slate-500 mt-1">O CPF permite que o cliente acompanhe o pedido online</p>
+        </div>
       </div>
-    </section>
-
-    <!-- ================= ENDEREÇO ================= -->
-    <section id="address_section" class="transition-all">
-      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
-        Endereço de Entrega
-      </h2>
-
-      <input
-        id="cep"
-        placeholder="CEP"
-        class="w-full border rounded px-3 py-2 mb-3"
-      />
-
-      <input id="street" placeholder="Rua"
-        class="w-full border rounded px-3 py-2 mb-3" />
-
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input id="number" placeholder="Número"
-          class="w-full border rounded px-3 py-2" />
-
-        <input id="complement" placeholder="Complemento"
-          class="w-full border rounded px-3 py-2" />
+    </div>
+    
+    <!-- Pedido -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="shopping-bag" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Dados do Pedido</h3>
+          <p class="text-sm text-slate-500">Valor e forma de entrega</p>
+        </div>
       </div>
-
-      <input id="neighborhood" placeholder="Bairro"
-        class="w-full border rounded px-3 py-2 mb-3" />
-
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input id="city" placeholder="Cidade"
-          class="w-full border rounded px-3 py-2" />
-        <input id="state" placeholder="Estado"
-          class="w-full border rounded px-3 py-2" />
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Valor Total *</label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
+            <input type="text" name="total_value" required class="form-input pl-12" placeholder="0,00" id="value-input" value="{{ request.POST.total_value }}">
+          </div>
+        </div>
+        
+        <div>
+          <label class="form-label">Tipo de Entrega *</label>
+          <select name="delivery_type" id="delivery_type" class="form-select">
+            <option value="motoboy" {% if request.POST.delivery_type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
+            <option value="sedex" {% if request.POST.delivery_type == 'sedex' %}selected{% endif %}>⚡ SEDEX (Correios)</option>
+            <option value="pac" {% if request.POST.delivery_type == 'pac' %}selected{% endif %}>📦 PAC (Correios)</option>
+            <option value="pickup" {% if request.POST.delivery_type == 'pickup' %}selected{% endif %}>🏬 Retirada na Loja</option>
+          </select>
+        </div>
       </div>
-
-      <input id="reference" placeholder="Ponto de referência"
-        class="w-full border rounded px-3 py-2" />
-    </section>
-
-    <!-- ================= OBSERVAÇÕES ================= -->
-    <section>
-      <h2 class="text-sm font-semibold text-gray-500 mb-3 uppercase">
-        Observações
-      </h2>
-
-      <textarea
-        name="notes"
-        rows="3"
-        placeholder="Observações adicionais"
-        class="w-full border rounded px-3 py-2 focus:ring focus:ring-indigo-100"
-      ></textarea>
-    </section>
-
-    <!-- Campo final enviado ao backend -->
-    <textarea
-      name="delivery_address"
-      id="delivery_address"
-      class="hidden"
-    ></textarea>
-
-    <!-- ================= AÇÕES ================= -->
-    <div class="flex justify-end gap-3 pt-4 border-t">
-      <a href="{% url 'order_list' %}"
-         class="px-4 py-2 border rounded text-sm hover:bg-gray-50">
-        Cancelar
-      </a>
-
-      <button
-        type="submit"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded text-sm font-medium">
-        Criar pedido
+      
+      <div id="correios-info" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl hidden">
+        <div class="flex items-center gap-3">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+          <p class="text-sm text-amber-800">O código de rastreio será solicitado ao marcar como enviado</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Endereço -->
+    <div class="card p-6" id="address-section">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="map-pin" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Endereço de Entrega</h3>
+          <p class="text-sm text-slate-500">Digite o CEP para preencher automaticamente</p>
+        </div>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">CEP</label>
+            <input type="text" id="cep" maxlength="9" class="form-input" placeholder="00000-000">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="form-label">Rua</label>
+            <input type="text" id="street" class="form-input" placeholder="Rua / Avenida">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">Número</label>
+            <input type="text" id="number" class="form-input" placeholder="Nº">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="form-label">Complemento</label>
+            <input type="text" id="complement" class="form-input" placeholder="Apto, Bloco...">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">Bairro</label>
+            <input type="text" id="neighborhood" class="form-input" placeholder="Bairro">
+          </div>
+          <div>
+            <label class="form-label">Cidade</label>
+            <input type="text" id="city" class="form-input" placeholder="Cidade">
+          </div>
+          <div>
+            <label class="form-label">UF</label>
+            <input type="text" id="state" maxlength="2" class="form-input uppercase" placeholder="UF">
+          </div>
+        </div>
+      </div>
+      
+      <textarea name="delivery_address" id="delivery_address" class="hidden">{{ request.POST.delivery_address }}</textarea>
+    </div>
+    
+    <!-- Observações -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="message-square" class="w-5 h-5 text-slate-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Observações</h3>
+          <p class="text-sm text-slate-500">Informações adicionais (opcional)</p>
+        </div>
+      </div>
+      
+      <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações sobre o pedido...">{{ request.POST.notes }}</textarea>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row items-center justify-end gap-3">
+      <a href="{% url 'order_list' %}" class="btn btn-secondary w-full sm:w-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary w-full sm:w-auto">
+        <i data-lucide="check" class="w-4 h-4"></i> Criar Pedido
       </button>
     </div>
-
+    
   </form>
+  
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-const deliveryType = document.getElementById("delivery_type");
-const addressSection = document.getElementById("address_section");
-const deliveryAddress = document.getElementById("delivery_address");
-const cepInput = document.getElementById("cep");
-
-const fields = [
-  "street","number","complement","neighborhood",
-  "city","state","reference","cep"
-].map(id => document.getElementById(id));
-
-function toggleAddress() {
-  const isPickup = deliveryType.value === "pickup";
-
-  addressSection.style.display = isPickup ? "none" : "block";
-
-  if (isPickup) {
-    fields.forEach(f => f.value = "");
-    deliveryAddress.value = "";
+  const deliveryType = document.getElementById('delivery_type');
+  const addressSection = document.getElementById('address-section');
+  const correiosInfo = document.getElementById('correios-info');
+  const phoneInput = document.getElementById('phone-input');
+  const cpfInput = document.getElementById('cpf-input');
+  const valueInput = document.getElementById('value-input');
+  const cepInput = document.getElementById('cep');
+  const deliveryAddress = document.getElementById('delivery_address');
+  
+  const fields = {
+    street: document.getElementById('street'),
+    number: document.getElementById('number'),
+    complement: document.getElementById('complement'),
+    neighborhood: document.getElementById('neighborhood'),
+    city: document.getElementById('city'),
+    state: document.getElementById('state'),
+  };
+  
+  // Máscara telefone
+  phoneInput.addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 11) v = v.slice(0, 11);
+    if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+    else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+    else if (v.length > 0) v = '(' + v;
+    e.target.value = v;
+  });
+  
+  // Máscara CPF
+  cpfInput.addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 11) v = v.slice(0, 11);
+    if (v.length > 9) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
+    else if (v.length > 6) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
+    else if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
+    e.target.value = v;
+  });
+  
+  // Máscara valor
+  valueInput.addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v) v = (parseInt(v) / 100).toFixed(2).replace('.', ',');
+    e.target.value = v;
+  });
+  
+  // Toggle entrega
+  function updateDeliveryType() {
+    const type = deliveryType.value;
+    addressSection.style.display = type === 'pickup' ? 'none' : 'block';
+    correiosInfo.classList.toggle('hidden', type !== 'sedex' && type !== 'pac');
   }
-}
-
-deliveryType.addEventListener("change", toggleAddress);
-
-cepInput.addEventListener("blur", () => {
-  const cep = cepInput.value.replace(/\D/g, "");
-  if (cep.length !== 8) return;
-
-  fetch(`https://viacep.com.br/ws/${cep}/json/`)
-    .then(res => res.json())
-    .then(data => {
-      if (data.erro) return;
-
-      street.value = data.logradouro || "";
-      neighborhood.value = data.bairro || "";
-      city.value = data.localidade || "";
-      state.value = data.uf || "";
-
-      updateAddress();
-    });
-});
-
-function updateAddress() {
-  const parts = [];
-
-  if (street.value) {
-    let line = street.value;
-    if (number.value) line += `, ${number.value}`;
-    if (complement.value) line += ` - ${complement.value}`;
-    parts.push(line);
+  deliveryType.addEventListener('change', updateDeliveryType);
+  updateDeliveryType();
+  
+  // CEP
+  cepInput.addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5, 8);
+    e.target.value = v;
+  });
+  
+  cepInput.addEventListener('blur', function() {
+    const cep = cepInput.value.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+    
+    fetch(`https://viacep.com.br/ws/${cep}/json/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.erro) return;
+        fields.street.value = data.logradouro || '';
+        fields.neighborhood.value = data.bairro || '';
+        fields.city.value = data.localidade || '';
+        fields.state.value = data.uf || '';
+        updateAddress();
+        fields.number.focus();
+      }).catch(() => {});
+  });
+  
+  // Atualizar endereço
+  function updateAddress() {
+    const parts = [];
+    if (fields.street.value) {
+      let line = fields.street.value;
+      if (fields.number.value) line += ', ' + fields.number.value;
+      if (fields.complement.value) line += ' - ' + fields.complement.value;
+      parts.push(line);
+    }
+    if (fields.neighborhood.value) parts.push(fields.neighborhood.value);
+    if (fields.city.value && fields.state.value) parts.push(fields.city.value + '/' + fields.state.value);
+    if (cepInput.value) parts.push('CEP: ' + cepInput.value);
+    deliveryAddress.value = parts.join('\n');
   }
-
-  if (neighborhood.value) parts.push(neighborhood.value);
-  if (city.value && state.value) parts.push(`${city.value}/${state.value}`);
-  if (reference.value) parts.push(`Referência: ${reference.value}`);
-  if (cepInput.value) parts.push(`CEP: ${cepInput.value}`);
-
-  deliveryAddress.value = parts.join("\n");
-}
-
-fields.forEach(el => el.addEventListener("input", updateAddress));
-toggleAddress();
+  
+  Object.values(fields).forEach(el => el.addEventListener('input', updateAddress));
+  cepInput.addEventListener('input', updateAddress);
 </script>
 {% endblock %}

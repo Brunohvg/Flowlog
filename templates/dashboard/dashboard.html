@@ -1,0 +1,280 @@
+{% extends "base/base.html" %}
+{% load flowlog_tags %}
+
+{% block title %}Dashboard - Flowlog{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Visão geral do seu negócio{% endblock %}
+
+{% block content %}
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  
+  <div class="card stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <div class="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-600"></i>
+      </div>
+      <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">+{{ stats.orders_today }} hoje</span>
+    </div>
+    <p class="text-2xl font-bold text-slate-800">{{ stats.total_orders }}</p>
+    <p class="text-sm text-slate-500">Total de Pedidos</p>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <div class="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="clock" class="w-5 h-5 text-amber-600"></i>
+      </div>
+      {% if stats.pending_orders > 0 %}
+      <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Ação</span>
+      {% endif %}
+    </div>
+    <p class="text-2xl font-bold text-slate-800">{{ stats.pending_orders }}</p>
+    <p class="text-sm text-slate-500">Pendentes</p>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-slate-800">{{ stats.shipped_orders }}</p>
+    <p class="text-sm text-slate-500">Em Trânsito</p>
+  </div>
+  
+  <div class="card stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <div class="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
+      </div>
+    </div>
+    <p class="text-2xl font-bold text-emerald-600">R$ {{ stats.total_revenue|currency }}</p>
+    <p class="text-sm text-slate-500">Faturamento (mês)</p>
+  </div>
+  
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+  
+  <!-- Main Column -->
+  <div class="xl:col-span-2 space-y-6">
+    
+    <!-- Por Tipo de Entrega -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-slate-800">Pedidos por Tipo de Entrega</h3>
+        <a href="{% url 'reports' %}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver relatório →</a>
+      </div>
+      
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
+            <span class="font-semibold text-slate-700">Motoboy</span>
+          </div>
+          <p class="text-2xl font-bold text-slate-800">{{ stats.motoboy_count }}</p>
+          <p class="text-sm text-blue-600 font-medium">R$ {{ stats.motoboy_value|currency }}</p>
+        </div>
+        
+        <div class="p-4 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="zap" class="w-5 h-5 text-rose-600"></i>
+            <span class="font-semibold text-slate-700">SEDEX</span>
+          </div>
+          <p class="text-2xl font-bold text-slate-800">{{ stats.sedex_count }}</p>
+          <p class="text-sm text-rose-600 font-medium">R$ {{ stats.sedex_value|currency }}</p>
+        </div>
+        
+        <div class="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="package" class="w-5 h-5 text-emerald-600"></i>
+            <span class="font-semibold text-slate-700">PAC</span>
+          </div>
+          <p class="text-2xl font-bold text-slate-800">{{ stats.pac_count }}</p>
+          <p class="text-sm text-emerald-600 font-medium">R$ {{ stats.pac_value|currency }}</p>
+        </div>
+        
+        <div class="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="store" class="w-5 h-5 text-amber-600"></i>
+            <span class="font-semibold text-slate-700">Retirada</span>
+          </div>
+          <p class="text-2xl font-bold text-slate-800">{{ stats.pickup_count }}</p>
+          <p class="text-sm text-amber-600 font-medium">R$ {{ stats.pickup_value|currency }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Pedidos Recentes -->
+    <div class="card overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800">Pedidos Recentes</h3>
+        <a href="{% url 'order_list' %}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver todos →</a>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Cliente</th>
+              <th>Valor</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in recent_orders %}
+            <tr>
+              <td>
+                <a href="{% url 'order_detail' order.id %}" class="font-mono text-sm font-semibold text-indigo-600 hover:text-indigo-700">{{ order.code }}</a>
+                <p class="text-xs text-slate-400 mt-0.5">{{ order.created_at|date:"d/m H:i" }}</p>
+              </td>
+              <td>
+                <p class="font-medium text-slate-700">{{ order.customer.name }}</p>
+              </td>
+              <td>
+                <span class="font-semibold text-slate-800">R$ {{ order.total_value|currency }}</span>
+              </td>
+              <td>
+                {% if order.order_status == 'cancelled' %}
+                  <span class="badge bg-red-100 text-red-700">Cancelado</span>
+                {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
+                  <span class="badge bg-emerald-100 text-emerald-700">Concluído</span>
+                {% elif order.delivery_status == 'shipped' %}
+                  <span class="badge bg-blue-100 text-blue-700">Enviado</span>
+                {% else %}
+                  <span class="badge bg-amber-100 text-amber-700">Pendente</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center py-8 text-slate-500">
+                <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                <p>Nenhum pedido ainda</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+  
+  <!-- Sidebar Column -->
+  <div class="space-y-6">
+    
+    <!-- Ações Rápidas -->
+    <div class="card p-5">
+      <h3 class="font-bold text-slate-800 mb-4">Ações Rápidas</h3>
+      
+      <div class="space-y-2">
+        <a href="{% url 'order_create' %}" class="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 transition-colors">
+          <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-800">Novo Pedido</p>
+            <p class="text-xs text-slate-500">Criar um pedido</p>
+          </div>
+        </a>
+        
+        <a href="{% url 'order_list' %}?status=pending" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+          <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white">
+            <i data-lucide="clock" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-800">Pendentes</p>
+            <p class="text-xs text-slate-500">{{ stats.pending_orders }} aguardando</p>
+          </div>
+        </a>
+        
+        <a href="{% url 'customer_list' %}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+          <div class="w-10 h-10 bg-slate-500 rounded-xl flex items-center justify-center text-white">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-800">Clientes</p>
+            <p class="text-xs text-slate-500">{{ stats.total_customers }} cadastrados</p>
+          </div>
+        </a>
+      </div>
+    </div>
+    
+    <!-- Resumo Status -->
+    <div class="card p-5">
+      <h3 class="font-bold text-slate-800 mb-4">Resumo por Status</h3>
+      
+      <div class="space-y-3">
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-amber-500 rounded-full"></div>
+            <span class="text-sm text-slate-600">Pendentes</span>
+          </div>
+          <span class="font-bold text-slate-800">{{ stats.pending_orders }}</span>
+        </div>
+        
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-purple-500 rounded-full"></div>
+            <span class="text-sm text-slate-600">Prontos</span>
+          </div>
+          <span class="font-bold text-slate-800">{{ stats.ready_pickup_orders }}</span>
+        </div>
+        
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
+            <span class="text-sm text-slate-600">Enviados</span>
+          </div>
+          <span class="font-bold text-slate-800">{{ stats.shipped_orders }}</span>
+        </div>
+        
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
+            <span class="text-sm text-slate-600">Entregues</span>
+          </div>
+          <span class="font-bold text-slate-800">{{ stats.delivered_orders }}</span>
+        </div>
+        
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+            <span class="text-sm text-slate-600">Cancelados</span>
+          </div>
+          <span class="font-bold text-slate-800">{{ stats.cancelled_orders }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Top Clientes -->
+    <div class="card p-5">
+      <h3 class="font-bold text-slate-800 mb-4">Top Clientes</h3>
+      
+      <div class="space-y-3">
+        {% for customer in top_customers %}
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            {{ customer.name|slice:":1"|upper }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 truncate">{{ customer.name }}</p>
+            <p class="text-xs text-slate-500">{{ customer.total_orders }} pedidos</p>
+          </div>
+          <span class="text-sm font-bold text-emerald-600">R$ {{ customer.total_value|currency }}</span>
+        </div>
+        {% empty %}
+        <p class="text-sm text-slate-500 text-center py-4">Sem dados</p>
+        {% endfor %}
+      </div>
+    </div>
+    
+  </div>
+  
+</div>
+
+{% endblock %}
