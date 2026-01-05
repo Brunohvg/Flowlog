@@ -1,10 +1,10 @@
 """
-Serviço de notificações via WhatsApp.
+Services de notificação via WhatsApp - Flowlog.
+Usa Evolution API para envio de mensagens.
+Cada tenant configura sua própria instância.
 """
 
 import logging
-
-from django.conf import settings
 
 from apps.integrations.whatsapp.client import EvolutionClient
 
@@ -13,160 +13,249 @@ logger = logging.getLogger(__name__)
 
 class WhatsAppNotificationService:
     """
-    Serviço para envio de notificações via WhatsApp.
-    Usa a Evolution API para enviar mensagens.
+    Service para envio de notificações via WhatsApp.
+    Cada tenant tem sua própria configuração de Evolution API.
     """
 
     def __init__(self, tenant):
         self.tenant = tenant
-        self.tenant_settings = getattr(tenant, 'settings', None)
+        self.settings = getattr(tenant, "settings", None)
+        self.client = None
 
-        self.client = EvolutionClient(
-            base_url=settings.EVOLUTION_API_URL,
-            api_key=settings.EVOLUTION_API_KEY,
-            instance=settings.EVOLUTION_INSTANCE,
-        )
+        if self.settings and self.settings.is_whatsapp_configured:
+            self.client = EvolutionClient(
+                base_url=self.settings.evolution_api_url,
+                api_key=self.settings.evolution_api_key,
+                instance=self.settings.evolution_instance,
+            )
 
-    def _is_enabled(self) -> bool:
-        """Verifica se WhatsApp está habilitado para o tenant."""
-        if not settings.EVOLUTION_API_URL or not settings.EVOLUTION_API_KEY:
+    def _can_send(self):
+        """Verifica se pode enviar mensagens."""
+        if not self.settings:
+            logger.warning("Tenant %s sem configurações", self.tenant.id)
             return False
-        if self.tenant_settings:
-            return bool(self.tenant_settings.whatsapp_enabled)
+        if not self.settings.whatsapp_enabled:
+            logger.info("WhatsApp desabilitado para tenant %s", self.tenant.id)
+            return False
+        if not self.client:
+            logger.warning("WhatsApp não configurado para tenant %s", self.tenant.id)
+            return False
         return True
 
-    def _format_value(self, value) -> str:
+    def _get_tracking_link(self, order):
+        """Gera link de rastreamento."""
+        from django.conf import settings as django_settings
+        base_url = getattr(django_settings, 'SITE_URL', 'https://flowlog.app')
+        return f"{base_url}/rastreio/{order.code}"
+
+    def _format_value(self, value):
         """Formata valor para exibição (R$ 1.234,56)."""
         return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-    def _get_first_name(self, full_name: str) -> str:
+    def _get_first_name(self, full_name):
         """Retorna primeiro nome."""
         return full_name.split()[0] if full_name else "Cliente"
 
+    def _format_message(self, template, order, **extra):
+        """Formata mensagem com placeholders."""
+        placeholders = {
+            "nome": self._get_first_name(order.customer.name),
+            "codigo": order.code,
+            "valor": self._format_value(order.total_value),
+            "loja": self.tenant.name,
+            "link_rastreio": self._get_tracking_link(order),
+            "endereco": getattr(self.tenant, 'address', '') or "Consulte a loja",
+            **extra,
+        }
+        
+        try:
+            return template.format(**placeholders)
+        except KeyError as e:
+            logger.error("Placeholder inválido na mensagem: %s", e)
+            return template
+
+    def _send(self, phone, message):
+        """Envia mensagem via Evolution API."""
+        if not self._can_send():
+            return False
+
+        try:
+            self.client.send_text_message(phone=phone, message=message)
+            logger.info("WhatsApp enviado | tenant=%s | phone=***%s", self.tenant.id, phone[-4:])
+            return True
+        except Exception as e:
+            logger.error("Erro ao enviar WhatsApp: %s", e)
+            return False
+
+    # ==================== PEDIDO ====================
+
     def send_order_created(self, order):
-        """Envia notificação de pedido criado."""
-        if not self._is_enabled():
-            logger.info(
-                "WhatsApp disabled | tenant=%s | order=%s",
-                self.tenant.id,
-                order.id,
-            )
-            return
-
-        logger.info(
-            "Send WhatsApp | event=order_created | order=%s",
-            order.code,
+        """Notifica criação do pedido."""
+        template = getattr(self.settings, 'msg_order_created', None) or (
+            "Olá {nome}! 🎉\n\n"
+            "Seu pedido *{codigo}* foi recebido!\n"
+            "Valor: R$ {valor}\n\n"
+            "Acompanhe em: {link_rastreio}\n\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
 
-        # Template do tenant ou padrão
-        if self.tenant_settings and self.tenant_settings.msg_order_created:
-            template = self.tenant_settings.msg_order_created
-        else:
-            template = (
-                "Olá {nome}! 🎉\n\n"
-                "Seu pedido *{codigo}* foi recebido!\n"
-                "Valor: R$ {valor}\n\n"
-                "Obrigado pela preferência!"
-            )
-
-        message = template.format(
-            nome=self._get_first_name(order.customer.name),
-            codigo=order.code,
-            valor=self._format_value(order.total_value),
+    def send_order_confirmed(self, order):
+        """Notifica confirmação do pedido."""
+        template = getattr(self.settings, 'msg_order_confirmed', None) or (
+            "Olá {nome}! ✅\n\n"
+            "Seu pedido *{codigo}* foi confirmado!\n\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
 
-        self.client.send_text_message(
-            phone=order.customer.phone,
-            message=message,
+    # ==================== PAGAMENTO ====================
+
+    def send_payment_received(self, order):
+        """Notifica pagamento recebido."""
+        template = getattr(self.settings, 'msg_payment_received', None) or (
+            "Olá {nome}! 💰\n\n"
+            "Pagamento do pedido *{codigo}* confirmado!\n"
+            "Valor: R$ {valor}\n\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
+
+    def send_payment_refunded(self, order):
+        """Notifica estorno de pagamento."""
+        template = getattr(self.settings, 'msg_payment_refunded', None) or (
+            "Olá {nome}!\n\n"
+            "O valor de R$ {valor} do pedido *{codigo}* foi estornado.\n\n"
+            "_{loja}_"
+        )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
+
+    # ==================== ENTREGA ====================
 
     def send_order_shipped(self, order):
-        """Envia notificação de pedido enviado."""
-        if not self._is_enabled():
-            return
-
-        logger.info(
-            "Send WhatsApp | event=order_shipped | order=%s | tracking=%s",
-            order.code,
-            order.tracking_code or "N/A",
-        )
-
-        # Template do tenant ou padrão
-        if self.tenant_settings and self.tenant_settings.msg_order_shipped:
-            template = self.tenant_settings.msg_order_shipped
-        else:
-            template = (
-                "Olá {nome}! 📦\n\n"
-                "Seu pedido *{codigo}* foi enviado!\n"
-            )
-
-        message = template.format(
-            nome=self._get_first_name(order.customer.name),
-            codigo=order.code,
-        )
-
-        # Adiciona código de rastreio se disponível
+        """Notifica envio do pedido."""
+        rastreio_info = ""
         if order.tracking_code:
-            message += f"\n🔍 Código de rastreio: *{order.tracking_code}*\n"
-            if order.tracking_url:
-                message += f"\nAcompanhe em:\n{order.tracking_url}\n"
-
-        message += "\nEm breve chegará no endereço informado!"
-
-        self.client.send_text_message(
-            phone=order.customer.phone,
-            message=message,
+            rastreio_info = f"Código de rastreio: *{order.tracking_code}*\n\n"
+        
+        template = getattr(self.settings, 'msg_order_shipped', None) or (
+            "Olá {nome}! 📦\n\n"
+            "Seu pedido *{codigo}* foi enviado!\n\n"
+            "{rastreio_info}"
+            "Acompanhe em: {link_rastreio}\n\n"
+            "_{loja}_"
         )
+        message = self._format_message(
+            template, order,
+            rastreio=order.tracking_code or "",
+            rastreio_info=rastreio_info,
+        )
+        return self._send(order.customer.phone_normalized, message)
 
     def send_order_delivered(self, order):
-        """Envia notificação de pedido entregue."""
-        if not self._is_enabled():
-            return
-
-        logger.info(
-            "Send WhatsApp | event=order_delivered | order=%s",
-            order.code,
+        """Notifica entrega do pedido."""
+        template = getattr(self.settings, 'msg_order_delivered', None) or (
+            "Olá {nome}! ✅\n\n"
+            "Seu pedido *{codigo}* foi entregue!\n\n"
+            "Obrigado! 😊\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
 
-        # Template do tenant ou padrão
-        if self.tenant_settings and self.tenant_settings.msg_order_delivered:
-            template = self.tenant_settings.msg_order_delivered
-        else:
-            template = (
-                "Olá {nome}! ✅\n\n"
-                "Seu pedido *{codigo}* foi entregue!\n\n"
-                "Obrigado por comprar conosco!"
-            )
-
-        message = template.format(
-            nome=self._get_first_name(order.customer.name),
-            codigo=order.code,
+    def send_delivery_failed(self, order):
+        """Notifica tentativa de entrega falha."""
+        template = getattr(self.settings, 'msg_delivery_failed', None) or (
+            "Olá {nome}! ⚠️\n\n"
+            "Tentamos entregar o pedido *{codigo}* mas não conseguimos.\n"
+            "Tentativa: {tentativa}\n\n"
+            "Verifique o endereço ou entre em contato.\n"
+            "_{loja}_"
         )
-
-        self.client.send_text_message(
-            phone=order.customer.phone,
-            message=message,
+        message = self._format_message(
+            template, order,
+            tentativa=str(order.delivery_attempts),
         )
+        return self._send(order.customer.phone_normalized, message)
+
+    # ==================== RETIRADA ====================
 
     def send_order_ready_for_pickup(self, order):
-        """Envia notificação de pedido pronto para retirada."""
-        if not self._is_enabled():
-            return
-
-        logger.info(
-            "Send WhatsApp | event=ready_for_pickup | order=%s",
-            order.code,
+        """Notifica pedido pronto para retirada."""
+        template = getattr(self.settings, 'msg_order_ready_for_pickup', None) or (
+            "Olá {nome}! 🏬\n\n"
+            "Seu pedido *{codigo}* está pronto!\n"
+            "Valor: R$ {valor}\n\n"
+            "📍 Retire em: {endereco}\n"
+            "⏰ Prazo: 48h\n\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
 
-        # Template padrão (pode ser customizado no tenant_settings no futuro)
-        message = (
-            f"Olá {self._get_first_name(order.customer.name)}! 🏬\n\n"
-            f"Seu pedido *{order.code}* está pronto para retirada!\n\n"
-            f"Valor: R$ {self._format_value(order.total_value)}\n\n"
-            "Aguardamos você em nossa loja! 😊"
+    def send_order_picked_up(self, order):
+        """Notifica retirada do pedido."""
+        template = getattr(self.settings, 'msg_order_picked_up', None) or (
+            "Olá {nome}! ✅\n\n"
+            "Pedido *{codigo}* retirado!\n\n"
+            "Obrigado! 😊\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
 
-        self.client.send_text_message(
-            phone=order.customer.phone,
-            message=message,
+    def send_order_expired(self, order):
+        """Notifica expiração do pedido (retirada não realizada)."""
+        template = getattr(self.settings, 'msg_order_expired', None) or (
+            "Olá {nome}! ⚠️\n\n"
+            "O prazo para retirada do pedido *{codigo}* expirou.\n\n"
+            "Entre em contato para verificar as opções.\n"
+            "_{loja}_"
         )
+        message = self._format_message(template, order)
+        return self._send(order.customer.phone_normalized, message)
+
+    # ==================== CANCELAMENTO ====================
+
+    def send_order_cancelled(self, order):
+        """Notifica cancelamento do pedido."""
+        motivo_info = ""
+        if order.cancel_reason:
+            motivo_info = f"Motivo: {order.cancel_reason}\n\n"
+        
+        template = getattr(self.settings, 'msg_order_cancelled', None) or (
+            "Olá {nome}!\n\n"
+            "Seu pedido *{codigo}* foi cancelado.\n"
+            "{motivo_info}"
+            "Em caso de dúvidas, entre em contato.\n"
+            "_{loja}_"
+        )
+        message = self._format_message(
+            template, order,
+            motivo=order.cancel_reason or "",
+            motivo_info=motivo_info,
+        )
+        return self._send(order.customer.phone_normalized, message)
+
+    def send_order_returned(self, order):
+        """Notifica devolução do pedido."""
+        motivo_info = ""
+        if order.return_reason:
+            motivo_info = f"Motivo: {order.return_reason}\n\n"
+        
+        template = getattr(self.settings, 'msg_order_returned', None) or (
+            "Olá {nome}!\n\n"
+            "Devolução do pedido *{codigo}* registrada.\n"
+            "{motivo_info}"
+            "_{loja}_"
+        )
+        message = self._format_message(
+            template, order,
+            motivo=order.return_reason or "",
+            motivo_info=motivo_info,
+        )
+        return self._send(order.customer.phone_normalized, message)

@@ -18,6 +18,7 @@ def dashboard(request):
     """Dashboard principal com métricas do negócio."""
     tenant = request.tenant
     today = timezone.now().date()
+    now = timezone.now()
     start_of_month = today.replace(day=1)
     
     # Base queryset
@@ -58,6 +59,7 @@ def dashboard(request):
         ).count(),
         'ready_pickup_orders': orders.filter(delivery_status=DeliveryStatus.READY_FOR_PICKUP).count(),
         'shipped_orders': orders.filter(delivery_status=DeliveryStatus.SHIPPED).count(),
+        'failed_attempt_orders': orders.filter(delivery_status=DeliveryStatus.FAILED_ATTEMPT).count(),
         'delivered_orders': orders.filter(
             delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
         ).count(),
@@ -65,7 +67,7 @@ def dashboard(request):
         
         # Faturamento do mês (pedidos não cancelados)
         'total_revenue': period_orders.exclude(
-            order_status=OrderStatus.CANCELLED
+            order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]
         ).aggregate(total=Sum('total_value'))['total'] or 0,
         
         # Por tipo de entrega
@@ -77,7 +79,61 @@ def dashboard(request):
         'pac_value': pac_stats['value'],
         'pickup_count': pickup_stats['count'],
         'pickup_value': pickup_stats['value'],
+        
+        # Pagamentos pendentes
+        'pending_payments': orders.filter(
+            payment_status=PaymentStatus.PENDING,
+            order_status__in=[OrderStatus.PENDING, OrderStatus.CONFIRMED]
+        ).count(),
+        'pending_payments_value': orders.filter(
+            payment_status=PaymentStatus.PENDING,
+            order_status__in=[OrderStatus.PENDING, OrderStatus.CONFIRMED]
+        ).aggregate(total=Sum('total_value'))['total'] or 0,
+        
+        # Pedidos prioritários pendentes
+        'priority_orders': orders.filter(
+            is_priority=True,
+            order_status__in=[OrderStatus.PENDING, OrderStatus.CONFIRMED],
+            delivery_status__in=[DeliveryStatus.PENDING, DeliveryStatus.READY_FOR_PICKUP]
+        ).count(),
     }
+    
+    # ALERTAS
+    alerts = []
+    
+    # Pedidos de retirada prestes a expirar (menos de 12h)
+    expiring_soon = orders.filter(
+        delivery_status=DeliveryStatus.READY_FOR_PICKUP,
+        expires_at__isnull=False,
+        expires_at__lte=now + timedelta(hours=12),
+        expires_at__gt=now
+    ).count()
+    if expiring_soon:
+        alerts.append({
+            'type': 'warning',
+            'icon': 'clock',
+            'message': f'{expiring_soon} pedido(s) de retirada expira(m) em menos de 12h',
+            'url': '?status=ready'
+        })
+    
+    # Pedidos com tentativa de entrega falha
+    failed_attempts = stats['failed_attempt_orders']
+    if failed_attempts:
+        alerts.append({
+            'type': 'error',
+            'icon': 'alert-triangle',
+            'message': f'{failed_attempts} pedido(s) com tentativa de entrega falha',
+            'url': '?status=shipped'
+        })
+    
+    # Pedidos prioritários pendentes
+    if stats['priority_orders']:
+        alerts.append({
+            'type': 'info',
+            'icon': 'alert-circle',
+            'message': f'{stats["priority_orders"]} pedido(s) prioritário(s) aguardando',
+            'url': '?priority=1'
+        })
     
     # Pedidos recentes
     recent_orders = (
@@ -99,6 +155,7 @@ def dashboard(request):
     
     return render(request, 'dashboard/dashboard.html', {
         'stats': stats,
+        'alerts': alerts,
         'recent_orders': recent_orders,
         'top_customers': top_customers,
     })
@@ -210,20 +267,83 @@ def settings(request):
     tenant_settings = tenant.settings
     
     if request.method == 'POST':
-        # Atualizar configurações
-        tenant_settings.whatsapp_enabled = request.POST.get('whatsapp_enabled') == 'on'
-        tenant_settings.msg_order_created = request.POST.get('msg_order_created', '')
-        tenant_settings.msg_order_shipped = request.POST.get('msg_order_shipped', '')
-        tenant_settings.msg_order_delivered = request.POST.get('msg_order_delivered', '')
-        tenant_settings.msg_order_ready_for_pickup = request.POST.get('msg_order_ready_for_pickup', '')
-        tenant_settings.save()
+        action = request.POST.get('action', 'save_messages')
         
-        messages.success(request, 'Configurações salvas com sucesso!')
+        if action == 'save_whatsapp':
+            # Configurações da Evolution API
+            tenant_settings.whatsapp_enabled = request.POST.get('whatsapp_enabled') == 'on'
+            tenant_settings.evolution_api_url = request.POST.get('evolution_api_url', '').strip()
+            tenant_settings.evolution_api_key = request.POST.get('evolution_api_key', '').strip()
+            tenant_settings.evolution_instance = request.POST.get('evolution_instance', '').strip()
+            tenant_settings.save()
+            messages.success(request, 'Configurações do WhatsApp salvas!')
+            
+        elif action == 'save_messages':
+            # Mensagens customizáveis
+            tenant_settings.msg_order_created = request.POST.get('msg_order_created', '')
+            tenant_settings.msg_order_confirmed = request.POST.get('msg_order_confirmed', '')
+            tenant_settings.msg_payment_received = request.POST.get('msg_payment_received', '')
+            tenant_settings.msg_payment_refunded = request.POST.get('msg_payment_refunded', '')
+            tenant_settings.msg_order_shipped = request.POST.get('msg_order_shipped', '')
+            tenant_settings.msg_order_delivered = request.POST.get('msg_order_delivered', '')
+            tenant_settings.msg_delivery_failed = request.POST.get('msg_delivery_failed', '')
+            tenant_settings.msg_order_ready_for_pickup = request.POST.get('msg_order_ready_for_pickup', '')
+            tenant_settings.msg_order_picked_up = request.POST.get('msg_order_picked_up', '')
+            tenant_settings.msg_order_expired = request.POST.get('msg_order_expired', '')
+            tenant_settings.msg_order_cancelled = request.POST.get('msg_order_cancelled', '')
+            tenant_settings.msg_order_returned = request.POST.get('msg_order_returned', '')
+            tenant_settings.save()
+            messages.success(request, 'Mensagens salvas com sucesso!')
+            
+        elif action == 'save_store':
+            # Informações da loja
+            tenant.name = request.POST.get('store_name', tenant.name)
+            tenant.contact_email = request.POST.get('contact_email', tenant.contact_email)
+            tenant.contact_phone = request.POST.get('contact_phone', '')
+            tenant.address = request.POST.get('address', '')
+            tenant.save()
+            messages.success(request, 'Informações da loja salvas!')
+            
+        elif action == 'test_whatsapp':
+            # Testar conexão com WhatsApp
+            if tenant_settings.is_whatsapp_configured:
+                try:
+                    from apps.integrations.whatsapp.client import EvolutionClient
+                    client = EvolutionClient(
+                        base_url=tenant_settings.evolution_api_url,
+                        api_key=tenant_settings.evolution_api_key,
+                        instance=tenant_settings.evolution_instance,
+                    )
+                    status = client.get_instance_status()
+                    if status.get('connected'):
+                        tenant_settings.whatsapp_connected = True
+                        tenant_settings.whatsapp_number = status.get('number', '')
+                        tenant_settings.save()
+                        messages.success(request, f'WhatsApp conectado! Número: {tenant_settings.whatsapp_number}')
+                    else:
+                        tenant_settings.whatsapp_connected = False
+                        tenant_settings.save()
+                        messages.warning(request, 'Instância encontrada mas não conectada. Escaneie o QR Code.')
+                except Exception as e:
+                    messages.error(request, f'Erro ao conectar: {str(e)}')
+            else:
+                messages.error(request, 'Configure a API antes de testar.')
+        
         return redirect('settings')
+    
+    # Placeholders disponíveis para referência
+    placeholders = {
+        'geral': ['nome', 'codigo', 'valor', 'loja', 'link_rastreio'],
+        'entrega': ['rastreio', 'rastreio_info'],
+        'retirada': ['endereco'],
+        'tentativa': ['tentativa'],
+        'cancelamento': ['motivo', 'motivo_info'],
+    }
     
     return render(request, 'settings/settings.html', {
         'tenant': tenant,
         'tenant_settings': tenant_settings,
+        'placeholders': placeholders,
     })
 
 

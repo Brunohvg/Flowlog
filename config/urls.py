@@ -8,7 +8,13 @@ from django.urls import include, path
 
 from apps.core.views import dashboard, reports, settings, profile
 from apps.orders.customer_views import customer_list, customer_detail, customer_edit
-from apps.orders.tracking_views import tracking_search, tracking_detail
+from apps.orders.tracking_views import (
+    tracking_login,
+    tracking_logout,
+    tracking_orders,
+    tracking_detail,
+    tracking_search,
+)
 
 urlpatterns = [
     # Admin
@@ -38,7 +44,10 @@ urlpatterns = [
     # Orders
     path("pedidos/", include("apps.orders.urls")),
     
-    # Tracking (público, sem login)
+    # Tracking (público)
     path("rastreio/", tracking_search, name="tracking_search"),
+    path("rastreio/entrar/", tracking_login, name="tracking_login"),
+    path("rastreio/sair/", tracking_logout, name="tracking_logout"),
+    path("rastreio/meus-pedidos/", tracking_orders, name="tracking_orders"),
     path("rastreio/<str:code>/", tracking_detail, name="tracking_detail"),
 ]

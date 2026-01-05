@@ -1,0 +1,94 @@
+{% extends "tracking/base.html" %}
+
+{% block title %}Meus Pedidos{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+        {{ customer_name|slice:":1"|upper }}
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">Olá, {{ customer_name|truncatewords:2 }}!</h1>
+        <p class="text-slate-400 text-sm">Seus pedidos</p>
+      </div>
+    </div>
+    <a href="{% url 'tracking_logout' %}" class="text-slate-400 hover:text-white transition-colors">
+      <i data-lucide="log-out" class="w-5 h-5"></i>
+    </a>
+  </div>
+  
+  <!-- Stats -->
+  <div class="grid grid-cols-2 gap-3 mb-6">
+    <div class="glass-card rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-indigo-600">{{ orders|length }}</p>
+      <p class="text-xs text-slate-500">Total de pedidos</p>
+    </div>
+    <div class="glass-card rounded-xl p-4 text-center">
+      <p class="text-2xl font-bold text-emerald-600">
+        {% with delivered=0 %}{{ delivered }}{% endwith %}
+      </p>
+      <p class="text-xs text-slate-500">Entregues</p>
+    </div>
+  </div>
+  
+  <!-- Orders List -->
+  <div class="space-y-3">
+    {% for order in orders %}
+    <a href="{% url 'tracking_detail' order.code %}" class="block glass-card rounded-2xl p-4 hover:shadow-lg transition-all">
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-mono text-sm font-bold text-indigo-600">{{ order.code }}</span>
+        
+        {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
+          <span class="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-semibold">
+            {% if order.order_status == 'cancelled' %}Cancelado{% else %}Devolvido{% endif %}
+          </span>
+        {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
+          <span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">
+            {% if order.delivery_status == 'delivered' %}Entregue{% else %}Retirado{% endif %}
+          </span>
+        {% elif order.delivery_status == 'shipped' %}
+          <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Enviado</span>
+        {% elif order.delivery_status == 'ready_for_pickup' %}
+          <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold">Pronto p/ Retirada</span>
+        {% elif order.delivery_status == 'expired' %}
+          <span class="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-semibold">Expirado</span>
+        {% else %}
+          <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold">Em Processamento</span>
+        {% endif %}
+      </div>
+      
+      <div class="flex items-center justify-between text-sm">
+        <div class="flex items-center gap-4 text-slate-500">
+          <span class="flex items-center gap-1">
+            <i data-lucide="store" class="w-4 h-4"></i>
+            {{ order.tenant.name|truncatewords:3 }}
+          </span>
+          <span>{{ order.created_at|date:"d/m/Y" }}</span>
+        </div>
+        <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+      </div>
+    </a>
+    {% empty %}
+    <div class="glass-card rounded-2xl p-8 text-center">
+      <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="package-x" class="w-8 h-8 text-slate-400"></i>
+      </div>
+      <h3 class="font-semibold text-slate-700 mb-1">Nenhum pedido encontrado</h3>
+      <p class="text-sm text-slate-500">Seus pedidos aparecerão aqui</p>
+    </div>
+    {% endfor %}
+  </div>
+  
+  <!-- Search -->
+  <div class="mt-6 text-center">
+    <a href="{% url 'tracking_search' %}" class="text-slate-400 hover:text-white text-sm">
+      Buscar pedido por código →
+    </a>
+  </div>
+  
+</div>
+{% endblock %}

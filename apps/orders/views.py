@@ -28,6 +28,7 @@ def order_list(request):
     status = request.GET.get('status', '')
     delivery_type = request.GET.get('type', '')
     payment = request.GET.get('payment', '')
+    priority = request.GET.get('priority', '')
     
     if search:
         orders = orders.filter(
@@ -43,13 +44,15 @@ def order_list(request):
                 order_status__in=[OrderStatus.PENDING, OrderStatus.CONFIRMED]
             )
         elif status == 'shipped':
-            orders = orders.filter(delivery_status=DeliveryStatus.SHIPPED)
+            orders = orders.filter(delivery_status__in=[DeliveryStatus.SHIPPED, DeliveryStatus.FAILED_ATTEMPT])
         elif status == 'delivered':
             orders = orders.filter(
                 delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
             )
         elif status == 'cancelled':
-            orders = orders.filter(order_status=OrderStatus.CANCELLED)
+            orders = orders.filter(order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED])
+        elif status == 'ready':
+            orders = orders.filter(delivery_status=DeliveryStatus.READY_FOR_PICKUP)
     
     if delivery_type:
         orders = orders.filter(delivery_type=delivery_type)
@@ -59,6 +62,9 @@ def order_list(request):
             orders = orders.filter(payment_status=PaymentStatus.PAID)
         elif payment == 'pending':
             orders = orders.filter(payment_status=PaymentStatus.PENDING)
+    
+    if priority == '1':
+        orders = orders.filter(is_priority=True)
     
     # Paginação
     paginator = Paginator(orders, 20)
@@ -83,37 +89,101 @@ def order_create(request):
                     data=form.cleaned_data,
                 )
                 messages.success(request, f"Pedido {order.code} criado com sucesso!")
-                return redirect("order_list")
+                return redirect("order_detail", order_id=order.id)
             except ValueError as e:
                 messages.error(request, str(e))
-        else:
-            for error in form.non_field_errors():
-                messages.error(request, error)
     else:
         form = OrderCreateForm()
-
+    
     return render(request, "orders/order_create.html", {"form": form})
 
 
 @login_required
 def order_detail(request, order_id):
-    """Detalhe do pedido."""
+    """Detalhes do pedido com histórico de atividades."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant).select_related("customer", "seller"),
+        Order.objects.for_tenant(request.tenant)
+        .select_related("customer", "seller")
+        .prefetch_related("activities"),
         id=order_id,
     )
+    
+    # Últimas 20 atividades
+    activities = order.activities.select_related("user").order_by("-created_at")[:20]
+    
+    return render(request, "orders/order_detail.html", {
+        "order": order,
+        "activities": activities,
+    })
 
-    return render(request, "orders/order_detail.html", {"order": order})
+
+@login_required
+def order_edit(request, order_id):
+    """Edição de pedido."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant).select_related("customer"),
+        id=order_id,
+    )
+    
+    # Não permite editar pedidos finalizados
+    if order.order_status in [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.RETURNED]:
+        messages.error(request, "Este pedido não pode ser editado.")
+        return redirect("order_detail", order_id=order_id)
+    
+    if request.method == "POST":
+        total_value = request.POST.get("total_value", "").replace(".", "").replace(",", ".")
+        delivery_address = request.POST.get("delivery_address", "").strip()
+        notes = request.POST.get("notes", "").strip()
+        internal_notes = request.POST.get("internal_notes", "").strip()
+        is_priority = request.POST.get("is_priority") == "on"
+        
+        try:
+            order.total_value = float(total_value) if total_value else order.total_value
+            order.delivery_address = delivery_address
+            order.notes = notes
+            order.internal_notes = internal_notes
+            order.is_priority = is_priority
+            order.save()
+            
+            from apps.orders.models import OrderActivity
+            OrderActivity.log(
+                order=order,
+                activity_type=OrderActivity.ActivityType.EDITED,
+                description="Pedido editado",
+                user=request.user,
+            )
+            
+            messages.success(request, f"Pedido {order.code} atualizado!")
+            return redirect("order_detail", order_id=order_id)
+        except (ValueError, TypeError):
+            messages.error(request, "Valor inválido.")
+    
+    return render(request, "orders/order_edit.html", {"order": order})
+
+
+@login_required
+def order_mark_paid(request, order_id):
+    """Marca pedido como pago."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant), id=order_id
+    )
+    
+    try:
+        OrderStatusService().mark_as_paid(order=order, actor=request.user)
+        messages.success(request, f"Pedido {order.code} marcado como pago!")
+    except ValueError as e:
+        messages.error(request, str(e))
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required
 def order_mark_shipped(request, order_id):
     """Marca pedido como enviado."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant),
-        id=order_id,
+        Order.objects.for_tenant(request.tenant), id=order_id
     )
-
+    
     if request.method == "POST":
         form = OrderShipForm(request.POST, order=order)
         if form.is_valid():
@@ -124,100 +194,89 @@ def order_mark_shipped(request, order_id):
                     tracking_code=form.cleaned_data.get("tracking_code"),
                 )
                 messages.success(request, f"Pedido {order.code} marcado como enviado!")
-                return redirect("order_list")
+                return redirect("order_detail", order_id=order_id)
             except ValueError as e:
                 messages.error(request, str(e))
     else:
         form = OrderShipForm(order=order)
-
-    # Se precisa de rastreio ou é Correios, mostra formulário
-    if order.requires_tracking or order.is_correios:
-        return render(request, "orders/order_ship.html", {
-            "order": order,
-            "form": form,
-        })
-
-    # Motoboy: envia direto
-    try:
-        OrderStatusService().mark_as_shipped(
-            order=order,
-            actor=request.user,
-        )
-        messages.success(request, f"Pedido {order.code} marcado como enviado!")
-    except ValueError as e:
-        messages.error(request, str(e))
-
-    return redirect("order_list")
+    
+    return render(request, "orders/order_ship.html", {"order": order, "form": form})
 
 
 @login_required
 def order_mark_delivered(request, order_id):
     """Marca pedido como entregue."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant),
-        id=order_id,
+        Order.objects.for_tenant(request.tenant), id=order_id
     )
-
+    
     try:
-        OrderStatusService().mark_as_delivered(
-            order=order,
-            actor=request.user,
-        )
+        OrderStatusService().mark_as_delivered(order=order, actor=request.user)
         messages.success(request, f"Pedido {order.code} marcado como entregue!")
     except ValueError as e:
         messages.error(request, str(e))
+    
+    return redirect("order_detail", order_id=order_id)
 
-    return redirect("order_list")
+
+@login_required
+def order_mark_failed_attempt(request, order_id):
+    """Marca tentativa de entrega falha."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant), id=order_id
+    )
+    
+    reason = request.POST.get("reason", "") if request.method == "POST" else ""
+    
+    try:
+        OrderStatusService().mark_failed_attempt(order=order, actor=request.user, reason=reason)
+        messages.warning(request, f"Tentativa de entrega registrada para {order.code}")
+    except ValueError as e:
+        messages.error(request, str(e))
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required
 def order_ready_for_pickup(request, order_id):
     """Marca pedido como pronto para retirada."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant),
-        id=order_id,
+        Order.objects.for_tenant(request.tenant), id=order_id
     )
-
+    
     try:
-        OrderStatusService().mark_ready_for_pickup(
-            order=order,
-            actor=request.user,
-        )
-        messages.success(request, f"Pedido {order.code} liberado para retirada!")
+        OrderStatusService().mark_ready_for_pickup(order=order, actor=request.user)
+        messages.success(request, f"Pedido {order.code} pronto para retirada!")
     except ValueError as e:
         messages.error(request, str(e))
-
-    return redirect("order_list")
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required
 def order_mark_picked_up(request, order_id):
-    """Marca pedido como retirado pelo cliente."""
+    """Marca pedido como retirado."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant),
-        id=order_id,
+        Order.objects.for_tenant(request.tenant), id=order_id
     )
-
+    
     try:
-        OrderStatusService().mark_as_picked_up(
-            order=order,
-            actor=request.user,
-        )
-        messages.success(request, f"Pedido {order.code} marcado como retirado!")
+        OrderStatusService().mark_as_picked_up(order=order, actor=request.user)
+        messages.success(request, f"Pedido {order.code} retirado pelo cliente!")
     except ValueError as e:
         messages.error(request, str(e))
-
-    return redirect("order_list")
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required
 def order_cancel(request, order_id):
-    """Cancela um pedido."""
+    """Cancela pedido."""
     order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant),
+        Order.objects.for_tenant(request.tenant).select_related("customer"),
         id=order_id,
     )
-
+    
     if request.method == "POST":
         form = OrderCancelForm(request.POST)
         if form.is_valid():
@@ -225,39 +284,106 @@ def order_cancel(request, order_id):
                 OrderStatusService().cancel_order(
                     order=order,
                     actor=request.user,
-                    reason=form.cleaned_data.get("reason"),
+                    reason=form.cleaned_data.get("reason", ""),
                 )
-                messages.success(request, f"Pedido {order.code} cancelado!")
+                messages.success(request, f"Pedido {order.code} cancelado.")
                 return redirect("order_list")
             except ValueError as e:
                 messages.error(request, str(e))
     else:
         form = OrderCancelForm()
-
-    return render(request, "orders/order_cancel.html", {
-        "order": order,
-        "form": form,
-    })
+    
+    return render(request, "orders/order_cancel.html", {"order": order, "form": form})
 
 
 @login_required
-def order_mark_paid(request, order_id):
-    """Marca pedido como pago."""
+def order_return(request, order_id):
+    """Processa devolução de pedido."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant).select_related("customer"),
+        id=order_id,
+    )
+    
+    if request.method == "POST":
+        reason = request.POST.get("reason", "")
+        refund = request.POST.get("refund") == "on"
+        
+        try:
+            OrderStatusService().return_order(
+                order=order,
+                actor=request.user,
+                reason=reason,
+                refund=refund,
+            )
+            messages.success(request, f"Devolução do pedido {order.code} processada.")
+            return redirect("order_detail", order_id=order_id)
+        except ValueError as e:
+            messages.error(request, str(e))
+    
+    return render(request, "orders/order_return.html", {"order": order})
+
+
+@login_required
+def order_change_delivery(request, order_id):
+    """Altera tipo de entrega do pedido."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant).select_related("customer"),
+        id=order_id,
+    )
+    
+    if request.method == "POST":
+        new_type = request.POST.get("delivery_type", "")
+        address = request.POST.get("delivery_address", "")
+        
+        try:
+            OrderStatusService().change_delivery_type(
+                order=order,
+                actor=request.user,
+                new_type=new_type,
+                address=address,
+            )
+            messages.success(request, f"Tipo de entrega do pedido {order.code} alterado.")
+            return redirect("order_detail", order_id=order_id)
+        except ValueError as e:
+            messages.error(request, str(e))
+    
+    return render(request, "orders/order_change_delivery.html", {"order": order})
+
+
+@login_required
+def order_duplicate(request, order_id):
+    """Duplica um pedido."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant).select_related("customer"),
+        id=order_id,
+    )
+    
+    try:
+        new_order = OrderService().duplicate_order(order=order, actor=request.user)
+        messages.success(request, f"Pedido duplicado! Novo código: {new_order.code}")
+        return redirect("order_detail", order_id=new_order.id)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("order_detail", order_id=order_id)
+
+
+@login_required
+def order_resend_notification(request, order_id):
+    """Reenvia notificação WhatsApp."""
     order = get_object_or_404(
         Order.objects.for_tenant(request.tenant),
         id=order_id,
     )
-
+    
+    notification_type = request.POST.get("type", "created") if request.method == "POST" else "created"
+    
     try:
-        OrderStatusService().mark_as_paid(
-            order=order,
-            actor=request.user,
-        )
-        messages.success(request, f"Pedido {order.code} marcado como pago!")
+        OrderStatusService().resend_notification(order=order, notification_type=notification_type)
+        messages.success(request, f"Notificação reenviada para {order.customer.phone}!")
     except ValueError as e:
         messages.error(request, str(e))
-
-    return redirect("order_list")
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required
@@ -269,35 +395,3 @@ def order_label(request, order_id):
     )
 
     return render(request, "orders/order_label.html", {"order": order})
-
-
-@login_required
-def order_edit(request, order_id):
-    """Edição de pedido."""
-    order = get_object_or_404(
-        Order.objects.for_tenant(request.tenant).select_related("customer"),
-        id=order_id,
-    )
-    
-    # Não permite editar pedidos finalizados ou cancelados
-    if order.order_status in [OrderStatus.COMPLETED, OrderStatus.CANCELLED]:
-        messages.error(request, "Este pedido não pode ser editado.")
-        return redirect("order_detail", order_id=order_id)
-    
-    if request.method == "POST":
-        total_value = request.POST.get("total_value", "").replace(",", ".")
-        delivery_address = request.POST.get("delivery_address", "").strip()
-        notes = request.POST.get("notes", "").strip()
-        
-        try:
-            order.total_value = float(total_value) if total_value else order.total_value
-            order.delivery_address = delivery_address
-            order.notes = notes
-            order.save()
-            
-            messages.success(request, f"Pedido {order.code} atualizado!")
-            return redirect("order_detail", order_id=order_id)
-        except (ValueError, TypeError):
-            messages.error(request, "Valor inválido.")
-    
-    return render(request, "orders/order_edit.html", {"order": order})

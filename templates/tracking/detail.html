@@ -1,208 +1,218 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ order.code }} - Acompanhamento</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-  <style>
-    * { font-family: 'Inter', sans-serif; }
-    .gradient-bg {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-      min-height: 100vh;
-    }
-    .step-line { height: 4px; background: #e2e8f0; }
-    .step-line.active { background: #10b981; }
-  </style>
-</head>
-<body class="gradient-bg">
+{% extends "tracking/base.html" %}
+
+{% block title %}{{ order.code }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
   
-  <div class="max-w-2xl mx-auto px-4 py-8">
+  <!-- Back -->
+  <a href="{% url 'tracking_orders' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors">
+    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    Meus Pedidos
+  </a>
+  
+  <!-- Main Card -->
+  <div class="glass-card rounded-2xl shadow-2xl overflow-hidden mb-6">
     
-    <!-- Back -->
-    <a href="{% url 'tracking_search' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors">
-      <i data-lucide="arrow-left" class="w-5 h-5"></i>
-      Voltar
-    </a>
-    
-    <!-- Header Card -->
-    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mb-6">
+    <!-- Status Banner -->
+    <div class="p-6 text-center text-white
+      {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}bg-red-500
+      {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500
+      {% elif order.delivery_status == 'shipped' %}bg-blue-500
+      {% elif order.delivery_status == 'ready_for_pickup' %}bg-purple-500
+      {% elif order.delivery_status == 'expired' %}bg-red-500
+      {% else %}bg-amber-500{% endif %}">
       
-      <!-- Status Banner -->
-      <div class="p-6 text-center
-        {% if order.order_status == 'cancelled' %}bg-red-500
-        {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500
-        {% elif order.delivery_status == 'shipped' %}bg-blue-500
-        {% elif order.delivery_status == 'ready_for_pickup' %}bg-purple-500
-        {% else %}bg-amber-500{% endif %} text-white">
-        
-        <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-          {% if order.order_status == 'cancelled' %}
-            <i data-lucide="x-circle" class="w-8 h-8"></i>
-          {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
-            <i data-lucide="check-circle" class="w-8 h-8"></i>
-          {% elif order.delivery_status == 'shipped' %}
-            <i data-lucide="truck" class="w-8 h-8"></i>
-          {% elif order.delivery_status == 'ready_for_pickup' %}
-            <i data-lucide="package-check" class="w-8 h-8"></i>
-          {% else %}
-            <i data-lucide="clock" class="w-8 h-8"></i>
-          {% endif %}
-        </div>
-        
-        <h1 class="text-2xl font-bold mb-1">
-          {% if order.order_status == 'cancelled' %}Pedido Cancelado
-          {% elif order.delivery_status == 'delivered' %}Pedido Entregue
-          {% elif order.delivery_status == 'picked_up' %}Pedido Retirado
-          {% elif order.delivery_status == 'shipped' %}Pedido Enviado
-          {% elif order.delivery_status == 'ready_for_pickup' %}Pronto para Retirada
-          {% else %}Em Processamento{% endif %}
-        </h1>
-        <p class="opacity-80">{{ order.code }}</p>
+      <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+        {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
+          <i data-lucide="x-circle" class="w-8 h-8"></i>
+        {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
+          <i data-lucide="check-circle" class="w-8 h-8"></i>
+        {% elif order.delivery_status == 'shipped' %}
+          <i data-lucide="truck" class="w-8 h-8"></i>
+        {% elif order.delivery_status == 'ready_for_pickup' %}
+          <i data-lucide="package-check" class="w-8 h-8"></i>
+        {% elif order.delivery_status == 'expired' %}
+          <i data-lucide="clock" class="w-8 h-8"></i>
+        {% else %}
+          <i data-lucide="loader" class="w-8 h-8"></i>
+        {% endif %}
       </div>
       
-      <!-- Progress Steps -->
-      {% if order.order_status != 'cancelled' %}
-      <div class="p-6 bg-slate-50">
-        <div class="flex items-center justify-between">
-          
-          <!-- Step 1: Confirmado -->
-          <div class="flex flex-col items-center flex-1">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
-              {% if order.order_status != 'pending' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
-              <i data-lucide="check" class="w-5 h-5"></i>
-            </div>
-            <span class="text-xs font-medium text-slate-600 text-center">Confirmado</span>
+      <h1 class="text-2xl font-bold mb-1">{{ order.status_display }}</h1>
+      <p class="opacity-80 font-mono">{{ order.code }}</p>
+    </div>
+    
+    <!-- Progress Steps -->
+    {% if order.order_status != 'cancelled' and order.order_status != 'returned' and order.delivery_status != 'expired' %}
+    <div class="p-6 bg-slate-50">
+      <div class="flex items-center justify-between">
+        
+        <!-- Step 1 -->
+        <div class="flex flex-col items-center flex-1">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-emerald-500 text-white">
+            <i data-lucide="check" class="w-5 h-5"></i>
           </div>
-          
-          <!-- Line -->
-          <div class="step-line flex-1 {% if order.delivery_status != 'pending' %}active{% endif %}"></div>
-          
-          <!-- Step 2: Preparando/Enviado -->
-          <div class="flex flex-col items-center flex-1">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
-              {% if order.delivery_status == 'shipped' or order.delivery_status == 'delivered' or order.delivery_status == 'ready_for_pickup' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
-              {% if order.delivery_type == 'pickup' %}
-                <i data-lucide="package-check" class="w-5 h-5"></i>
-              {% else %}
-                <i data-lucide="truck" class="w-5 h-5"></i>
-              {% endif %}
-            </div>
-            <span class="text-xs font-medium text-slate-600 text-center">
-              {% if order.delivery_type == 'pickup' %}Pronto{% else %}Enviado{% endif %}
-            </span>
+          <span class="text-xs font-medium text-slate-600 text-center">Confirmado</span>
+        </div>
+        
+        <div class="h-1 flex-1 bg-slate-200 {% if order.delivery_status != 'pending' %}bg-emerald-500{% endif %}"></div>
+        
+        <!-- Step 2 -->
+        <div class="flex flex-col items-center flex-1">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
+            {% if order.delivery_status == 'shipped' or order.delivery_status == 'delivered' or order.delivery_status == 'ready_for_pickup' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+            {% if order.delivery_type == 'pickup' %}
+              <i data-lucide="package-check" class="w-5 h-5"></i>
+            {% else %}
+              <i data-lucide="truck" class="w-5 h-5"></i>
+            {% endif %}
           </div>
-          
-          <!-- Line -->
-          <div class="step-line flex-1 {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}active{% endif %}"></div>
-          
-          <!-- Step 3: Entregue -->
-          <div class="flex flex-col items-center flex-1">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
-              {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
-              <i data-lucide="check-circle" class="w-5 h-5"></i>
-            </div>
-            <span class="text-xs font-medium text-slate-600 text-center">
-              {% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}
-            </span>
+          <span class="text-xs font-medium text-slate-600 text-center">
+            {% if order.delivery_type == 'pickup' %}Pronto{% else %}Enviado{% endif %}
+          </span>
+        </div>
+        
+        <div class="h-1 flex-1 bg-slate-200 {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500{% endif %}"></div>
+        
+        <!-- Step 3 -->
+        <div class="flex flex-col items-center flex-1">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
+            {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
           </div>
-          
+          <span class="text-xs font-medium text-slate-600 text-center">
+            {% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}
+          </span>
+        </div>
+        
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Details -->
+    <div class="p-6 space-y-4">
+      
+      <!-- Loja -->
+      <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="store" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">Vendido por</p>
+          <p class="font-semibold text-slate-800">{{ order.tenant.name }}</p>
+        </div>
+      </div>
+      
+      <!-- Tipo de Entrega -->
+      <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center
+          {% if order.delivery_type == 'pickup' %}bg-amber-100{% elif order.delivery_type == 'motoboy' %}bg-blue-100{% else %}bg-emerald-100{% endif %}">
+          {% if order.delivery_type == 'pickup' %}
+            <i data-lucide="store" class="w-5 h-5 text-amber-600"></i>
+          {% elif order.delivery_type == 'motoboy' %}
+            <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
+          {% else %}
+            <i data-lucide="package" class="w-5 h-5 text-emerald-600"></i>
+          {% endif %}
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">Tipo de Entrega</p>
+          <p class="font-semibold text-slate-800">{{ order.get_delivery_type_display }}</p>
+        </div>
+      </div>
+      
+      <!-- Endereço (se tiver) -->
+      {% if order.delivery_address %}
+      <div class="p-4 bg-slate-50 rounded-xl">
+        <div class="flex items-start gap-3">
+          <i data-lucide="map-pin" class="w-5 h-5 text-slate-400 mt-0.5"></i>
+          <div>
+            <p class="text-xs text-slate-500 mb-1">Endereço de Entrega</p>
+            <p class="text-sm text-slate-700 whitespace-pre-line">{{ order.delivery_address }}</p>
+          </div>
         </div>
       </div>
       {% endif %}
       
-      <!-- Details -->
-      <div class="p-6 space-y-4">
-        
-        <!-- Loja -->
-        <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-          <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <i data-lucide="store" class="w-5 h-5 text-indigo-600"></i>
-          </div>
+      <!-- Rastreio -->
+      {% if order.tracking_code %}
+      <div class="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl">
+        <div class="flex items-center justify-between">
           <div>
-            <p class="text-xs text-slate-500">Vendido por</p>
-            <p class="font-semibold text-slate-800">{{ order.tenant.name }}</p>
+            <p class="text-xs text-indigo-600 font-semibold mb-1">Código de Rastreio</p>
+            <p class="font-mono text-xl font-bold text-indigo-700">{{ order.tracking_code }}</p>
           </div>
-        </div>
-        
-        <!-- Tipo de Entrega -->
-        <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center
-            {% if order.delivery_type == 'pickup' %}bg-amber-100{% elif order.delivery_type == 'motoboy' %}bg-blue-100{% else %}bg-emerald-100{% endif %}">
-            {% if order.delivery_type == 'pickup' %}
-              <i data-lucide="store" class="w-5 h-5 text-amber-600"></i>
-            {% elif order.delivery_type == 'motoboy' %}
-              <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
-            {% else %}
-              <i data-lucide="package" class="w-5 h-5 text-emerald-600"></i>
-            {% endif %}
-          </div>
-          <div>
-            <p class="text-xs text-slate-500">Tipo de Entrega</p>
-            <p class="font-semibold text-slate-800">{{ order.get_delivery_type_display }}</p>
-          </div>
-        </div>
-        
-        <!-- Rastreio -->
-        {% if order.tracking_code %}
-        <div class="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-xs text-indigo-600 font-semibold mb-1">Código de Rastreio</p>
-              <p class="font-mono text-xl font-bold text-indigo-700">{{ order.tracking_code }}</p>
-            </div>
-            {% if order.tracking_url %}
-            <a href="{{ order.tracking_url }}" target="_blank" class="px-4 py-2 bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-600 transition-colors flex items-center gap-2">
-              <i data-lucide="external-link" class="w-4 h-4"></i>
-              Rastrear
-            </a>
-            {% endif %}
-          </div>
-        </div>
-        {% endif %}
-        
-        <!-- Aviso Retirada -->
-        {% if order.delivery_type == 'pickup' and order.delivery_status == 'ready_for_pickup' %}
-        <div class="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl text-center">
-          <i data-lucide="map-pin" class="w-8 h-8 text-purple-500 mx-auto mb-2"></i>
-          <p class="font-bold text-purple-800 mb-1">Seu pedido está pronto!</p>
-          <p class="text-sm text-purple-600">Dirija-se à loja para retirar</p>
-        </div>
-        {% endif %}
-        
-        <!-- Timestamps -->
-        <div class="pt-4 border-t border-slate-100 space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-slate-500">Pedido realizado</span>
-            <span class="text-slate-700">{{ order.created_at|date:"d/m/Y H:i" }}</span>
-          </div>
-          {% if order.shipped_at %}
-          <div class="flex justify-between">
-            <span class="text-slate-500">{% if order.delivery_type == 'pickup' %}Liberado{% else %}Enviado{% endif %}</span>
-            <span class="text-slate-700">{{ order.shipped_at|date:"d/m/Y H:i" }}</span>
-          </div>
-          {% endif %}
-          {% if order.delivered_at %}
-          <div class="flex justify-between">
-            <span class="text-slate-500">{% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}</span>
-            <span class="text-slate-700">{{ order.delivered_at|date:"d/m/Y H:i" }}</span>
-          </div>
+          {% if order.tracking_url %}
+          <a href="{{ order.tracking_url }}" target="_blank" class="px-4 py-2 bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-600 transition-colors flex items-center gap-2">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            Rastrear
+          </a>
           {% endif %}
         </div>
-        
+      </div>
+      {% endif %}
+      
+      <!-- Aviso Retirada -->
+      {% if order.delivery_type == 'pickup' and order.delivery_status == 'ready_for_pickup' %}
+      <div class="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl text-center">
+        <i data-lucide="bell" class="w-8 h-8 text-purple-500 mx-auto mb-2"></i>
+        <p class="font-bold text-purple-800 mb-1">Seu pedido está pronto!</p>
+        <p class="text-sm text-purple-600">Dirija-se à loja para retirar</p>
+        {% if order.hours_until_expiry %}
+        <p class="text-xs text-purple-500 mt-2">⏰ Retire em até {{ order.hours_until_expiry }}h</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      <!-- Timestamps -->
+      <div class="pt-4 border-t border-slate-100 space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Pedido realizado</span>
+          <span class="text-slate-700">{{ order.created_at|date:"d/m/Y H:i" }}</span>
+        </div>
+        {% if order.shipped_at %}
+        <div class="flex justify-between">
+          <span class="text-slate-500">{% if order.delivery_type == 'pickup' %}Liberado{% else %}Enviado{% endif %}</span>
+          <span class="text-slate-700">{{ order.shipped_at|date:"d/m/Y H:i" }}</span>
+        </div>
+        {% endif %}
+        {% if order.delivered_at %}
+        <div class="flex justify-between">
+          <span class="text-slate-500">{% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}</span>
+          <span class="text-slate-700">{{ order.delivered_at|date:"d/m/Y H:i" }}</span>
+        </div>
+        {% endif %}
       </div>
       
     </div>
-    
-    <!-- Help -->
-    <div class="text-center text-slate-400 text-sm">
-      <p>Dúvidas? Entre em contato com {{ order.tenant.name }}</p>
-    </div>
-    
   </div>
   
-  <script>lucide.createIcons();</script>
-</body>
-</html>
+  <!-- Activities -->
+  {% if activities %}
+  <div class="glass-card rounded-2xl p-5">
+    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+      <i data-lucide="activity" class="w-5 h-5"></i>
+      Histórico
+    </h3>
+    <div class="space-y-3">
+      {% for activity in activities %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-2 h-2 rounded-full bg-indigo-500 mt-2"></div>
+        <div class="flex-1">
+          <p class="text-slate-700">{{ activity.description }}</p>
+          <p class="text-xs text-slate-400">{{ activity.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Help -->
+  <div class="mt-6 text-center text-sm text-slate-400">
+    <p>Dúvidas? Entre em contato com {{ order.tenant.name }}</p>
+  </div>
+  
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "tracking/base.html" %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <i data-lucide="package" class="w-8 h-8 text-white"></i>
+      </div>
+      <h1 class="text-2xl font-bold text-white mb-1">Acompanhe seus Pedidos</h1>
+      <p class="text-slate-400">Entre com seus dados para ver seus pedidos</p>
+    </div>
+    
+    <!-- Card -->
+    <div class="glass-card rounded-2xl shadow-2xl p-6">
+      
+      {% if error %}
+      <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+        <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0"></i>
+        <span class="text-sm">{{ error }}</span>
+      </div>
+      {% endif %}
+      
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">CPF ou Telefone</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              name="identifier" 
+              id="identifier"
+              required
+              placeholder="000.000.000-00 ou (00) 00000-0000"
+              class="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+              autofocus
+            >
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            Verificação <span class="text-slate-400 font-normal">(últimos 4 dígitos)</span>
+          </label>
+          <div class="relative">
+            <i data-lucide="shield" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              name="verification"
+              id="verification" 
+              required
+              maxlength="4"
+              placeholder="0000"
+              class="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all tracking-widest text-center text-lg font-mono"
+            >
+          </div>
+          <p class="text-xs text-slate-500 mt-2" id="verification-hint">
+            Se entrar com CPF, digite os últimos 4 dígitos do seu telefone.<br>
+            Se entrar com telefone, digite os últimos 4 dígitos do seu CPF.
+          </p>
+        </div>
+        
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all">
+          <i data-lucide="log-in" class="w-5 h-5 inline-block mr-2"></i>
+          Entrar
+        </button>
+      </form>
+      
+      <div class="mt-6 pt-6 border-t border-slate-100 text-center">
+        <p class="text-sm text-slate-500 mb-3">Tem o código do pedido?</p>
+        <a href="{% url 'tracking_search' %}" class="text-indigo-600 font-medium hover:text-indigo-700">
+          Buscar por código →
+        </a>
+      </div>
+      
+    </div>
+    
+    <!-- Help -->
+    <div class="mt-6 text-center text-sm text-slate-400">
+      <p>Seus dados estão seguros e são usados apenas para identificação.</p>
+    </div>
+    
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Auto-format CPF/Phone
+  document.getElementById('identifier').addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    
+    if (v.length <= 11) {
+      // CPF: 000.000.000-00
+      if (v.length > 9) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
+      else if (v.length > 6) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
+      else if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
+    } else {
+      // Phone: (00) 00000-0000
+      if (v.length > 11) v = v.slice(0, 11);
+      if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+      else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+      else if (v.length > 0) v = '(' + v;
+    }
+    
+    e.target.value = v;
+  });
+</script>
+{% endblock %}

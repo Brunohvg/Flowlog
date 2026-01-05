@@ -6,102 +6,350 @@
 
 {% block content %}
 
-<div class="max-w-3xl mx-auto">
+<div class="max-w-4xl mx-auto space-y-6">
   
-  <form method="post" class="space-y-6">
-    {% csrf_token %}
-    
-    <!-- Empresa -->
-    <div class="card p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="building-2" class="w-5 h-5 text-indigo-600"></i>
-        </div>
-        <div>
-          <h3 class="font-bold text-slate-800">Dados da Empresa</h3>
-          <p class="text-sm text-slate-500">Informações do seu negócio</p>
-        </div>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="form-label">Nome da Empresa</label>
-          <input type="text" value="{{ tenant.name }}" disabled class="form-input bg-slate-50">
-        </div>
-        <div>
-          <label class="form-label">E-mail</label>
-          <input type="email" value="{{ tenant.contact_email }}" disabled class="form-input bg-slate-50">
-        </div>
-      </div>
-    </div>
-    
-    <!-- WhatsApp -->
-    <div class="card p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="message-circle" class="w-5 h-5 text-emerald-600"></i>
-        </div>
-        <div>
-          <h3 class="font-bold text-slate-800">Notificações WhatsApp</h3>
-          <p class="text-sm text-slate-500">Configure as mensagens automáticas</p>
-        </div>
-      </div>
-      
-      <!-- Toggle -->
-      <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-6">
-        <div>
-          <p class="font-semibold text-slate-800">Ativar notificações</p>
-          <p class="text-sm text-slate-500">Enviar mensagens automáticas</p>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
-          <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-indigo-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
-        </label>
-      </div>
-      
-      <!-- Mensagens -->
-      <div class="space-y-5">
-        <div>
-          <label class="form-label">Pedido Criado <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}, {valor}</span></label>
-          <textarea name="msg_order_created" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
-        </div>
-        
-        <div>
-          <label class="form-label">Pedido Enviado <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}</span></label>
-          <textarea name="msg_order_shipped" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
-        </div>
-        
-        <div>
-          <label class="form-label">Pedido Entregue <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}</span></label>
-          <textarea name="msg_order_delivered" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
-        </div>
-        
-        <div>
-          <label class="form-label">Pronto para Retirada <span class="text-slate-400 font-normal text-xs">{nome}, {codigo}, {valor}</span></label>
-          <textarea name="msg_order_ready_for_pickup" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Dicas -->
-    <div class="card p-5 bg-blue-50 border-blue-200">
-      <div class="flex items-start gap-3">
-        <i data-lucide="lightbulb" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
-        <div class="text-sm text-blue-700">
-          <p class="font-semibold mb-1">Variáveis disponíveis:</p>
-          <p><code class="bg-blue-100 px-1 rounded">{nome}</code> Nome do cliente, <code class="bg-blue-100 px-1 rounded">{codigo}</code> Código do pedido, <code class="bg-blue-100 px-1 rounded">{valor}</code> Valor formatado</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="flex justify-end gap-3">
-      <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancelar</a>
-      <button type="submit" class="btn btn-primary">
-        <i data-lucide="check" class="w-4 h-4"></i> Salvar
+  <!-- Tabs -->
+  <div class="border-b border-slate-200">
+    <nav class="flex gap-4" id="settings-tabs">
+      <button type="button" data-tab="store" class="tab-btn active pb-3 px-1 text-sm font-medium border-b-2 border-indigo-500 text-indigo-600">
+        <i data-lucide="store" class="w-4 h-4 inline-block mr-1"></i> Loja
       </button>
-    </div>
-  </form>
+      <button type="button" data-tab="whatsapp" class="tab-btn pb-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i data-lucide="smartphone" class="w-4 h-4 inline-block mr-1"></i> WhatsApp
+      </button>
+      <button type="button" data-tab="messages" class="tab-btn pb-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i data-lucide="message-square" class="w-4 h-4 inline-block mr-1"></i> Mensagens
+      </button>
+    </nav>
+  </div>
+  
+  <!-- Tab: Loja -->
+  <div id="tab-store" class="tab-content">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_store">
+      
+      <div class="card p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="building-2" class="w-5 h-5 text-indigo-600"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Dados da Loja</h3>
+            <p class="text-sm text-slate-500">Informações usadas nas mensagens</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="form-label">Nome da Loja</label>
+            <input type="text" name="store_name" value="{{ tenant.name }}" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">E-mail de Contato</label>
+            <input type="email" name="contact_email" value="{{ tenant.contact_email }}" class="form-input">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="form-label">Telefone</label>
+            <input type="text" name="contact_phone" value="{{ tenant.contact_phone }}" placeholder="(11) 99999-9999" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">Slug</label>
+            <input type="text" value="{{ tenant.slug }}" disabled class="form-input bg-slate-50 text-slate-500">
+          </div>
+        </div>
+        
+        <div>
+          <label class="form-label">Endereço para Retirada</label>
+          <textarea name="address" rows="2" class="form-textarea" placeholder="Rua, número, bairro, cidade...">{{ tenant.address }}</textarea>
+          <p class="text-xs text-slate-500 mt-1">Usado na mensagem de "Pronto para Retirada"</p>
+        </div>
+        
+        <div class="flex justify-end mt-6">
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Tab: WhatsApp -->
+  <div id="tab-whatsapp" class="tab-content hidden">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_whatsapp">
+      
+      <div class="card p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Integração WhatsApp</h3>
+            <p class="text-sm text-slate-500">Configure sua instância da Evolution API</p>
+          </div>
+          
+          <!-- Status -->
+          <div class="ml-auto">
+            {% if tenant_settings.whatsapp_connected %}
+              <span class="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                Conectado
+              </span>
+            {% elif tenant_settings.is_whatsapp_configured %}
+              <span class="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                Configurado
+              </span>
+            {% else %}
+              <span class="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
+                <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+                Não configurado
+              </span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Toggle -->
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-6">
+          <div>
+            <p class="font-semibold text-slate-800">Ativar notificações</p>
+            <p class="text-sm text-slate-500">Enviar mensagens automáticas via WhatsApp</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
+            <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-emerald-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+        
+        <!-- API Config -->
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="form-label">URL da Evolution API</label>
+            <input type="url" name="evolution_api_url" value="{{ tenant_settings.evolution_api_url }}" placeholder="https://api.evolution.exemplo.com" class="form-input">
+          </div>
+          
+          <div>
+            <label class="form-label">API Key</label>
+            <input type="password" name="evolution_api_key" value="{{ tenant_settings.evolution_api_key }}" placeholder="Sua chave de API" class="form-input">
+          </div>
+          
+          <div>
+            <label class="form-label">Nome da Instância</label>
+            <input type="text" name="evolution_instance" value="{{ tenant_settings.evolution_instance }}" placeholder="minha-loja" class="form-input">
+          </div>
+        </div>
+        
+        {% if tenant_settings.whatsapp_number %}
+        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl mb-6">
+          <div class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+            <div>
+              <p class="font-medium text-emerald-800">Número conectado</p>
+              <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Info -->
+        <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
+          <div class="flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
+            <div class="text-sm text-blue-700">
+              <p class="font-semibold mb-1">Como configurar:</p>
+              <ol class="list-decimal list-inside space-y-1">
+                <li>Tenha uma instância da Evolution API rodando</li>
+                <li>Crie uma nova instância no painel da Evolution</li>
+                <li>Copie a URL, API Key e nome da instância</li>
+                <li>Cole aqui e clique em "Testar Conexão"</li>
+                <li>Escaneie o QR Code no painel da Evolution</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-between">
+          <button type="submit" name="action" value="test_whatsapp" class="btn btn-secondary">
+            <i data-lucide="wifi" class="w-4 h-4"></i> Testar Conexão
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Tab: Mensagens -->
+  <div id="tab-messages" class="tab-content hidden">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_messages">
+      
+      <!-- Placeholders -->
+      <div class="card p-4 bg-blue-50 border-blue-200 mb-6">
+        <div class="flex items-start gap-3">
+          <i data-lucide="lightbulb" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
+          <div class="text-sm text-blue-700">
+            <p class="font-semibold mb-2">Variáveis disponíveis:</p>
+            <div class="flex flex-wrap gap-2">
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{nome}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{codigo}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{valor}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{loja}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{link_rastreio}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{endereco}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{rastreio}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{tentativa}</code>
+              <code class="bg-blue-100 px-2 py-0.5 rounded">{motivo}</code>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mensagens de Pedido -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i>
+          Pedido
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Pedido Criado</label>
+            <textarea name="msg_order_created" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Pedido Confirmado</label>
+            <textarea name="msg_order_confirmed" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_confirmed }}</textarea>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mensagens de Pagamento -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i data-lucide="credit-card" class="w-5 h-5 text-emerald-500"></i>
+          Pagamento
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Pagamento Recebido</label>
+            <textarea name="msg_payment_received" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_received }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Pagamento Estornado</label>
+            <textarea name="msg_payment_refunded" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_refunded }}</textarea>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mensagens de Entrega -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i data-lucide="truck" class="w-5 h-5 text-blue-500"></i>
+          Entrega
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="form-label">Pedido Enviado</label>
+            <textarea name="msg_order_shipped" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Pedido Entregue</label>
+            <textarea name="msg_order_delivered" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Tentativa de Entrega Falha</label>
+          <textarea name="msg_delivery_failed" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_delivery_failed }}</textarea>
+        </div>
+      </div>
+      
+      <!-- Mensagens de Retirada -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i data-lucide="store" class="w-5 h-5 text-purple-500"></i>
+          Retirada
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="form-label">Pronto para Retirada</label>
+            <textarea name="msg_order_ready_for_pickup" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Pedido Retirado</label>
+            <textarea name="msg_order_picked_up" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_picked_up }}</textarea>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Retirada Expirada (48h)</label>
+          <textarea name="msg_order_expired" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_expired }}</textarea>
+        </div>
+      </div>
+      
+      <!-- Mensagens de Cancelamento -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i data-lucide="x-circle" class="w-5 h-5 text-red-500"></i>
+          Cancelamento / Devolução
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Pedido Cancelado</label>
+            <textarea name="msg_order_cancelled" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_cancelled }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Pedido Devolvido</label>
+            <textarea name="msg_order_returned" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_returned }}</textarea>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex justify-end">
+        <button type="submit" class="btn btn-primary">
+          <i data-lucide="check" class="w-4 h-4"></i> Salvar Mensagens
+        </button>
+      </div>
+    </form>
+  </div>
   
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      
+      // Remove active from all tabs
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active', 'border-indigo-500', 'text-indigo-600');
+        b.classList.add('border-transparent', 'text-slate-500');
+      });
+      
+      // Add active to clicked tab
+      btn.classList.add('active', 'border-indigo-500', 'text-indigo-600');
+      btn.classList.remove('border-transparent', 'text-slate-500');
+      
+      // Hide all content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      
+      // Show selected content
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+    });
+  });
+</script>
 {% endblock %}

@@ -1,7 +1,7 @@
 {% extends "base/base.html" %}
 {% load flowlog_tags %}
 
-{% block title %}Editar {{ order.code }} - Flowlog{% endblock %}
+{% block title %}Editar Pedido - Flowlog{% endblock %}
 {% block page_title %}Editar Pedido{% endblock %}
 {% block page_subtitle %}{{ order.code }}{% endblock %}
 
@@ -18,70 +18,94 @@
   <form method="post" class="space-y-6">
     {% csrf_token %}
     
-    <!-- Info do Pedido (não editável) -->
+    <!-- Cliente (read-only) -->
     <div class="card p-6">
-      <h3 class="font-bold text-slate-800 mb-4">Informações do Pedido</h3>
-      
-      <div class="grid grid-cols-2 gap-4">
-        <div class="p-4 bg-slate-50 rounded-xl">
-          <p class="text-xs text-slate-500 mb-1">Código</p>
-          <p class="font-mono font-bold text-slate-800">{{ order.code }}</p>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="user" class="w-5 h-5 text-blue-600"></i>
         </div>
-        <div class="p-4 bg-slate-50 rounded-xl">
-          <p class="text-xs text-slate-500 mb-1">Cliente</p>
-          <p class="font-medium text-slate-800">{{ order.customer.name }}</p>
-        </div>
-        <div class="p-4 bg-slate-50 rounded-xl">
-          <p class="text-xs text-slate-500 mb-1">Tipo de Entrega</p>
-          <p class="text-slate-800">{{ order.get_delivery_type_display }}</p>
-        </div>
-        <div class="p-4 bg-slate-50 rounded-xl">
-          <p class="text-xs text-slate-500 mb-1">Status</p>
-          <p class="text-slate-800">{{ order.get_delivery_status_display }}</p>
-        </div>
+        <h3 class="font-bold text-slate-800">Cliente</h3>
       </div>
+      
+      <div class="p-4 bg-slate-50 rounded-xl">
+        <p class="font-semibold text-slate-800">{{ order.customer.name }}</p>
+        <p class="text-slate-500">{{ order.customer.phone }}</p>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Para alterar o cliente, cancele este pedido e crie um novo.</p>
     </div>
     
-    <!-- Valor -->
+    <!-- Valor e Prioridade -->
     <div class="card p-6">
-      <h3 class="font-bold text-slate-800 mb-4">Valor</h3>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-800">Valor</h3>
+      </div>
       
-      <div>
-        <label class="form-label">Valor Total (R$)</label>
-        <input type="text" name="total_value" value="{{ order.total_value }}" class="form-input" id="value-input" placeholder="0,00">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Valor Total (R$) *</label>
+          <input type="text" name="total_value" value="{{ order.total_value|currency }}" required class="form-input" id="value-input">
+        </div>
+        
+        <div class="flex items-center">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="is_priority" {% if order.is_priority %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500">
+            <div>
+              <p class="font-semibold text-slate-800">Pedido Prioritário</p>
+              <p class="text-xs text-slate-500">Destaque na lista</p>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
     
     <!-- Endereço -->
     {% if order.delivery_type != 'pickup' %}
     <div class="card p-6">
-      <h3 class="font-bold text-slate-800 mb-4">Endereço de Entrega</h3>
-      
-      <div>
-        <label class="form-label">Endereço Completo</label>
-        <textarea name="delivery_address" rows="4" class="form-textarea">{{ order.delivery_address }}</textarea>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="map-pin" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-800">Endereço de Entrega</h3>
       </div>
+      
+      <textarea name="delivery_address" rows="4" class="form-textarea" placeholder="Endereço completo...">{{ order.delivery_address }}</textarea>
     </div>
     {% endif %}
     
     <!-- Observações -->
     <div class="card p-6">
-      <h3 class="font-bold text-slate-800 mb-4">Observações</h3>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="message-square" class="w-5 h-5 text-slate-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-800">Observações</h3>
+      </div>
       
-      <div>
-        <label class="form-label">Notas do Pedido</label>
-        <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações...">{{ order.notes }}</textarea>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">Observações do Pedido</label>
+          <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações visíveis na etiqueta...">{{ order.notes }}</textarea>
+          <p class="text-xs text-slate-400 mt-1">Visível na etiqueta e para o cliente</p>
+        </div>
+        
+        <div>
+          <label class="form-label">Notas Internas</label>
+          <textarea name="internal_notes" rows="2" class="form-textarea" placeholder="Notas apenas para a equipe...">{{ order.internal_notes }}</textarea>
+          <p class="text-xs text-slate-400 mt-1">Visível apenas para vendedores</p>
+        </div>
       </div>
     </div>
     
-    <!-- Actions -->
-    <div class="flex items-center gap-3">
+    <!-- Ações -->
+    <div class="flex gap-3">
       <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary">Cancelar</a>
       <button type="submit" class="btn btn-primary flex-1">
         <i data-lucide="check" class="w-4 h-4"></i> Salvar Alterações
       </button>
     </div>
-    
   </form>
   
 </div>
@@ -90,8 +114,14 @@
 
 {% block scripts %}
 <script>
+  // Máscara valor
   document.getElementById('value-input').addEventListener('input', function(e) {
-    let v = e.target.value.replace(/[^\d,\.]/g, '');
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 0) {
+      v = (parseInt(v) / 100).toFixed(2);
+      v = v.replace('.', ',');
+      v = v.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
     e.target.value = v;
   });
 </script>

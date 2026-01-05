@@ -6,16 +6,21 @@ from django.urls import path
 
 from .views import (
     order_cancel,
+    order_change_delivery,
     order_create,
     order_detail,
+    order_duplicate,
     order_edit,
     order_label,
     order_list,
     order_mark_delivered,
+    order_mark_failed_attempt,
     order_mark_paid,
     order_mark_picked_up,
     order_mark_shipped,
     order_ready_for_pickup,
+    order_resend_notification,
+    order_return,
 )
 
 urlpatterns = [
@@ -33,13 +38,20 @@ urlpatterns = [
     # Fluxo de entrega
     path("<uuid:order_id>/enviar/", order_mark_shipped, name="order_mark_shipped"),
     path("<uuid:order_id>/entregar/", order_mark_delivered, name="order_mark_delivered"),
+    path("<uuid:order_id>/falha-entrega/", order_mark_failed_attempt, name="order_mark_failed_attempt"),
     
     # Fluxo de retirada
     path("<uuid:order_id>/liberar-retirada/", order_ready_for_pickup, name="order_ready_for_pickup"),
     path("<uuid:order_id>/retirado/", order_mark_picked_up, name="order_mark_picked_up"),
     
-    # Cancelamento
+    # Cancelamento e devolução
     path("<uuid:order_id>/cancelar/", order_cancel, name="order_cancel"),
+    path("<uuid:order_id>/devolver/", order_return, name="order_return"),
+    
+    # Alterações
+    path("<uuid:order_id>/alterar-entrega/", order_change_delivery, name="order_change_delivery"),
+    path("<uuid:order_id>/duplicar/", order_duplicate, name="order_duplicate"),
+    path("<uuid:order_id>/reenviar-notificacao/", order_resend_notification, name="order_resend_notification"),
     
     # Impressão
     path("<uuid:order_id>/etiqueta/", order_label, name="order_label"),

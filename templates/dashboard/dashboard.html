@@ -7,6 +7,29 @@
 
 {% block content %}
 
+<!-- Alertas -->
+{% if alerts %}
+<div class="mb-6 space-y-3">
+  {% for alert in alerts %}
+  <a href="{% url 'order_list' %}{{ alert.url }}" class="block p-4 rounded-xl flex items-center gap-4 transition-all hover:shadow-md
+    {% if alert.type == 'error' %}bg-red-50 border border-red-200 hover:bg-red-100
+    {% elif alert.type == 'warning' %}bg-amber-50 border border-amber-200 hover:bg-amber-100
+    {% else %}bg-blue-50 border border-blue-200 hover:bg-blue-100{% endif %}">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center
+      {% if alert.type == 'error' %}bg-red-100
+      {% elif alert.type == 'warning' %}bg-amber-100
+      {% else %}bg-blue-100{% endif %}">
+      <i data-lucide="{{ alert.icon }}" class="w-5 h-5 {% if alert.type == 'error' %}text-red-600{% elif alert.type == 'warning' %}text-amber-600{% else %}text-blue-600{% endif %}"></i>
+    </div>
+    <div class="flex-1">
+      <p class="font-semibold {% if alert.type == 'error' %}text-red-800{% elif alert.type == 'warning' %}text-amber-800{% else %}text-blue-800{% endif %}">{{ alert.message }}</p>
+    </div>
+    <i data-lucide="chevron-right" class="w-5 h-5 {% if alert.type == 'error' %}text-red-400{% elif alert.type == 'warning' %}text-amber-400{% else %}text-blue-400{% endif %}"></i>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- Stats Grid -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
   
