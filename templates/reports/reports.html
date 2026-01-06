@@ -1,236 +1,247 @@
-{% extends "base/base.html" %}
-{% load flowlog_tags %}
+  {% extends "base/base.html" %}
+  {% load flowlog_tags %}
 
-{% block title %}Relatórios - Flowlog{% endblock %}
-{% block page_title %}Relatórios{% endblock %}
-{% block page_subtitle %}Análises detalhadas do seu negócio{% endblock %}
+  {% block title %}Relatórios | Flowlog{% endblock %}
 
-{% block content %}
+  {% block content %}
+  <div class="space-y-8">
 
-<!-- Filtro Período -->
-<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-  <div class="flex bg-white rounded-xl border border-slate-200 p-1">
-    <a href="?period=7" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '7' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">7 dias</a>
-    <a href="?period=30" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '30' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">30 dias</a>
-    <a href="?period=90" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '90' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">90 dias</a>
-    <a href="?period=365" class="px-4 py-2 text-sm rounded-lg transition-all {% if period == '365' %}bg-indigo-500 text-white{% else %}hover:bg-slate-100{% endif %}">1 ano</a>
-  </div>
-  
-  <button onclick="window.print()" class="btn btn-secondary btn-sm">
-    <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
-  </button>
-</div>
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+          <div>
+              <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Relatórios de Performance</h1>
+              <p class="text-slate-500 text-sm">Análise detalhada do período selecionado.</p>
+          </div>
 
-<!-- Resumo -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="card p-5">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-slate-800">{{ summary.total_orders|default:0 }}</p>
-    <p class="text-sm text-slate-500">Total de Pedidos</p>
-  </div>
-  
-  <div class="card p-5">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-emerald-600">R$ {{ summary.total_revenue|currency }}</p>
-    <p class="text-sm text-slate-500">Faturamento</p>
-  </div>
-  
-  <div class="card p-5">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="receipt" class="w-5 h-5 text-blue-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-slate-800">R$ {{ summary.avg_ticket|currency }}</p>
-    <p class="text-sm text-slate-500">Ticket Médio</p>
-  </div>
-  
-  <div class="card p-5">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="calendar" class="w-5 h-5 text-amber-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-slate-800">{{ start_date|date:"d/m/Y" }}</p>
-    <p class="text-sm text-slate-500">Desde</p>
-  </div>
-</div>
+          <div class="flex flex-wrap items-center gap-3">
+              <div class="bg-white border border-slate-200 p-1 rounded-xl shadow-sm flex items-center">
+                  <a href="?period=7" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '7' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">7D</a>
+                  <a href="?period=30" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '30' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">30D</a>
+                  <a href="?period=90" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '90' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">90D</a>
+                  <a href="?period=365" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '365' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">1 Ano</a>
+              </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-  
-  <!-- Por Status -->
-  <div class="card p-5">
-    <h3 class="font-bold text-slate-800 mb-4">Pedidos por Status</h3>
-    
-    <div class="space-y-4">
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Pendentes</span>
-          <span class="font-semibold text-slate-800">{{ status_data.pending }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2.5">
-          <div class="bg-amber-500 h-2.5 rounded-full" style="width: {% widthratio status_data.pending summary.total_orders 100 %}%"></div>
-        </div>
+              <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
+                  <i data-lucide="printer" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Imprimir</span>
+              </button>
+          </div>
       </div>
-      
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Enviados</span>
-          <span class="font-semibold text-slate-800">{{ status_data.shipped }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2.5">
-          <div class="bg-blue-500 h-2.5 rounded-full" style="width: {% widthratio status_data.shipped summary.total_orders 100 %}%"></div>
-        </div>
-      </div>
-      
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Entregues</span>
-          <span class="font-semibold text-slate-800">{{ status_data.delivered }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2.5">
-          <div class="bg-emerald-500 h-2.5 rounded-full" style="width: {% widthratio status_data.delivered summary.total_orders 100 %}%"></div>
-        </div>
-      </div>
-      
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Cancelados</span>
-          <span class="font-semibold text-slate-800">{{ status_data.cancelled }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2.5">
-          <div class="bg-red-500 h-2.5 rounded-full" style="width: {% widthratio status_data.cancelled summary.total_orders 100 %}%"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Por Pagamento -->
-  <div class="card p-5">
-    <h3 class="font-bold text-slate-800 mb-4">Situação de Pagamento</h3>
-    
-    <div class="grid grid-cols-2 gap-4">
-      <div class="p-4 bg-emerald-50 rounded-xl text-center">
-        <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
-        </div>
-        <p class="text-2xl font-bold text-slate-800">{{ payment_data.paid.count|default:0 }}</p>
-        <p class="text-sm text-slate-500 mb-1">Pagos</p>
-        <p class="text-lg font-bold text-emerald-600">R$ {{ payment_data.paid.value|currency }}</p>
-      </div>
-      
-      <div class="p-4 bg-amber-50 rounded-xl text-center">
-        <div class="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <i data-lucide="clock" class="w-6 h-6 text-white"></i>
-        </div>
-        <p class="text-2xl font-bold text-slate-800">{{ payment_data.pending.count|default:0 }}</p>
-        <p class="text-sm text-slate-500 mb-1">Pendentes</p>
-        <p class="text-lg font-bold text-amber-600">R$ {{ payment_data.pending.value|currency }}</p>
-      </div>
-    </div>
-  </div>
-  
-</div>
 
-<!-- Por Tipo de Entrega -->
-<div class="card p-5 mb-6">
-  <h3 class="font-bold text-slate-800 mb-4">Detalhamento por Tipo de Entrega</h3>
-  
-  <div class="overflow-x-auto">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Tipo</th>
-          <th class="text-right">Qtd</th>
-          <th class="text-right">%</th>
-          <th class="text-right">Valor Total</th>
-          <th class="text-right">Ticket Médio</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in type_data %}
-        <tr>
-          <td>
-            <div class="flex items-center gap-2">
-              {% if item.type == 'motoboy' %}
-                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><i data-lucide="bike" class="w-4 h-4 text-blue-600"></i></div>
-              {% elif item.type == 'sedex' %}
-                <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><i data-lucide="zap" class="w-4 h-4 text-rose-600"></i></div>
-              {% elif item.type == 'pac' %}
-                <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><i data-lucide="package" class="w-4 h-4 text-emerald-600"></i></div>
-              {% else %}
-                <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center"><i data-lucide="store" class="w-4 h-4 text-amber-600"></i></div>
-              {% endif %}
-              <span class="font-medium">{{ item.label }}</span>
-            </div>
-          </td>
-          <td class="text-right font-semibold">{{ item.count }}</td>
-          <td class="text-right">{% if summary.total_orders > 0 %}{% widthratio item.count summary.total_orders 100 %}%{% else %}0%{% endif %}</td>
-          <td class="text-right font-semibold">R$ {{ item.value|currency }}</td>
-          <td class="text-right">{% if item.count > 0 %}R$ {% widthratio item.value item.count 1 %}{% else %}R$ 0{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot class="bg-slate-50">
-        <tr>
-          <td class="font-bold">Total</td>
-          <td class="text-right font-bold">{{ summary.total_orders|default:0 }}</td>
-          <td class="text-right font-semibold">100%</td>
-          <td class="text-right font-bold">R$ {{ summary.total_revenue|currency }}</td>
-          <td class="text-right font-semibold">R$ {{ summary.avg_ticket|currency }}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
+      <div class="hidden print:block mb-6">
+          <h1 class="text-3xl font-bold text-black">Relatório Flowlog</h1>
+          <p class="text-gray-600">Período: Últimos {{ period }} dias (A partir de {{ start_date|date:"d/m/Y" }})</p>
+      </div>
 
-<!-- Top Clientes -->
-<div class="card p-5">
-  <h3 class="font-bold text-slate-800 mb-4">Top 10 Clientes</h3>
-  
-  <div class="overflow-x-auto">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Cliente</th>
-          <th>Telefone</th>
-          <th class="text-right">Pedidos</th>
-          <th class="text-right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for customer in top_customers %}
-        <tr>
-          <td>
-            <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full inline-flex items-center justify-center text-xs font-bold">{{ forloop.counter }}</span>
-          </td>
-          <td>
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">{{ customer.name|slice:":1"|upper }}</div>
-              <span class="font-medium">{{ customer.name }}</span>
-            </div>
-          </td>
-          <td class="text-slate-500">{{ customer.phone }}</td>
-          <td class="text-right font-semibold">{{ customer.total_orders }}</td>
-          <td class="text-right font-bold text-emerald-600">R$ {{ customer.total_value|currency }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="5" class="text-center py-8 text-slate-500">Sem dados para o período</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
 
-{% endblock %}
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:border-gray-300 print:shadow-none">
+              <div class="flex items-center gap-3 mb-2">
+                  <div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 print:hidden">
+                      <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                  </div>
+                  <span class="text-sm font-medium text-slate-500">Volume Total</span>
+              </div>
+              <p class="text-2xl font-bold text-slate-900">{{ summary.total_orders|default:0 }}</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:border-gray-300 print:shadow-none">
+              <div class="flex items-center gap-3 mb-2">
+                  <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 print:hidden">
+                      <i data-lucide="wallet" class="w-4 h-4"></i>
+                  </div>
+                  <span class="text-sm font-medium text-slate-500">Receita Total</span>
+              </div>
+              <p class="text-2xl font-bold text-emerald-600">R$ {{ summary.total_revenue|currency }}</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:border-gray-300 print:shadow-none">
+              <div class="flex items-center gap-3 mb-2">
+                  <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 print:hidden">
+                      <i data-lucide="receipt" class="w-4 h-4"></i>
+                  </div>
+                  <span class="text-sm font-medium text-slate-500">Ticket Médio</span>
+              </div>
+              <p class="text-2xl font-bold text-slate-900">R$ {{ summary.avg_ticket|currency }}</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm print:border-gray-300 print:shadow-none">
+              <div class="flex items-center gap-3 mb-2">
+                  <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 print:hidden">
+                      <i data-lucide="calendar" class="w-4 h-4"></i>
+                  </div>
+                  <span class="text-sm font-medium text-slate-500">Análise Desde</span>
+              </div>
+              <p class="text-xl font-bold text-slate-900">{{ start_date|date:"d/m/Y" }}</p>
+          </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:break-inside-avoid print:border-gray-300">
+              <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <i data-lucide="bar-chart-2" class="w-5 h-5 text-slate-400"></i>
+                  Distribuição de Pedidos
+              </h3>
+
+              <div class="space-y-5">
+                  <div>
+                      <div class="flex justify-between text-xs font-medium mb-1.5">
+                          <span class="text-slate-600">Pendentes</span>
+                          <span class="text-slate-900 font-bold">{{ status_data.pending }}</span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-2">
+                          <div class="bg-amber-400 h-2 rounded-full" style="width: {% if summary.total_orders > 0 %}{% widthratio status_data.pending summary.total_orders 100 %}{% else %}0{% endif %}%"></div>
+                      </div>
+                  </div>
+
+                  <div>
+                      <div class="flex justify-between text-xs font-medium mb-1.5">
+                          <span class="text-slate-600">Enviados</span>
+                          <span class="text-slate-900 font-bold">{{ status_data.shipped }}</span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-2">
+                          <div class="bg-indigo-500 h-2 rounded-full" style="width: {% if summary.total_orders > 0 %}{% widthratio status_data.shipped summary.total_orders 100 %}{% else %}0{% endif %}%"></div>
+                      </div>
+                  </div>
+
+                  <div>
+                      <div class="flex justify-between text-xs font-medium mb-1.5">
+                          <span class="text-slate-600">Concluídos</span>
+                          <span class="text-slate-900 font-bold">{{ status_data.delivered }}</span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-2">
+                          <div class="bg-emerald-500 h-2 rounded-full" style="width: {% if summary.total_orders > 0 %}{% widthratio status_data.delivered summary.total_orders 100 %}{% else %}0{% endif %}%"></div>
+                      </div>
+                  </div>
+
+                  <div>
+                      <div class="flex justify-between text-xs font-medium mb-1.5">
+                          <span class="text-slate-600">Cancelados</span>
+                          <span class="text-slate-900 font-bold">{{ status_data.cancelled }}</span>
+                      </div>
+                      <div class="w-full bg-slate-100 rounded-full h-2">
+                          <div class="bg-red-400 h-2 rounded-full" style="width: {% if summary.total_orders > 0 %}{% widthratio status_data.cancelled summary.total_orders 100 %}{% else %}0{% endif %}%"></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col print:break-inside-avoid print:border-gray-300">
+              <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <i data-lucide="banknote" class="w-5 h-5 text-slate-400"></i>
+                  Fluxo Financeiro
+              </h3>
+
+              <div class="flex-1 grid grid-cols-2 gap-4">
+                  <div class="flex flex-col justify-center items-center p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl text-center">
+                      <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+                          <i data-lucide="check" class="w-5 h-5"></i>
+                      </div>
+                      <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Recebido</p>
+                      <p class="text-xl font-bold text-emerald-700 mt-1">R$ {{ payment_data.paid.value|currency }}</p>
+                      <p class="text-xs text-emerald-600 mt-1">{{ payment_data.paid.count|default:0 }} pedidos</p>
+                  </div>
+
+                  <div class="flex flex-col justify-center items-center p-4 bg-amber-50/50 border border-amber-100 rounded-xl text-center">
+                      <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-3">
+                          <i data-lucide="hourglass" class="w-5 h-5"></i>
+                      </div>
+                      <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">A Receber</p>
+                      <p class="text-xl font-bold text-amber-700 mt-1">R$ {{ payment_data.pending.value|currency }}</p>
+                      <p class="text-xs text-amber-600 mt-1">{{ payment_data.pending.count|default:0 }} pedidos</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:border-gray-300 print:shadow-none print:break-inside-avoid">
+          <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 class="font-bold text-slate-800">Performance por Logística</h3>
+          </div>
+          <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                  <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+                      <tr>
+                          <th class="px-6 py-3">Tipo</th>
+                          <th class="px-6 py-3 text-right">Qtd</th>
+                          <th class="px-6 py-3 text-right">Share</th>
+                          <th class="px-6 py-3 text-right">Valor Total</th>
+                      </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-50">
+                      {% for item in type_data %}
+                      <tr class="hover:bg-slate-50/50 transition-colors">
+                          <td class="px-6 py-4">
+                              <div class="flex items-center gap-3">
+                                  {% if item.type == 'motoboy' %}
+                                      <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 print:hidden"><i data-lucide="bike" class="w-4 h-4"></i></div>
+                                  {% elif item.type == 'sedex' %}
+                                      <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center text-rose-600 print:hidden"><i data-lucide="zap" class="w-4 h-4"></i></div>
+                                  {% elif item.type == 'pac' %}
+                                      <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 print:hidden"><i data-lucide="package" class="w-4 h-4"></i></div>
+                                  {% else %}
+                                      <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 print:hidden"><i data-lucide="store" class="w-4 h-4"></i></div>
+                                  {% endif %}
+                                  <span class="font-medium text-slate-700">{{ item.label }}</span>
+                              </div>
+                          </td>
+                          <td class="px-6 py-4 text-right font-medium text-slate-700">{{ item.count }}</td>
+                          <td class="px-6 py-4 text-right text-slate-500">
+                              {% if summary.total_orders > 0 %}{% widthratio item.count summary.total_orders 100 %}{% else %}0{% endif %}%
+                          </td>
+                          <td class="px-6 py-4 text-right font-bold text-slate-800">R$ {{ item.value|currency }}</td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:border-gray-300 print:shadow-none print:break-inside-avoid">
+          <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 class="font-bold text-slate-800">Top 10 Clientes</h3>
+          </div>
+          <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                  <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+                      <tr>
+                          <th class="px-6 py-3 w-10">#</th>
+                          <th class="px-6 py-3">Cliente</th>
+                          <th class="px-6 py-3 text-right">Pedidos</th>
+                          <th class="px-6 py-3 text-right">Total Gasto</th>
+                      </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-50">
+                      {% for customer in top_customers %}
+                      <tr class="hover:bg-slate-50/50 transition-colors">
+                          <td class="px-6 py-4">
+                              <span class="w-6 h-6 bg-slate-100 text-slate-600 rounded-md inline-flex items-center justify-center text-xs font-bold border border-slate-200">
+                                  {{ forloop.counter }}
+                              </span>
+                          </td>
+                          <td class="px-6 py-4">
+                              <div class="flex items-center gap-3">
+                                  <div class="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold uppercase border border-indigo-200 print:hidden">
+                                      {{ customer.name|slice:":1" }}
+                                  </div>
+                                  <div>
+                                      <p class="font-medium text-slate-800">{{ customer.name }}</p>
+                                      <p class="text-xs text-slate-400">{{ customer.phone|default:"-" }}</p>
+                                  </div>
+                              </div>
+                          </td>
+                          <td class="px-6 py-4 text-right text-slate-600">{{ customer.total_orders }}</td>
+                          <td class="px-6 py-4 text-right font-bold text-emerald-600">R$ {{ customer.total_value|currency }}</td>
+                      </tr>
+                      {% empty %}
+                      <tr>
+                          <td colspan="4" class="px-6 py-8 text-center text-slate-400">Nenhum dado encontrado para este período.</td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+
+  </div>
+  {% endblock %}

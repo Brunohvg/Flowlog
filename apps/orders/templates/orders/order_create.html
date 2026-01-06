@@ -1,168 +1,217 @@
 {% extends "base/base.html" %}
 
-{% block title %}Novo Pedido - Flowlog{% endblock %}
-{% block page_title %}Novo Pedido{% endblock %}
-{% block page_subtitle %}Cadastre um novo pedido{% endblock %}
+{% block title %}Novo Pedido | Flowlog{% endblock %}
 
 {% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
 
-<div class="max-w-3xl mx-auto">
-  
-  <form method="post" class="space-y-6">
-    {% csrf_token %}
-    
-    <!-- Cliente -->
-    <div class="card p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="user" class="w-5 h-5 text-indigo-600"></i>
-        </div>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h3 class="font-bold text-slate-800">Dados do Cliente</h3>
-          <p class="text-sm text-slate-500">O cliente será identificado pelo telefone</p>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Novo Pedido</h1>
+            <p class="text-slate-500 text-sm">Preencha o formulário abaixo para registar uma venda.</p>
         </div>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="form-label">Nome do Cliente *</label>
-          <input type="text" name="customer_name" required class="form-input" placeholder="Nome completo" value="{{ request.POST.customer_name }}">
-        </div>
-        
-        <div>
-          <label class="form-label">WhatsApp *</label>
-          <input type="tel" name="customer_phone" required class="form-input" placeholder="(00) 00000-0000" id="phone-input" value="{{ request.POST.customer_phone }}">
-        </div>
-        
-        <div class="md:col-span-2">
-          <label class="form-label">CPF <span class="text-slate-400 font-normal">(opcional)</span></label>
-          <input type="text" name="customer_cpf" class="form-input" placeholder="000.000.000-00" id="cpf-input" value="{{ request.POST.customer_cpf }}">
-          <p class="text-xs text-slate-500 mt-1">O CPF permite que o cliente acompanhe o pedido online</p>
-        </div>
-      </div>
+        <a href="{% url 'order_list' %}" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+            &larr; Voltar para a lista
+        </a>
     </div>
-    
-    <!-- Pedido -->
-    <div class="card p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="shopping-bag" class="w-5 h-5 text-emerald-600"></i>
+
+    <form method="post" class="space-y-6" autocomplete="off">
+        {% csrf_token %}
+
+        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-100">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Dados do Cliente</h3>
+                    <p class="text-xs text-slate-500">Identificação para contato e nota fiscal.</p>
+                </div>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Nome Completo <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" name="customer_name" required
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400 text-sm"
+                               placeholder="Ex: Maria Silva"
+                               value="{{ request.POST.customer_name }}">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">WhatsApp <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i data-lucide="smartphone" class="w-4 h-4"></i>
+                        </span>
+                        <input type="tel" name="customer_phone" required id="phone-input"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400 text-sm"
+                               placeholder="(00) 00000-0000"
+                               value="{{ request.POST.customer_phone }}">
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">CPF <span class="text-slate-400 font-normal normal-case">(Opcional)</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i data-lucide="credit-card" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" name="customer_cpf" id="cpf-input"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400 text-sm"
+                               placeholder="000.000.000-00"
+                               value="{{ request.POST.customer_cpf }}">
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1.5 ml-1">Permite que o cliente consulte o status do pedido online.</p>
+                </div>
+            </div>
         </div>
-        <div>
-          <h3 class="font-bold text-slate-800">Dados do Pedido</h3>
-          <p class="text-sm text-slate-500">Valor e forma de entrega</p>
+
+        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-100">
+                    <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Detalhes da Venda</h3>
+                    <p class="text-xs text-slate-500">Valores e logística de entrega.</p>
+                </div>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Valor Total <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-bold text-sm">R$</span>
+                        <input type="text" name="total_value" required id="value-input"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400 text-sm font-semibold text-slate-700"
+                               placeholder="0,00"
+                               value="{{ request.POST.total_value }}">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Tipo de Entrega <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <select name="delivery_type" id="delivery_type"
+                                class="w-full pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm appearance-none bg-white">
+                            <option value="motoboy" {% if request.POST.delivery_type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
+                            <option value="sedex" {% if request.POST.delivery_type == 'sedex' %}selected{% endif %}>⚡ SEDEX (Correios)</option>
+                            <option value="pac" {% if request.POST.delivery_type == 'pac' %}selected{% endif %}>📦 PAC (Correios)</option>
+                            <option value="pickup" {% if request.POST.delivery_type == 'pickup' %}selected{% endif %}>🏬 Retirada na Loja</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
+                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="correios-info" class="mx-6 mb-6 p-4 bg-amber-50 border border-amber-100 rounded-xl hidden">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        <p class="text-sm font-bold text-amber-800">Atenção</p>
+                        <p class="text-xs text-amber-700 mt-0.5">O código de rastreio dos Correios será solicitado posteriormente, ao alterar o status para "Enviado".</p>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="form-label">Valor Total *</label>
-          <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
-            <input type="text" name="total_value" required class="form-input pl-12" placeholder="0,00" id="value-input" value="{{ request.POST.total_value }}">
-          </div>
+
+        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden" id="address-section">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center border border-blue-100">
+                    <i data-lucide="map-pin" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Endereço de Entrega</h3>
+                    <p class="text-xs text-slate-500">Preenchimento automático pelo CEP.</p>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">CEP</label>
+                        <div class="relative">
+                            <input type="text" id="cep" maxlength="9"
+                                   class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400 text-sm"
+                                   placeholder="00000-000">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Rua / Avenida</label>
+                        <input type="text" id="street" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm" placeholder="Endereço">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Número</label>
+                        <input type="text" id="number" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm" placeholder="Nº">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Complemento</label>
+                        <input type="text" id="complement" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm" placeholder="Apto, Bloco, Referência...">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Bairro</label>
+                        <input type="text" id="neighborhood" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm" placeholder="Bairro">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Cidade</label>
+                        <input type="text" id="city" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm" placeholder="Cidade">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">UF</label>
+                        <input type="text" id="state" maxlength="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-sm uppercase" placeholder="UF">
+                    </div>
+                </div>
+            </div>
+
+            <textarea name="delivery_address" id="delivery_address" class="hidden">{{ request.POST.delivery_address }}</textarea>
         </div>
-        
-        <div>
-          <label class="form-label">Tipo de Entrega *</label>
-          <select name="delivery_type" id="delivery_type" class="form-select">
-            <option value="motoboy" {% if request.POST.delivery_type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
-            <option value="sedex" {% if request.POST.delivery_type == 'sedex' %}selected{% endif %}>⚡ SEDEX (Correios)</option>
-            <option value="pac" {% if request.POST.delivery_type == 'pac' %}selected{% endif %}>📦 PAC (Correios)</option>
-            <option value="pickup" {% if request.POST.delivery_type == 'pickup' %}selected{% endif %}>🏬 Retirada na Loja</option>
-          </select>
+
+        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div class="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center border border-slate-200">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Observações</h3>
+                    <p class="text-xs text-slate-500">Notas internas ou pedidos especiais.</p>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <textarea name="notes" rows="3"
+                          class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-500 focus:ring-4 focus:ring-slate-500/10 outline-none transition-all text-sm placeholder:text-slate-400"
+                          placeholder="Ex: Cliente pediu para ligar antes de entregar...">{{ request.POST.notes }}</textarea>
+            </div>
         </div>
-      </div>
-      
-      <div id="correios-info" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl hidden">
-        <div class="flex items-center gap-3">
-          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
-          <p class="text-sm text-amber-800">O código de rastreio será solicitado ao marcar como enviado</p>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <a href="{% url 'order_list' %}" class="px-6 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                Cancelar
+            </a>
+            <button type="submit" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5">
+                <i data-lucide="check" class="w-4 h-4"></i> Criar Pedido
+            </button>
         </div>
-      </div>
-    </div>
-    
-    <!-- Endereço -->
-    <div class="card p-6" id="address-section">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="map-pin" class="w-5 h-5 text-blue-600"></i>
-        </div>
-        <div>
-          <h3 class="font-bold text-slate-800">Endereço de Entrega</h3>
-          <p class="text-sm text-slate-500">Digite o CEP para preencher automaticamente</p>
-        </div>
-      </div>
-      
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">CEP</label>
-            <input type="text" id="cep" maxlength="9" class="form-input" placeholder="00000-000">
-          </div>
-          <div class="sm:col-span-2">
-            <label class="form-label">Rua</label>
-            <input type="text" id="street" class="form-input" placeholder="Rua / Avenida">
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">Número</label>
-            <input type="text" id="number" class="form-input" placeholder="Nº">
-          </div>
-          <div class="sm:col-span-2">
-            <label class="form-label">Complemento</label>
-            <input type="text" id="complement" class="form-input" placeholder="Apto, Bloco...">
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">Bairro</label>
-            <input type="text" id="neighborhood" class="form-input" placeholder="Bairro">
-          </div>
-          <div>
-            <label class="form-label">Cidade</label>
-            <input type="text" id="city" class="form-input" placeholder="Cidade">
-          </div>
-          <div>
-            <label class="form-label">UF</label>
-            <input type="text" id="state" maxlength="2" class="form-input uppercase" placeholder="UF">
-          </div>
-        </div>
-      </div>
-      
-      <textarea name="delivery_address" id="delivery_address" class="hidden">{{ request.POST.delivery_address }}</textarea>
-    </div>
-    
-    <!-- Observações -->
-    <div class="card p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="message-square" class="w-5 h-5 text-slate-600"></i>
-        </div>
-        <div>
-          <h3 class="font-bold text-slate-800">Observações</h3>
-          <p class="text-sm text-slate-500">Informações adicionais (opcional)</p>
-        </div>
-      </div>
-      
-      <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações sobre o pedido...">{{ request.POST.notes }}</textarea>
-    </div>
-    
-    <!-- Actions -->
-    <div class="flex flex-col sm:flex-row items-center justify-end gap-3">
-      <a href="{% url 'order_list' %}" class="btn btn-secondary w-full sm:w-auto">Cancelar</a>
-      <button type="submit" class="btn btn-primary w-full sm:w-auto">
-        <i data-lucide="check" class="w-4 h-4"></i> Criar Pedido
-      </button>
-    </div>
-    
-  </form>
-  
+
+    </form>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -175,7 +224,7 @@
   const valueInput = document.getElementById('value-input');
   const cepInput = document.getElementById('cep');
   const deliveryAddress = document.getElementById('delivery_address');
-  
+
   const fields = {
     street: document.getElementById('street'),
     number: document.getElementById('number'),
@@ -184,7 +233,7 @@
     city: document.getElementById('city'),
     state: document.getElementById('state'),
   };
-  
+
   // Máscara telefone
   phoneInput.addEventListener('input', function(e) {
     let v = e.target.value.replace(/\D/g, '');
@@ -194,7 +243,7 @@
     else if (v.length > 0) v = '(' + v;
     e.target.value = v;
   });
-  
+
   // Máscara CPF
   cpfInput.addEventListener('input', function(e) {
     let v = e.target.value.replace(/\D/g, '');
@@ -204,37 +253,45 @@
     else if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
     e.target.value = v;
   });
-  
+
   // Máscara valor
   valueInput.addEventListener('input', function(e) {
     let v = e.target.value.replace(/\D/g, '');
     if (v) v = (parseInt(v) / 100).toFixed(2).replace('.', ',');
     e.target.value = v;
   });
-  
+
   // Toggle entrega
   function updateDeliveryType() {
     const type = deliveryType.value;
     addressSection.style.display = type === 'pickup' ? 'none' : 'block';
-    correiosInfo.classList.toggle('hidden', type !== 'sedex' && type !== 'pac');
+    if(type === 'sedex' || type === 'pac') {
+        correiosInfo.classList.remove('hidden');
+    } else {
+        correiosInfo.classList.add('hidden');
+    }
   }
   deliveryType.addEventListener('change', updateDeliveryType);
   updateDeliveryType();
-  
+
   // CEP
   cepInput.addEventListener('input', function(e) {
     let v = e.target.value.replace(/\D/g, '');
     if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5, 8);
     e.target.value = v;
   });
-  
+
   cepInput.addEventListener('blur', function() {
     const cep = cepInput.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
-    
+
+    // Feedback visual simples
+    fields.street.parentElement.classList.add('opacity-50');
+
     fetch(`https://viacep.com.br/ws/${cep}/json/`)
       .then(r => r.json())
       .then(data => {
+        fields.street.parentElement.classList.remove('opacity-50');
         if (data.erro) return;
         fields.street.value = data.logradouro || '';
         fields.neighborhood.value = data.bairro || '';
@@ -242,9 +299,12 @@
         fields.state.value = data.uf || '';
         updateAddress();
         fields.number.focus();
-      }).catch(() => {});
+      })
+      .catch(() => {
+        fields.street.parentElement.classList.remove('opacity-50');
+      });
   });
-  
+
   // Atualizar endereço
   function updateAddress() {
     const parts = [];
@@ -259,7 +319,7 @@
     if (cepInput.value) parts.push('CEP: ' + cepInput.value);
     deliveryAddress.value = parts.join('\n');
   }
-  
+
   Object.values(fields).forEach(el => el.addEventListener('input', updateAddress));
   cepInput.addEventListener('input', updateAddress);
 </script>

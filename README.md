@@ -204,3 +204,15 @@ Proprietário - Todos os direitos reservados.
 ## 🤝 Suporte
 
 Para suporte, entre em contato pelo WhatsApp ou e-mail.
+
+## 📜 Changelog
+
+# 1. Login no Docker Hub
+docker login
+
+# 2. Criar a imagem (Build)
+# Substitui 'dev_v1' pela versão que quiseres
+docker build -t brunobh51/flowlog:dev_v1 .
+
+# 3. Enviar para o Hub (Push)
+docker push brunobh51/flowlog:dev_v1

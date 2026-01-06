@@ -1,9 +1,118 @@
-version: "3.9"
+version: "3.8"
 
 services:
+  # ==========================================
+  # APLICAÇÃO WEB (Django + Gunicorn)
+  # ==========================================
+  web:
+    image: brunobh51/flowlog:dev_v1
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      # Banco de Dados (Postgres na rede app_network)
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      # Integrações
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
+      # Redis interno deste stack
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    networks:
+      - traefik_public
+      - app_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik_public
+        # Router
+        - traefik.http.routers.flowlog-web.rule=Host(`flowlog.lojabibelo.com.br`)
+        - traefik.http.routers.flowlog-web.entrypoints=websecure
+        - traefik.http.routers.flowlog-web.tls.certresolver=le
+        # Service
+        - traefik.http.services.flowlog-web.loadbalancer.server.port=8000
+        # Middleware
+        - traefik.http.middlewares.flowlog-compress.compress=true
+        - traefik.http.routers.flowlog-web.middlewares=flowlog-compress
+
+  # ==========================================
+  # WORKER (Processa mensagens WhatsApp)
+  # ==========================================
+  worker:
+    image: brunobh51/flowlog:dev_v1
+    command: celery -A config worker -l info -Q default,whatsapp
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
+    networks:
+      - app_network
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  # ==========================================
+  # BEAT (Tarefas Agendadas - Expiração)
+  # ==========================================
+  beat:
+    image: brunobh51/flowlog:dev_v1
+    command: celery -A config beat -l info
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    networks:
+      - app_network
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  # ==========================================
+  # REDIS (Cache e Broker)
+  # ==========================================
   redis:
     image: redis:7-alpine
-    container_name: flowlog-redis
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    deploy:
+      mode: replicated
+      replicas: 1
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:
+
+networks:
+  traefik_public:
+    external: true
+  app_network:
+    external: true

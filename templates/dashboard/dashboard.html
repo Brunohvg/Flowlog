@@ -1,303 +1,213 @@
 {% extends "base/base.html" %}
 {% load flowlog_tags %}
 
-{% block title %}Dashboard - Flowlog{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-{% block page_subtitle %}Visão geral do seu negócio{% endblock %}
+{% block title %}Visão Geral | Flowlog{% endblock %}
 
 {% block content %}
+<div class="space-y-8">
 
-<!-- Alertas -->
-{% if alerts %}
-<div class="mb-6 space-y-3">
-  {% for alert in alerts %}
-  <a href="{% url 'order_list' %}{{ alert.url }}" class="block p-4 rounded-xl flex items-center gap-4 transition-all hover:shadow-md
-    {% if alert.type == 'error' %}bg-red-50 border border-red-200 hover:bg-red-100
-    {% elif alert.type == 'warning' %}bg-amber-50 border border-amber-200 hover:bg-amber-100
-    {% else %}bg-blue-50 border border-blue-200 hover:bg-blue-100{% endif %}">
-    <div class="w-10 h-10 rounded-xl flex items-center justify-center
-      {% if alert.type == 'error' %}bg-red-100
-      {% elif alert.type == 'warning' %}bg-amber-100
-      {% else %}bg-blue-100{% endif %}">
-      <i data-lucide="{{ alert.icon }}" class="w-5 h-5 {% if alert.type == 'error' %}text-red-600{% elif alert.type == 'warning' %}text-amber-600{% else %}text-blue-600{% endif %}"></i>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Painel de Controlo</h1>
+            <p class="text-slate-500 text-sm">Resumo da operação em {{ now|date:"l, d de F" }}</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'order_create' %}" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm shadow-indigo-200 transition-all hover:shadow-indigo-300 hover:-translate-y-0.5">
+                <i data-lucide="plus" class="w-4 h-4"></i> Novo Pedido
+            </a>
+        </div>
     </div>
-    <div class="flex-1">
-      <p class="font-semibold {% if alert.type == 'error' %}text-red-800{% elif alert.type == 'warning' %}text-amber-800{% else %}text-blue-800{% endif %}">{{ alert.message }}</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="group bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] hover:shadow-lg transition-all relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <i data-lucide="wallet" class="w-16 h-16 text-indigo-600"></i>
+            </div>
+            <p class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Receita Total</p>
+            <h3 class="text-3xl font-bold text-slate-900 tracking-tight">R$ {{ stats.revenue|currency }}</h3>
+            <div class="mt-4 flex items-center gap-2"><span class="text-slate-400 text-xs">Valor recebido (pago)</span></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-100 transition-colors">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm font-medium">Pedidos Hoje</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ stats.orders_today }}</h3>
+                </div>
+                <div class="p-2 bg-blue-50 rounded-lg text-blue-600"><i data-lucide="shopping-bag" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Volume diário</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-100 transition-colors">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm font-medium">Pendentes</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ stats.pending_count }}</h3>
+                </div>
+                <div class="p-2 bg-amber-50 rounded-lg text-amber-600"><i data-lucide="clock" class="w-5 h-5"></i></div>
+            </div>
+            {% if stats.pending_count > 0 %}
+            <a href="{% url 'order_list' %}?status=pending" class="mt-4 inline-flex items-center text-xs font-semibold text-amber-600 hover:text-amber-700">
+                Resolver agora <i data-lucide="arrow-right" class="w-3 h-3 ml-1"></i>
+            </a>
+            {% else %}
+            <p class="mt-4 text-xs text-emerald-600 font-medium flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Tudo em dia!</p>
+            {% endif %}
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-100 transition-colors">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm font-medium">Em Trânsito</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ stats.shipped_count }}</h3>
+                </div>
+                <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600"><i data-lucide="truck" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">A caminho do cliente</p>
+        </div>
     </div>
-    <i data-lucide="chevron-right" class="w-5 h-5 {% if alert.type == 'error' %}text-red-400{% elif alert.type == 'warning' %}text-amber-400{% else %}text-blue-400{% endif %}"></i>
-  </a>
-  {% endfor %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-2 space-y-6">
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="bar-chart-horizontal" class="w-5 h-5 text-slate-400"></i> Pipeline de Pedidos
+                    </h3>
+                </div>
+
+                <div class="space-y-5">
+                    {% for key, stage in stats.pipeline.items %}
+                    <div class="group">
+                        <div class="flex items-center justify-between text-sm mb-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i data-lucide="{{ stage.icon }}" class="w-4 h-4"></i>
+                                </div>
+                                <span class="font-medium text-slate-700">{{ stage.label }}</span>
+                            </div>
+                            <span class="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-xs">{{ stage.count }}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div class="h-2.5 rounded-full transition-all duration-1000 relative overflow-hidden
+                                {% if key == 'pending' %}bg-amber-400 group-hover:bg-amber-500
+                                {% elif key == 'processing' %}bg-blue-500 group-hover:bg-blue-600
+                                {% elif key == 'shipped' %}bg-indigo-500 group-hover:bg-indigo-600
+                                {% else %}bg-emerald-500 group-hover:bg-emerald-600{% endif %}"
+                                style="width: {{ stage.pct }}%">
+                                <div class="absolute top-0 left-0 bottom-0 right-0 bg-white/20 w-full h-full -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800">Transações Recentes</h3>
+                    <a href="{% url 'order_list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 uppercase tracking-wide">Ver tudo</a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-white text-slate-400 font-semibold border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4">ID</th>
+                                <th class="px-6 py-4">Cliente</th>
+                                <th class="px-6 py-4">Status</th>
+                                <th class="px-6 py-4 text-right">Valor</th>
+                                <th class="px-6 py-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            {% for order in recent_orders %}
+                            <tr class="hover:bg-slate-50 transition-colors group cursor-pointer" onclick="window.location='{% url 'order_detail' order.id %}'">
+                                <td class="px-6 py-4"><span class="font-mono text-slate-600 font-medium group-hover:text-indigo-600 transition-colors">#{{ order.code }}</span></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold uppercase">{{ order.customer.name|slice:":1" }}</div>
+                                        <div><p class="font-medium text-slate-800">{{ order.customer.name|truncatechars:15 }}</p><p class="text-xs text-slate-400">{{ order.created_at|timesince }}</p></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    {% if order.order_status == 'cancelled' %}<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10">Cancelado</span>
+                                    {% elif order.delivery_status == 'delivered' %}<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/10">Concluído</span>
+                                    {% elif order.delivery_status == 'shipped' %}<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10">Enviado</span>
+                                    {% else %}<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/10">Pendente</span>{% endif %}
+                                </td>
+                                <td class="px-6 py-4 text-right font-bold text-slate-700">R$ {{ order.total_value|currency }}</td>
+                                <td class="px-6 py-4 text-right"><i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 group-hover:text-slate-500"></i></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">Sem atividade recente.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+
+            {% if alerts %}
+            <div class="bg-white rounded-2xl border border-red-100 shadow-sm p-5 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-20 h-20 bg-red-50 rounded-bl-full -mr-2 -mt-2"></div>
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 relative z-10">
+                    <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+                    Atenção
+                </h3>
+                <div class="space-y-3 relative z-10">
+                    {% for alert in alerts %}
+                    <a href="{% url 'order_list' %}{{ alert.link }}" class="block p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors border border-red-100">
+                        <div class="flex items-start gap-3"><i data-lucide="{{ alert.icon }}" class="w-5 h-5 text-red-600 mt-0.5"></i><div><p class="text-sm font-bold text-red-800">{{ alert.title }}</p><p class="text-xs text-red-600 mt-0.5">{{ alert.msg }}</p></div></div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-slate-300">
+                <h3 class="font-bold text-lg mb-1">Central de Comando</h3>
+                <p class="text-slate-400 text-xs mb-6">Atalhos operacionais</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <a href="{% url 'order_create' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-indigo-600 transition-colors group cursor-pointer border border-white/5"><i data-lucide="plus-circle" class="w-6 h-6 mb-2 text-indigo-300 group-hover:text-white"></i><span class="text-xs font-medium">Vender</span></a>
+                    <a href="{% url 'customer_list' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="users" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Clientes</span></a>
+                    <a href="{% url 'reports' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="bar-chart-2" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Métricas</span></a>
+                    <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="settings" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Ajustes</span></a>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="crown" class="w-4 h-4 text-amber-500"></i> Clientes VIP
+                </h3>
+
+                <div class="space-y-4">
+                    {% for customer in top_customers %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 flex items-center justify-center text-xs font-bold border border-amber-200">
+                                {{ customer.name|slice:":1" }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-800">{{ customer.name|truncatechars:15 }}</p>
+                                <p class="text-[10px] text-slate-400">Total acumulado</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                            R$ {{ customer.total_spent|currency }}
+                        </span>
+                    </div>
+                    {% empty %}
+                    <p class="text-xs text-slate-400 text-center py-4">Sem dados de clientes ainda.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
-{% endif %}
-
-<!-- Stats Grid -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  
-  <div class="card stat-card">
-    <div class="flex items-center justify-between mb-3">
-      <div class="w-11 h-11 bg-indigo-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-600"></i>
-      </div>
-      <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">+{{ stats.orders_today }} hoje</span>
-    </div>
-    <p class="text-2xl font-bold text-slate-800">{{ stats.total_orders }}</p>
-    <p class="text-sm text-slate-500">Total de Pedidos</p>
-  </div>
-  
-  <div class="card stat-card">
-    <div class="flex items-center justify-between mb-3">
-      <div class="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="clock" class="w-5 h-5 text-amber-600"></i>
-      </div>
-      {% if stats.pending_orders > 0 %}
-      <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Ação</span>
-      {% endif %}
-    </div>
-    <p class="text-2xl font-bold text-slate-800">{{ stats.pending_orders }}</p>
-    <p class="text-sm text-slate-500">Pendentes</p>
-  </div>
-  
-  <div class="card stat-card">
-    <div class="flex items-center justify-between mb-3">
-      <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-slate-800">{{ stats.shipped_orders }}</p>
-    <p class="text-sm text-slate-500">Em Trânsito</p>
-  </div>
-  
-  <div class="card stat-card">
-    <div class="flex items-center justify-between mb-3">
-      <div class="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center">
-        <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
-      </div>
-    </div>
-    <p class="text-2xl font-bold text-emerald-600">R$ {{ stats.total_revenue|currency }}</p>
-    <p class="text-sm text-slate-500">Faturamento (mês)</p>
-  </div>
-  
-</div>
-
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-  
-  <!-- Main Column -->
-  <div class="xl:col-span-2 space-y-6">
-    
-    <!-- Por Tipo de Entrega -->
-    <div class="card p-5">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-slate-800">Pedidos por Tipo de Entrega</h3>
-        <a href="{% url 'reports' %}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver relatório →</a>
-      </div>
-      
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-          <div class="flex items-center gap-2 mb-2">
-            <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
-            <span class="font-semibold text-slate-700">Motoboy</span>
-          </div>
-          <p class="text-2xl font-bold text-slate-800">{{ stats.motoboy_count }}</p>
-          <p class="text-sm text-blue-600 font-medium">R$ {{ stats.motoboy_value|currency }}</p>
-        </div>
-        
-        <div class="p-4 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl">
-          <div class="flex items-center gap-2 mb-2">
-            <i data-lucide="zap" class="w-5 h-5 text-rose-600"></i>
-            <span class="font-semibold text-slate-700">SEDEX</span>
-          </div>
-          <p class="text-2xl font-bold text-slate-800">{{ stats.sedex_count }}</p>
-          <p class="text-sm text-rose-600 font-medium">R$ {{ stats.sedex_value|currency }}</p>
-        </div>
-        
-        <div class="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
-          <div class="flex items-center gap-2 mb-2">
-            <i data-lucide="package" class="w-5 h-5 text-emerald-600"></i>
-            <span class="font-semibold text-slate-700">PAC</span>
-          </div>
-          <p class="text-2xl font-bold text-slate-800">{{ stats.pac_count }}</p>
-          <p class="text-sm text-emerald-600 font-medium">R$ {{ stats.pac_value|currency }}</p>
-        </div>
-        
-        <div class="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
-          <div class="flex items-center gap-2 mb-2">
-            <i data-lucide="store" class="w-5 h-5 text-amber-600"></i>
-            <span class="font-semibold text-slate-700">Retirada</span>
-          </div>
-          <p class="text-2xl font-bold text-slate-800">{{ stats.pickup_count }}</p>
-          <p class="text-sm text-amber-600 font-medium">R$ {{ stats.pickup_value|currency }}</p>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Pedidos Recentes -->
-    <div class="card overflow-hidden">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
-        <h3 class="font-bold text-slate-800">Pedidos Recentes</h3>
-        <a href="{% url 'order_list' %}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver todos →</a>
-      </div>
-      
-      <div class="overflow-x-auto">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Pedido</th>
-              <th>Cliente</th>
-              <th>Valor</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for order in recent_orders %}
-            <tr>
-              <td>
-                <a href="{% url 'order_detail' order.id %}" class="font-mono text-sm font-semibold text-indigo-600 hover:text-indigo-700">{{ order.code }}</a>
-                <p class="text-xs text-slate-400 mt-0.5">{{ order.created_at|date:"d/m H:i" }}</p>
-              </td>
-              <td>
-                <p class="font-medium text-slate-700">{{ order.customer.name }}</p>
-              </td>
-              <td>
-                <span class="font-semibold text-slate-800">R$ {{ order.total_value|currency }}</span>
-              </td>
-              <td>
-                {% if order.order_status == 'cancelled' %}
-                  <span class="badge bg-red-100 text-red-700">Cancelado</span>
-                {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
-                  <span class="badge bg-emerald-100 text-emerald-700">Concluído</span>
-                {% elif order.delivery_status == 'shipped' %}
-                  <span class="badge bg-blue-100 text-blue-700">Enviado</span>
-                {% else %}
-                  <span class="badge bg-amber-100 text-amber-700">Pendente</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="4" class="text-center py-8 text-slate-500">
-                <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
-                <p>Nenhum pedido ainda</p>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    
-  </div>
-  
-  <!-- Sidebar Column -->
-  <div class="space-y-6">
-    
-    <!-- Ações Rápidas -->
-    <div class="card p-5">
-      <h3 class="font-bold text-slate-800 mb-4">Ações Rápidas</h3>
-      
-      <div class="space-y-2">
-        <a href="{% url 'order_create' %}" class="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 transition-colors">
-          <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <p class="font-semibold text-slate-800">Novo Pedido</p>
-            <p class="text-xs text-slate-500">Criar um pedido</p>
-          </div>
-        </a>
-        
-        <a href="{% url 'order_list' %}?status=pending" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-          <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white">
-            <i data-lucide="clock" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <p class="font-semibold text-slate-800">Pendentes</p>
-            <p class="text-xs text-slate-500">{{ stats.pending_orders }} aguardando</p>
-          </div>
-        </a>
-        
-        <a href="{% url 'customer_list' %}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-          <div class="w-10 h-10 bg-slate-500 rounded-xl flex items-center justify-center text-white">
-            <i data-lucide="users" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <p class="font-semibold text-slate-800">Clientes</p>
-            <p class="text-xs text-slate-500">{{ stats.total_customers }} cadastrados</p>
-          </div>
-        </a>
-      </div>
-    </div>
-    
-    <!-- Resumo Status -->
-    <div class="card p-5">
-      <h3 class="font-bold text-slate-800 mb-4">Resumo por Status</h3>
-      
-      <div class="space-y-3">
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 bg-amber-500 rounded-full"></div>
-            <span class="text-sm text-slate-600">Pendentes</span>
-          </div>
-          <span class="font-bold text-slate-800">{{ stats.pending_orders }}</span>
-        </div>
-        
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 bg-purple-500 rounded-full"></div>
-            <span class="text-sm text-slate-600">Prontos</span>
-          </div>
-          <span class="font-bold text-slate-800">{{ stats.ready_pickup_orders }}</span>
-        </div>
-        
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
-            <span class="text-sm text-slate-600">Enviados</span>
-          </div>
-          <span class="font-bold text-slate-800">{{ stats.shipped_orders }}</span>
-        </div>
-        
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
-            <span class="text-sm text-slate-600">Entregues</span>
-          </div>
-          <span class="font-bold text-slate-800">{{ stats.delivered_orders }}</span>
-        </div>
-        
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
-            <span class="text-sm text-slate-600">Cancelados</span>
-          </div>
-          <span class="font-bold text-slate-800">{{ stats.cancelled_orders }}</span>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Top Clientes -->
-    <div class="card p-5">
-      <h3 class="font-bold text-slate-800 mb-4">Top Clientes</h3>
-      
-      <div class="space-y-3">
-        {% for customer in top_customers %}
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {{ customer.name|slice:":1"|upper }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-slate-800 truncate">{{ customer.name }}</p>
-            <p class="text-xs text-slate-500">{{ customer.total_orders }} pedidos</p>
-          </div>
-          <span class="text-sm font-bold text-emerald-600">R$ {{ customer.total_value|currency }}</span>
-        </div>
-        {% empty %}
-        <p class="text-sm text-slate-500 text-center py-4">Sem dados</p>
-        {% endfor %}
-      </div>
-    </div>
-    
-  </div>
-  
-</div>
-
 {% endblock %}

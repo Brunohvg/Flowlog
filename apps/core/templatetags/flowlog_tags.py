@@ -2,8 +2,9 @@
 Template tags customizadas do Flowlog.
 """
 
+from decimal import InvalidOperation
+
 from django import template
-from decimal import Decimal
 
 register = template.Library()
 
@@ -13,17 +14,25 @@ def currency(value):
     """
     Formata valor como moeda brasileira.
     Ex: 1234.56 -> 1.234,56
+    Blinda contra None, strings vazias e erros de conversão decimal.
     """
-    if value is None:
+    # 1. Tratamento explícito de vazio
+    if value is None or value == "":
         return "0,00"
-    
+
     try:
-        value = Decimal(str(value))
-        formatted = "{:,.2f}".format(value)
-        # Trocar . por X, depois , por . e X por ,
-        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-        return formatted
-    except (ValueError, TypeError):
+        # 2. Convertemos para float primeiro (mais tolerante que Decimal para display)
+        # Se preferires Decimal, funciona igual desde que tenhas o InvalidOperation no except
+        val = float(value)
+
+        # 3. Formatação usando f-string (mais rápida e limpa)
+        formatted = f"{val:,.2f}"
+
+        # 4. Troca de pontuação (US -> BR)
+        return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+    except (ValueError, TypeError, InvalidOperation):
+        # Se qualquer coisa der errado, devolve 0,00 em vez de quebrar a página
         return "0,00"
 
 
@@ -35,8 +44,8 @@ def phone_link(value):
     """
     if not value:
         return ""
-    
-    return ''.join(filter(str.isdigit, str(value)))
+
+    return "".join(filter(str.isdigit, str(value)))
 
 
 @register.simple_tag
