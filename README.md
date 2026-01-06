@@ -1,218 +1,82 @@
-# Flowlog - Sistema de Gestão de Vendas via WhatsApp
+# 📦 Flowlog - Sistema de Gestão de Pedidos (SaaS)
 
-Sistema multi-tenant para gerenciamento de vendas com integração WhatsApp, rastreamento de pedidos e suporte a múltiplos tipos de entrega.
+![Status](https://img.shields.io/badge/Status-Em%20Desenvolvimento-blue)
+![Python](https://img.shields.io/badge/Python-3.11+-yellow)
+![Django](https://img.shields.io/badge/Django-5.0+-green)
+![Docker](https://img.shields.io/badge/Docker-Ready-blue)
 
-## 🚀 Funcionalidades
+O **Flowlog** é um sistema robusto de gestão de pedidos e logística (OMS) focado em pequenas operações e e-commerce. Construído com Django, oferece um painel administrativo moderno, integração com WhatsApp e relatórios financeiros detalhados.
 
-### Pedidos
-- ✅ Criação de pedidos com vínculo automático de clientes
-- ✅ Múltiplos tipos de entrega: Motoboy, SEDEX, PAC, Retirada na Loja
-- ✅ Alteração de tipo de entrega (retirada ↔ entrega)
-- ✅ Rastreamento de código dos Correios
-- ✅ Marcação de tentativas de entrega falhas
-- ✅ Cancelamento e devolução de pedidos
-- ✅ Duplicação de pedidos
-- ✅ Pedidos prioritários
-- ✅ Notas internas (visíveis apenas para equipe)
-- ✅ Histórico completo de atividades
+## 🚀 Funcionalidades Principais
 
-### Clientes
-- ✅ Cadastro automático por telefone
-- ✅ CPF opcional para acompanhamento
-- ✅ Bloqueio de clientes
-- ✅ Histórico de pedidos por cliente
-- ✅ Estatísticas: total gasto, ticket médio, etc.
+* **Dashboard Executivo:** Métricas em tempo real com gráficos interativos (ApexCharts).
+* **Gestão de Pedidos:** Fluxo completo (Pendente -> Processamento -> Enviado -> Entregue).
+* **Funil de Vendas:** Visualização gráfica do pipeline de pedidos.
+* **Integração WhatsApp:** Notificações automáticas de status via Evolution API.
+* **Relatórios Financeiros:** Análise de receita, ticket médio e performance logística.
+* **Multi-Tenant:** Arquitetura preparada para múltiplas lojas (SaaS).
+* **Design Premium:** Interface limpa e responsiva com Tailwind CSS e Alpine.js.
 
-### Rastreamento Público
-- ✅ Página pública para cliente acompanhar pedido
-- ✅ Verificação de segurança (últimos 4 dígitos do telefone/CPF)
-- ✅ Busca por código do pedido ou CPF
-- ✅ Timeline visual do status
-- ✅ Código de rastreio dos Correios integrado
+## 🛠️ Tech Stack
 
-### Retirada na Loja
-- ✅ Liberação para retirada com timer de 48h
-- ✅ Expiração automática de pedidos não retirados
-- ✅ Alertas de pedidos prestes a expirar
+* **Backend:** Python, Django, Django REST Framework.
+* **Frontend:** Django Templates, Tailwind CSS, Alpine.js, ApexCharts.
+* **Banco de Dados:** PostgreSQL.
+* **Async/Background:** Celery + Redis (para envios de WhatsApp e relatórios pesados).
+* **Infraestrutura:** Docker, Docker Compose, Gunicorn, Whitenoise.
 
-### Notificações WhatsApp
-- ✅ Mensagem de pedido criado
-- ✅ Mensagem de pedido enviado (com rastreio)
-- ✅ Mensagem de pedido pronto para retirada
-- ✅ Mensagem de pedido entregue
-- ✅ Reenvio manual de notificações
-- ✅ Mensagens personalizáveis por empresa
+## 💻 Como Rodar Localmente
 
-### Dashboard
-- ✅ Estatísticas em tempo real
-- ✅ Alertas de pedidos críticos
-- ✅ Pedidos por tipo de entrega
-- ✅ Faturamento do mês
-- ✅ Top clientes
+### Pré-requisitos
+* Docker e Docker Compose instalados.
+* Git.
 
-### Relatórios
-- ✅ Filtro por período (7, 30, 90, 365 dias)
-- ✅ Resumo por status e tipo de entrega
-- ✅ Ranking de clientes
-- ✅ Gráficos de vendas
+### Passo a Passo
 
-## 🏗️ Arquitetura
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/seu-usuario/flowlog.git](https://github.com/seu-usuario/flowlog.git)
+    cd flowlog
+    ```
 
-```
-Flowlog/
-├── apps/
-│   ├── accounts/         # Autenticação e usuários
-│   ├── core/             # Models base, middleware, views principais
-│   ├── integrations/     # WhatsApp (Evolution API)
-│   ├── orders/           # Pedidos, clientes, rastreamento
-│   └── tenants/          # Multi-tenancy
-├── config/               # Configurações Django
-└── templates/            # Templates HTML
-```
+2.  **Configure as Variáveis de Ambiente:**
+    Crie um arquivo `.env` na raiz (copie o exemplo abaixo):
+    ```ini
+    DEBUG=True
+    SECRET_KEY=sua-chave-secreta-desenvolvimento
+    ALLOWED_HOSTS=*
 
-### Tecnologias
-- **Backend:** Django 5.0+
-- **Banco:** PostgreSQL 16+
-- **Cache/Broker:** Redis 7+
-- **Tasks:** Celery 5.3+
-- **Frontend:** Tailwind CSS, Lucide Icons
-- **WhatsApp:** Evolution API
-- **Deploy:** Docker Swarm
+    # Banco de Dados (Docker)
+    DB_NAME=flowlog
+    DB_USER=postgres
+    DB_PASSWORD=postgres
+    DB_HOST=db
+    DB_PORT=5432
 
-## 📦 Instalação
+    # Redis/Celery
+    CELERY_BROKER_URL=redis://redis:6379/0
+    CELERY_RESULT_BACKEND=redis://redis:6379/1
+    ```
 
-### Desenvolvimento
+3.  **Suba o ambiente com Docker:**
+    ```bash
+    docker-compose up --build
+    ```
 
-```bash
-# Clone
-git clone <repo>
-cd Flowlog-master
+4.  **Acesse:**
+    * Sistema: `http://localhost:8000`
+    * Login padrão: Crie um superusuário com `docker-compose exec web python manage.py createsuperuser`.
 
-# Ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# ou: .venv\Scripts\activate  # Windows
+---
 
-# Dependências
-pip install -r requirements.txt
-# ou com uv: uv sync
+## 🎨 Estrutura do Projeto
 
-# Configuração
-cp .env.example .env
-# Edite o .env com suas configurações
+* `apps/core`: Views principais (Dashboard, Relatórios).
+* `apps/orders`: Lógica de pedidos e clientes.
+* `apps/tenants`: Gestão de lojas/inquilinos.
+* `apps/integrations`: Conexão com APIs externas (WhatsApp).
+* `templates/`: Arquivos HTML com Tailwind e Alpine.js.
 
-# Banco de dados
-python manage.py migrate
+---
 
-# Superusuário
-python manage.py createsuperuser
-
-# Executar
-python manage.py runserver
-```
-
-### Produção (Docker)
-
-```bash
-docker-compose up -d
-```
-
-## ⚙️ Configuração
-
-### Variáveis de Ambiente
-
-```env
-# Django
-DEBUG=False
-SECRET_KEY=sua-chave-secreta
-ALLOWED_HOSTS=seudominio.com
-
-# Banco de dados
-DATABASE_URL=postgres://user:pass@host:5432/flowlog
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# WhatsApp (Evolution API)
-EVOLUTION_API_URL=https://sua-api.com
-EVOLUTION_API_KEY=sua-api-key
-EVOLUTION_INSTANCE=nome-da-instancia
-```
-
-### Celery Beat (Tarefas Agendadas)
-
-Para expiração automática de retiradas, configure o Celery Beat:
-
-```python
-# config/celery.py
-app.conf.beat_schedule = {
-    'expire-pending-pickups': {
-        'task': 'apps.integrations.whatsapp.tasks.expire_pending_pickups',
-        'schedule': 3600.0,  # A cada hora
-    },
-}
-```
-
-Execute o beat:
-```bash
-celery -A config beat -l info
-```
-
-## 🔒 Fluxo de Status
-
-### Entrega (Motoboy/Correios)
-```
-PENDING → SHIPPED → DELIVERED
-                 ↘ FAILED_ATTEMPT → DELIVERED
-```
-
-### Retirada na Loja
-```
-PENDING → READY_FOR_PICKUP → PICKED_UP
-                          ↘ EXPIRED (48h)
-```
-
-### Cancelamento/Devolução
-```
-(qualquer status) → CANCELLED
-COMPLETED → RETURNED (+ opcional REFUNDED)
-```
-
-## 📱 API de Rastreamento
-
-### URLs Públicas
-- `/rastreio/` - Busca por código ou CPF
-- `/rastreio/verificar/?code=PED-XXXXX` - Verificação de identidade
-- `/rastreio/cpf/` - Busca por CPF
-- `/rastreio/<codigo>/` - Detalhes do pedido
-
-### Segurança
-- Verificação por últimos 4 dígitos do telefone ou CPF
-- Sessão armazena pedidos verificados
-- Sem exposição de dados sensíveis
-
-## 🧪 Testes
-
-```bash
-python manage.py test
-```
-
-## 📄 Licença
-
-Proprietário - Todos os direitos reservados.
-
-## 🤝 Suporte
-
-Para suporte, entre em contato pelo WhatsApp ou e-mail.
-
-## 📜 Changelog
-
-# 1. Login no Docker Hub
-docker login
-
-# 2. Criar a imagem (Build)
-# Substitui 'dev_v1' pela versão que quiseres
-docker build -t brunobh51/flowlog:dev_v1 .
-
-# 3. Enviar para o Hub (Push)
-docker push brunobh51/flowlog:dev_v1
+**Flowlog** © 2024 - Desenvolvido com ❤️ e Python.
