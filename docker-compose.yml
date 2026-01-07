@@ -1,37 +1,76 @@
 version: "3.8"
 
 services:
-  # ==========================================
-  # APLICAÇÃO WEB (Django + Gunicorn)
-  # ==========================================
-  web:
-    image: brunobh51/flowlog:dev_v1
+  # =====================================================
+  # MIGRATE — roda uma vez e encerra
+  # =====================================================
+  migrate:
+    image: brunobh51/flowlog:v1.1
+    command: >
+      sh -c "
+      python manage.py makemigrations &&
+      python manage.py migrate
+      "
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      USE_SQLITE: ${USE_SQLITE}
+
+      DB_HOST: postgres_flowlog
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+
+  # =====================================================
+  # FLOWLOG — Django + Gunicorn (APP PRINCIPAL)
+  # =====================================================
+  flowlog:
+    image: brunobh51/flowlog:v1.1
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=${DEBUG}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-      # Banco de Dados (Postgres na rede app_network)
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=${DB_HOST}
-      # Integrações
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
-      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
-      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
-      # Redis interno deste stack
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      USE_SQLITE: ${USE_SQLITE}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+
+      DB_HOST: postgres_flowlog
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+
     networks:
       - traefik_public
       - app_network
+
     deploy:
-      mode: replicated
       replicas: 1
       placement:
         constraints:
@@ -39,62 +78,81 @@ services:
       labels:
         - traefik.enable=true
         - traefik.swarm.network=traefik_public
-        # Router
-        - traefik.http.routers.flowlog-web.rule=Host(`flowlog.lojabibelo.com.br`)
-        - traefik.http.routers.flowlog-web.entrypoints=websecure
-        - traefik.http.routers.flowlog-web.tls.certresolver=le
-        # Service
-        - traefik.http.services.flowlog-web.loadbalancer.server.port=8000
-        # Middleware
-        - traefik.http.middlewares.flowlog-compress.compress=true
-        - traefik.http.routers.flowlog-web.middlewares=flowlog-compress
 
-  # ==========================================
-  # WORKER (Processa mensagens WhatsApp)
-  # ==========================================
+        - traefik.http.routers.flowlog.rule=Host(`flowlog.lojabibelo.com.br`)
+        - traefik.http.routers.flowlog.entrypoints=websecure
+        - traefik.http.routers.flowlog.tls.certresolver=le
+
+        - traefik.http.services.flowlog.loadbalancer.server.port=8000
+        - traefik.http.middlewares.flowlog-compress.compress=true
+        - traefik.http.routers.flowlog.middlewares=flowlog-compress
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthcheck/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # =====================================================
+  # WORKER — Celery
+  # =====================================================
   worker:
-    image: brunobh51/flowlog:dev_v1
+    image: brunobh51/flowlog:v1.1
     command: celery -A config worker -l info -Q default,whatsapp
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=${DB_HOST}
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
-      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
-      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      USE_SQLITE: ${USE_SQLITE}
+
+      DB_HOST: postgres_flowlog
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+
     networks:
       - app_network
     deploy:
-      mode: replicated
       replicas: 1
 
-  # ==========================================
-  # BEAT (Tarefas Agendadas - Expiração)
-  # ==========================================
+  # =====================================================
+  # BEAT — Celery Beat (SEM ERRO DE PERMISSÃO)
+  # =====================================================
   beat:
-    image: brunobh51/flowlog:dev_v1
-    command: celery -A config beat -l info
+    image: brunobh51/flowlog:v1.1
+    command: >
+      celery -A config beat
+      -l info
+      --schedule=/tmp/celerybeat-schedule
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=${DB_HOST}
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      USE_SQLITE: ${USE_SQLITE}
+
+      DB_HOST: postgres_flowlog
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+
     networks:
       - app_network
     deploy:
-      mode: replicated
       replicas: 1
 
-  # ==========================================
-  # REDIS (Cache e Broker)
-  # ==========================================
+  # =====================================================
+  # REDIS
+  # =====================================================
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
@@ -103,18 +161,21 @@ services:
     networks:
       - app_network
     deploy:
-      mode: replicated
       replicas: 1
 
+# =====================================================
+# VOLUMES
+# =====================================================
 volumes:
   static_volume:
   media_volume:
   redis_data:
 
-
+# =====================================================
+# NETWORKS
+# =====================================================
 networks:
   traefik_public:
     external: true
   app_network:
     external: true
-
