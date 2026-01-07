@@ -3,7 +3,7 @@ URLs principais do Flowlog.
 
 Estrutura:
     /                       → Dashboard (core)
-    /admin/                 → Django Admin
+    /<ADMIN_PATH>/          → Django Admin (configurável via env)
     /login/, /logout/       → Autenticação
     /pedidos/               → Gestão de pedidos (orders)
     /clientes/              → Gestão de clientes (customers)
@@ -14,6 +14,7 @@ Estrutura:
     /perfil/                → Perfil do usuário (core)
 """
 
+from decouple import config
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.http import JsonResponse
@@ -22,10 +23,18 @@ from django.urls import include, path
 from apps.core.views import DashboardView
 
 
+# =====================================================
+# Healthcheck
+# =====================================================
 def healthcheck(request):
-    """Endpoint para verificar se o servidor está respondendo."""
-    return JsonResponse({"status": "ok", "message": "Server is healthy"})
+    """Endpoint simples para verificar se a aplicação está viva."""
+    return JsonResponse({"status": "ok"})
 
+
+# =====================================================
+# Admin (rota configurável via variável de ambiente)
+# =====================================================
+ADMIN_PATH = config("DJANGO_ADMIN_PATH", default="admin/")
 
 urlpatterns = [
     # ==========================================
@@ -36,8 +45,8 @@ urlpatterns = [
     # ==========================================
     # Admin
     # ==========================================
-    path("admin/", admin.site.urls),
-    
+    path(ADMIN_PATH, admin.site.urls),
+
     # ==========================================
     # Autenticação
     # ==========================================
@@ -47,28 +56,31 @@ urlpatterns = [
         name="login",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    
+
     # ==========================================
     # Dashboard (raiz)
     # ==========================================
     path("", DashboardView.as_view(), name="dashboard"),
-    
+
     # ==========================================
     # Apps - Rotas delegadas
     # ==========================================
-    
+
     # Core: relatórios, configurações, perfil
     path("", include("apps.core.urls")),
-    
-    # Pedidos: CRUD completo
+
+    # Pedidos
     path("pedidos/", include("apps.orders.urls")),
-    
-    # Clientes: listagem e detalhes
+
+    # Clientes
     path("clientes/", include("apps.orders.customer_urls")),
-    
-    # Tracking: rastreio público para clientes
+
+    # Tracking público
     path("rastreio/", include("apps.orders.tracking_urls")),
-    
-    # WhatsApp: setup e configuração
-    path("configuracoes/whatsapp/", include("apps.integrations.whatsapp.urls")),
+
+    # WhatsApp
+    path(
+        "configuracoes/whatsapp/",
+        include("apps.integrations.whatsapp.urls"),
+    ),
 ]
