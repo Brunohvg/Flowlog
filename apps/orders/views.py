@@ -34,7 +34,8 @@ def order_list(request):
         orders = orders.filter(
             Q(code__icontains=search) |
             Q(customer__name__icontains=search) |
-            Q(customer__phone__icontains=search)
+            Q(customer__phone__icontains=search) |
+            Q(pickup_code__icontains=search)  # Busca por código de retirada
         )
     
     if status:
@@ -51,7 +52,7 @@ def order_list(request):
             )
         elif status == 'cancelled':
             orders = orders.filter(order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED])
-        elif status == 'ready':
+        elif status == 'ready' or status == 'ready_pickup':
             orders = orders.filter(delivery_status=DeliveryStatus.READY_FOR_PICKUP)
     
     if delivery_type:
@@ -395,3 +396,107 @@ def order_label(request, order_id):
     )
 
     return render(request, "orders/order_label.html", {"order": order})
+
+
+# ==============================================================================
+# API: Validação de Código de Retirada
+# ==============================================================================
+
+from django.http import JsonResponse
+from django.urls import reverse
+
+@login_required
+def validate_pickup_code(request):
+    """
+    API para validar código de retirada.
+    Usado pelo scanner/input na lista de pedidos.
+    
+    GET /pedidos/validar-retirada/?code=1234
+    
+    Retorna JSON:
+    - found: true/false
+    - order: {code, customer, value, detail_url, pickup_url}
+    - message: mensagem de erro se não encontrado
+    """
+    code = request.GET.get('code', '').strip()
+    
+    if not code or len(code) != 4:
+        return JsonResponse({
+            'found': False,
+            'message': 'Código deve ter 4 dígitos'
+        })
+    
+    # Busca pedido pelo código de retirada
+    order = Order.objects.filter(
+        tenant=request.tenant,
+        pickup_code=code,
+        delivery_status=DeliveryStatus.READY_FOR_PICKUP
+    ).select_related('customer').first()
+    
+    if not order:
+        # Verifica se existe mas já foi retirado
+        picked_up = Order.objects.filter(
+            tenant=request.tenant,
+            pickup_code=code,
+            delivery_status=DeliveryStatus.PICKED_UP
+        ).exists()
+        
+        if picked_up:
+            return JsonResponse({
+                'found': False,
+                'message': 'Este pedido já foi retirado'
+            })
+        
+        return JsonResponse({
+            'found': False,
+            'message': 'Código não encontrado'
+        })
+    
+    # Verifica se expirou
+    if order.is_expired:
+        return JsonResponse({
+            'found': False,
+            'message': f'Pedido {order.code} expirou'
+        })
+    
+    return JsonResponse({
+        'found': True,
+        'order': {
+            'id': str(order.id),
+            'code': order.code,
+            'customer': order.customer.name,
+            'phone': order.customer.phone,
+            'value': f"{order.total_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            'payment_status': order.get_payment_status_display(),
+            'detail_url': reverse('order_detail', args=[order.id]),
+            'pickup_url': reverse('order_mark_picked_up', args=[order.id]),
+        }
+    })
+
+
+@login_required
+def quick_pickup(request, order_id):
+    """
+    Marca pedido como retirado via AJAX (para uso no validador rápido).
+    
+    POST /pedidos/{id}/retirada-rapida/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant),
+        id=order_id,
+    )
+    
+    try:
+        OrderStatusService().mark_as_picked_up(order=order, actor=request.user)
+        return JsonResponse({
+            'success': True,
+            'message': f'Pedido {order.code} marcado como retirado!'
+        })
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)

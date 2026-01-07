@@ -7,6 +7,40 @@
 
 {% block content %}
 
+<!-- Validador Rápido de Retirada -->
+<div class="card p-4 mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+  <div class="flex flex-col md:flex-row md:items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center text-white">
+        <i data-lucide="qr-code" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h3 class="font-bold text-purple-800">Validar Retirada</h3>
+        <p class="text-sm text-purple-600">Digite o código de 4 dígitos do cliente</p>
+      </div>
+    </div>
+    
+    <div class="flex-1 flex items-center gap-3">
+      <input 
+        type="text" 
+        id="pickup-code-input"
+        maxlength="4"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        placeholder="0000"
+        class="form-input w-40 text-center text-2xl font-mono tracking-[0.5em] uppercase"
+        autocomplete="off"
+      >
+      <button type="button" onclick="validatePickupCode()" class="btn btn-primary" id="validate-btn">
+        <i data-lucide="check" class="w-4 h-4"></i> Validar
+      </button>
+    </div>
+    
+    <!-- Resultado da Validação -->
+    <div id="pickup-result" class="hidden"></div>
+  </div>
+</div>
+
 <!-- Filtros -->
 <div class="card p-4 mb-6">
   <form method="get" class="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -17,7 +51,7 @@
         type="text" 
         name="q" 
         value="{{ request.GET.q }}"
-        placeholder="Buscar por código ou cliente..." 
+        placeholder="Buscar por código, cliente ou código de retirada..." 
         class="form-input pl-12"
       >
     </div>
@@ -25,18 +59,19 @@
     <div class="flex flex-wrap gap-3">
       <select name="status" class="form-select w-full sm:w-40">
         <option value="">Todos status</option>
-        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pendentes</option>
-        <option value="shipped" {% if request.GET.status == 'shipped' %}selected{% endif %}>Enviados</option>
-        <option value="delivered" {% if request.GET.status == 'delivered' %}selected{% endif %}>Entregues</option>
-        <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Cancelados</option>
+        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>📥 Pendentes</option>
+        <option value="shipped" {% if request.GET.status == 'shipped' %}selected{% endif %}>🚚 Enviados</option>
+        <option value="ready_pickup" {% if request.GET.status == 'ready_pickup' %}selected{% endif %}>🏬 Prontos Retirada</option>
+        <option value="delivered" {% if request.GET.status == 'delivered' %}selected{% endif %}>✅ Entregues</option>
+        <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>❌ Cancelados</option>
       </select>
       
       <select name="type" class="form-select w-full sm:w-40">
         <option value="">Todos tipos</option>
-        <option value="motoboy" {% if request.GET.type == 'motoboy' %}selected{% endif %}>Motoboy</option>
-        <option value="sedex" {% if request.GET.type == 'sedex' %}selected{% endif %}>SEDEX</option>
-        <option value="pac" {% if request.GET.type == 'pac' %}selected{% endif %}>PAC</option>
-        <option value="pickup" {% if request.GET.type == 'pickup' %}selected{% endif %}>Retirada</option>
+        <option value="motoboy" {% if request.GET.type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
+        <option value="sedex" {% if request.GET.type == 'sedex' %}selected{% endif %}>⚡ SEDEX</option>
+        <option value="pac" {% if request.GET.type == 'pac' %}selected{% endif %}>📦 PAC</option>
+        <option value="pickup" {% if request.GET.type == 'pickup' %}selected{% endif %}>🏬 Retirada</option>
       </select>
       
       <button type="submit" class="btn btn-primary btn-sm">
@@ -102,6 +137,9 @@
           <td>
             {% if order.delivery_type == 'pickup' %}
               <span class="badge bg-amber-100 text-amber-700"><i data-lucide="store" class="w-3 h-3"></i> Retirada</span>
+              {% if order.pickup_code and order.delivery_status == 'ready_for_pickup' %}
+              <span class="font-mono text-xs text-purple-600 ml-1">{{ order.pickup_code }}</span>
+              {% endif %}
             {% elif order.delivery_type == 'motoboy' %}
               <span class="badge bg-blue-100 text-blue-700"><i data-lucide="bike" class="w-3 h-3"></i> Motoboy</span>
             {% elif order.delivery_type == 'sedex' %}
@@ -188,4 +226,103 @@
   {% endif %}
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+const pickupInput = document.getElementById('pickup-code-input');
+const resultDiv = document.getElementById('pickup-result');
+
+// Auto-valida quando digitar 4 dígitos
+pickupInput.addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+  resultDiv.classList.add('hidden');
+  
+  if (e.target.value.length === 4) {
+    validatePickupCode();
+  }
+});
+
+async function validatePickupCode() {
+  const code = pickupInput.value;
+  
+  if (code.length !== 4) {
+    showResult('warning', 'Digite um código de 4 dígitos');
+    return;
+  }
+  
+  // Loading
+  document.getElementById('validate-btn').innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>';
+  
+  try {
+    const response = await fetch(`{% url 'validate_pickup_code' %}?code=${code}`);
+    const data = await response.json();
+    
+    if (data.found) {
+      showResult('success', `
+        <div class="flex items-center gap-4">
+          <div>
+            <p class="font-bold text-emerald-800">${data.order.code}</p>
+            <p class="text-sm text-emerald-600">${data.order.customer} • R$ ${data.order.value}</p>
+          </div>
+          <div class="flex gap-2">
+            <a href="${data.order.detail_url}" class="btn btn-secondary btn-sm">
+              <i data-lucide="eye" class="w-4 h-4"></i> Ver
+            </a>
+            <button onclick="markPickedUp('${data.order.id}')" class="btn btn-success btn-sm">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> Retirado
+            </button>
+          </div>
+        </div>
+      `);
+    } else {
+      showResult('error', data.message || 'Código não encontrado');
+    }
+    
+  } catch (error) {
+    showResult('error', 'Erro de conexão');
+  }
+  
+  document.getElementById('validate-btn').innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Validar';
+  lucide.createIcons();
+}
+
+function showResult(type, content) {
+  const colors = {
+    success: 'bg-emerald-100 border-emerald-300 text-emerald-800',
+    error: 'bg-red-100 border-red-300 text-red-800',
+    warning: 'bg-amber-100 border-amber-300 text-amber-800'
+  };
+  
+  resultDiv.innerHTML = `<div class="p-3 rounded-xl border ${colors[type]}">${content}</div>`;
+  resultDiv.classList.remove('hidden');
+}
+
+async function markPickedUp(orderId) {
+  try {
+    const response = await fetch(`/pedidos/${orderId}/retirada-rapida/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showResult('success', `<div class="flex items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> ${data.message}</div>`);
+      pickupInput.value = '';
+      lucide.createIcons();
+      
+      // Recarrega após 1.5s
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showResult('error', data.error || 'Erro ao processar');
+    }
+  } catch (error) {
+    showResult('error', 'Erro de conexão');
+  }
+}
+</script>
 {% endblock %}

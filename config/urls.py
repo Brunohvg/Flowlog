@@ -15,6 +15,15 @@ from apps.orders.tracking_views import (
     tracking_orders,
     tracking_search,
 )
+from apps.integrations.whatsapp.views import (
+    whatsapp_setup,
+    whatsapp_save_config,
+    whatsapp_create_instance,
+    whatsapp_get_qrcode,
+    whatsapp_check_status,
+    whatsapp_disconnect,
+    whatsapp_test_message,
+)
 
 urlpatterns = [
     # Admin
@@ -32,6 +41,14 @@ urlpatterns = [
     path("relatorios/", reports, name="reports"),
     # Configurações
     path("configuracoes/", settings, name="settings"),
+    # WhatsApp (sub-rotas de configuração)
+    path("configuracoes/whatsapp/", whatsapp_setup, name="whatsapp_setup"),
+    path("configuracoes/whatsapp/salvar/", whatsapp_save_config, name="whatsapp_save_config"),
+    path("configuracoes/whatsapp/criar-instancia/", whatsapp_create_instance, name="whatsapp_create_instance"),
+    path("configuracoes/whatsapp/qrcode/", whatsapp_get_qrcode, name="whatsapp_get_qrcode"),
+    path("configuracoes/whatsapp/status/", whatsapp_check_status, name="whatsapp_check_status"),
+    path("configuracoes/whatsapp/desconectar/", whatsapp_disconnect, name="whatsapp_disconnect"),
+    path("configuracoes/whatsapp/testar/", whatsapp_test_message, name="whatsapp_test_message"),
     # Perfil
     path("perfil/", profile, name="profile"),
     # Clientes

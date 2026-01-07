@@ -79,110 +79,80 @@
 
   <!-- Tab: WhatsApp -->
   <div id="tab-whatsapp" class="tab-content hidden">
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="save_whatsapp">
-
-      <div class="card p-6">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-            <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
+    
+    <!-- Banner para nova página -->
+    <div class="card p-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white mb-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-7 h-7"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-800">Integração WhatsApp</h3>
-            <p class="text-sm text-slate-500">Configure sua instância da Evolution API</p>
-          </div>
-
-          <!-- Status -->
-          <div class="ml-auto">
-            {% if tenant_settings.whatsapp_connected %}
-              <span class="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                Conectado
-              </span>
-            {% elif tenant_settings.is_whatsapp_configured %}
-              <span class="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
-                <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-                Configurado
-              </span>
-            {% else %}
-              <span class="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
-                <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
-                Não configurado
-              </span>
-            {% endif %}
+            <h3 class="text-xl font-bold">Conectar WhatsApp</h3>
+            <p class="text-emerald-100">Configure e escaneie o QR Code em uma página dedicada</p>
           </div>
         </div>
-
-        <!-- Toggle -->
-        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-6">
-          <div>
-            <p class="font-semibold text-slate-800">Ativar notificações</p>
-            <p class="text-sm text-slate-500">Enviar mensagens automáticas via WhatsApp</p>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
-            <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-emerald-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-          </label>
+        <a href="{% url 'whatsapp_setup' %}" class="px-6 py-3 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors">
+          <i data-lucide="qr-code" class="w-5 h-5 inline-block mr-2"></i>
+          Configurar WhatsApp
+        </a>
+      </div>
+    </div>
+    
+    <!-- Status Rápido -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Status da Conexão</h3>
+          <p class="text-sm text-slate-500">Visão geral da integração WhatsApp</p>
         </div>
 
-        <!-- API Config -->
-        <div class="space-y-4 mb-6">
-          <div>
-            <label class="form-label">URL da Evolution API</label>
-            <input type="url" name="evolution_api_url" value="{{ tenant_settings.evolution_api_url }}" placeholder="https://api.evolution.exemplo.com" class="form-input">
-          </div>
-
-          <div>
-            <label class="form-label">API Key</label>
-            <input type="password" name="evolution_api_key" value="{{ tenant_settings.evolution_api_key }}" placeholder="Sua chave de API" class="form-input">
-          </div>
-
-          <div>
-            <label class="form-label">Nome da Instância</label>
-            <input type="text" name="evolution_instance" value="{{ tenant_settings.evolution_instance }}" placeholder="minha-loja" class="form-input">
-          </div>
-        </div>
-
-        {% if tenant_settings.whatsapp_number %}
-        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl mb-6">
-          <div class="flex items-center gap-3">
-            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
-            <div>
-              <p class="font-medium text-emerald-800">Número conectado</p>
-              <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Info -->
-        <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
-          <div class="flex items-start gap-3">
-            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
-            <div class="text-sm text-blue-700">
-              <p class="font-semibold mb-1">Como configurar:</p>
-              <ol class="list-decimal list-inside space-y-1">
-                <li>Tenha uma instância da Evolution API rodando</li>
-                <li>Crie uma nova instância no painel da Evolution</li>
-                <li>Copie a URL, API Key e nome da instância</li>
-                <li>Cole aqui e clique em "Testar Conexão"</li>
-                <li>Escaneie o QR Code no painel da Evolution</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-between">
-          <button type="submit" name="action" value="test_whatsapp" class="btn btn-secondary">
-            <i data-lucide="wifi" class="w-4 h-4"></i> Testar Conexão
-          </button>
-          <button type="submit" class="btn btn-primary">
-            <i data-lucide="check" class="w-4 h-4"></i> Salvar
-          </button>
+        <!-- Status -->
+        <div class="ml-auto">
+          {% if tenant_settings.whatsapp_connected %}
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+              <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              Conectado
+            </span>
+          {% elif tenant_settings.is_whatsapp_configured %}
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+              <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+              Aguardando Conexão
+            </span>
+          {% else %}
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
+              <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+              Não configurado
+            </span>
+          {% endif %}
         </div>
       </div>
-    </form>
+
+      {% if tenant_settings.whatsapp_number %}
+      <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <div class="flex items-center gap-3">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+          <div>
+            <p class="font-medium text-emerald-800">Número conectado</p>
+            <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <div class="flex items-start gap-3">
+          <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
+          <div class="text-sm text-blue-700">
+            <p class="font-semibold mb-1">WhatsApp não conectado</p>
+            <p>Clique no botão acima para configurar a integração e escanear o QR Code.</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Tab: Mensagens -->
@@ -207,7 +177,11 @@
               <code class="bg-blue-100 px-2 py-0.5 rounded">{rastreio}</code>
               <code class="bg-blue-100 px-2 py-0.5 rounded">{tentativa}</code>
               <code class="bg-blue-100 px-2 py-0.5 rounded">{motivo}</code>
+              <code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{pickup_code}</code>
             </div>
+            <p class="mt-2 text-xs text-blue-600">
+              <strong>{pickup_code}</strong> = Código de 4 dígitos para retirada na loja
+            </p>
           </div>
         </div>
       </div>

@@ -3,25 +3,103 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Acompanhe seu Pedido{% endblock %} - Flowlog</title>
+  <title>{% block title %}Acompanhe seu Pedido{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <style>
-    * { font-family: 'Inter', sans-serif; }
+    * { font-family: 'Outfit', sans-serif; }
+    
     .gradient-bg {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
       min-height: 100vh;
     }
+    
     .glass-card {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    
+    .pickup-code-display {
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.5em;
+      font-weight: 900;
+    }
+    
+    .pulse-soft {
+      animation: pulse-soft 2s infinite;
+    }
+    
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    /* Animação suave para cards */
+    .animate-in {
+      animation: slideUp 0.5s ease-out;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Countdown timer */
+    .countdown-ring {
+      stroke-dasharray: 283;
+      stroke-dashoffset: 0;
+      transform: rotate(-90deg);
+      transform-origin: center;
     }
   </style>
 </head>
 <body class="gradient-bg">
   
+  <!-- Header Fixo -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-white/10">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <i data-lucide="package" class="w-4 h-4 text-white"></i>
+        </div>
+        <span class="font-bold text-white">Rastreio</span>
+      </div>
+      
+      {% if request.session.tracking_customer_id %}
+      <a href="{% url 'tracking_logout' %}" class="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+        <i data-lucide="log-out" class="w-4 h-4"></i>
+        Sair
+      </a>
+      {% endif %}
+    </div>
+  </header>
+  
+  <!-- Espaço para header fixo -->
+  <div class="h-14"></div>
+  
   {% block content %}{% endblock %}
+  
+  <!-- Footer -->
+  <footer class="py-8 text-center">
+    <p class="text-sm text-slate-500">
+      Rastreamento seguro de pedidos
+    </p>
+  </footer>
   
   <script>lucide.createIcons();</script>
   {% block scripts %}{% endblock %}

@@ -161,10 +161,10 @@ LOGOUT_REDIRECT_URL = "login"
 # ==============================================================================
 # INTEGRAÇÕES & APIS
 # ==============================================================================
-# Evolution API (WhatsApp) - Valores padrão vazios para não quebrar se faltar no .env
+# Evolution API (WhatsApp) - Configuração GLOBAL do sistema (vem do .env)
+# Cada tenant só precisa informar o nome da instância
 EVOLUTION_API_URL = config("EVOLUTION_API_URL", default="")
 EVOLUTION_API_KEY = config("EVOLUTION_API_KEY", default="")
-EVOLUTION_INSTANCE = config("EVOLUTION_INSTANCE", default="")
 
 
 # ==============================================================================
@@ -206,3 +206,23 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.BasicAuthentication",
     ],
 }
+
+
+# ==============================================================================
+# CELERY BEAT - TASKS PERIÓDICAS
+# ==============================================================================
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    # Expira pedidos de retirada não realizados a cada hora
+    "expire-pending-pickups": {
+        "task": "apps.integrations.whatsapp.tasks.expire_pending_pickups",
+        "schedule": crontab(minute=0),  # A cada hora cheia
+    },
+}
+
+
+# ==============================================================================
+# CONFIGURAÇÕES DO SITE
+# ==============================================================================
+SITE_URL = config("SITE_URL", default="http://localhost:8000")

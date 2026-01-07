@@ -14,7 +14,11 @@ logger = logging.getLogger(__name__)
 class WhatsAppNotificationService:
     """
     Service para envio de notificações via WhatsApp.
-    Cada tenant tem sua própria configuração de Evolution API.
+    
+    Segurança:
+    - URL global vem do settings.py
+    - Token é individual por instância (salvo no tenant)
+    - Cada tenant só pode enviar para sua própria instância
     """
 
     def __init__(self, tenant):
@@ -22,12 +26,17 @@ class WhatsAppNotificationService:
         self.settings = getattr(tenant, "settings", None)
         self.client = None
 
-        if self.settings and self.settings.is_whatsapp_configured:
-            self.client = EvolutionClient(
-                base_url=self.settings.evolution_api_url,
-                api_key=self.settings.evolution_api_key,
-                instance=self.settings.evolution_instance,
-            )
+        if self.settings and self.settings.evolution_instance and self.settings.evolution_instance_token:
+            from django.conf import settings as django_settings
+            
+            api_url = getattr(django_settings, 'EVOLUTION_API_URL', '')
+            
+            if api_url:
+                self.client = EvolutionClient(
+                    base_url=api_url,
+                    api_key=self.settings.evolution_instance_token,  # Token da instância!
+                    instance=self.settings.evolution_instance,
+                )
 
     def _can_send(self):
         """Verifica se pode enviar mensagens."""
@@ -185,16 +194,21 @@ class WhatsAppNotificationService:
     # ==================== RETIRADA ====================
 
     def send_order_ready_for_pickup(self, order):
-        """Notifica pedido pronto para retirada."""
+        """Notifica pedido pronto para retirada com código de 4 dígitos."""
         template = getattr(self.settings, 'msg_order_ready_for_pickup', None) or (
             "Olá {nome}! 🏬\n\n"
-            "Seu pedido *{codigo}* está pronto!\n"
+            "Seu pedido *{codigo}* está pronto para retirada!\n"
             "Valor: R$ {valor}\n\n"
-            "📍 Retire em: {endereco}\n"
-            "⏰ Prazo: 48h\n\n"
+            "🔑 *Código de retirada: {pickup_code}*\n\n"
+            "📍 Retire em:\n{endereco}\n\n"
+            "⏰ Prazo: 48 horas\n\n"
+            "Apresente o código na loja.\n"
             "_{loja}_"
         )
-        message = self._format_message(template, order)
+        message = self._format_message(
+            template, order,
+            pickup_code=order.pickup_code or "----",
+        )
         return self._send(order.customer.phone_normalized, message)
 
     def send_order_picked_up(self, order):

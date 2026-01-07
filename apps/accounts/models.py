@@ -1,8 +1,14 @@
 """
 Models do app accounts.
+
+Refatorado v9:
+- Validação clean() para garantir integridade tenant/role
+- Superusers podem não ter tenant
+- Sellers DEVEM ter tenant
 """
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import BaseModel
@@ -35,7 +41,14 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser, BaseModel):
-    """Usuário do sistema."""
+    """
+    Usuário do sistema.
+    
+    Regras de integridade:
+    - Superusers podem existir sem tenant (administradores do sistema)
+    - Sellers DEVEM ter um tenant associado
+    - Admins de tenant DEVEM ter um tenant associado
+    """
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
@@ -58,13 +71,13 @@ class User(AbstractUser, BaseModel):
         on_delete=models.PROTECT,
         related_name="users",
         verbose_name="Empresa",
-        null=True,  # 🔥 PERMITE SUPERUSER
+        null=True,  # Permite superusers sem tenant
         blank=True,
     )
 
     is_active = models.BooleanField("Ativo", default=True)
 
-    objects = UserManager()  # 🔥 ESSENCIAL
+    objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -79,6 +92,27 @@ class User(AbstractUser, BaseModel):
 
     def __str__(self):
         return self.email
+    
+    def clean(self):
+        """
+        Validação de integridade: usuários não-superuser DEVEM ter tenant.
+        """
+        super().clean()
+        
+        # Superusers podem existir sem tenant (são admins do sistema)
+        if self.is_superuser:
+            return
+        
+        # Usuários normais (admin de tenant ou seller) DEVEM ter tenant
+        if not self.tenant_id:
+            raise ValidationError({
+                'tenant': 'Usuários não-superuser devem estar associados a uma empresa.'
+            })
+    
+    def save(self, *args, **kwargs):
+        # Executa validação antes de salvar
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def is_admin(self):
@@ -87,3 +121,8 @@ class User(AbstractUser, BaseModel):
     @property
     def is_seller(self):
         return self.role == self.Role.SELLER
+    
+    @property
+    def can_access_admin(self):
+        """Pode acessar área administrativa do tenant."""
+        return self.is_admin or self.is_superuser

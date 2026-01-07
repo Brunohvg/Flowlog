@@ -1,12 +1,19 @@
 """
 Models do app orders - Flowlog.
 Sistema completo de gestão de pedidos.
+
+Refatorado v9:
+- Adicionado pickup_code para retiradas
+- State Machine centralizada para transições
+- Validações de integridade em clean()
+- Propriedades simplificadas
 """
 
 import random
 import string
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -15,6 +22,7 @@ from apps.core.models import TenantModel
 
 
 class OrderStatus(models.TextChoices):
+    """Status do ciclo de vida do pedido."""
     PENDING = "pending", "Pendente"
     CONFIRMED = "confirmed", "Confirmado"
     COMPLETED = "completed", "Concluído"
@@ -23,12 +31,14 @@ class OrderStatus(models.TextChoices):
 
 
 class PaymentStatus(models.TextChoices):
+    """Status de pagamento do pedido."""
     PENDING = "pending", "Pendente"
     PAID = "paid", "Pago"
     REFUNDED = "refunded", "Reembolsado"
 
 
 class DeliveryStatus(models.TextChoices):
+    """Status de entrega/retirada do pedido."""
     PENDING = "pending", "Pendente"
     SHIPPED = "shipped", "Enviado"
     DELIVERED = "delivered", "Entregue"
@@ -39,9 +49,7 @@ class DeliveryStatus(models.TextChoices):
 
 
 class DeliveryType(models.TextChoices):
-    """
-    Tipos de entrega disponíveis.
-    """
+    """Tipos de entrega disponíveis."""
     PICKUP = "pickup", "Retirada na Loja"
     MOTOBOY = "motoboy", "Motoboy"
     SEDEX = "sedex", "SEDEX"
@@ -120,7 +128,19 @@ class Customer(TenantModel):
 
 
 class Order(TenantModel):
-    """Pedido de venda."""
+    """
+    Pedido de venda.
+    
+    State Machine:
+    - order_status: Ciclo de vida geral (pending -> confirmed -> completed/cancelled/returned)
+    - payment_status: Fluxo financeiro (pending -> paid -> refunded)
+    - delivery_status: Fluxo logístico (pending -> shipped/ready -> delivered/picked_up)
+    
+    Regras de consistência (aplicadas em clean()):
+    - CANCELLED/RETURNED: delivery não pode estar em andamento
+    - COMPLETED: delivery deve estar finalizado (delivered/picked_up)
+    - REFUNDED: order deve estar CANCELLED ou RETURNED
+    """
     objects = TenantManager()
 
     # Identificação
@@ -162,6 +182,12 @@ class Order(TenantModel):
     # Entrega
     delivery_address = models.TextField("Endereço de Entrega", blank=True)
     tracking_code = models.CharField("Código de Rastreio", max_length=50, blank=True)
+    
+    # Código de retirada (4 dígitos para identificação na loja)
+    pickup_code = models.CharField(
+        "Código de Retirada", max_length=6, blank=True,
+        help_text="Código de 4 dígitos gerado quando pedido fica pronto"
+    )
 
     # Timestamps de entrega
     shipped_at = models.DateTimeField("Enviado em", null=True, blank=True)
@@ -194,14 +220,56 @@ class Order(TenantModel):
             models.Index(fields=["code"]),
             models.Index(fields=["tracking_code"]),
             models.Index(fields=["expires_at"]),
+            models.Index(fields=["pickup_code"]),
         ]
 
     def __str__(self):
         return f"{self.code} - {self.customer.name}"
 
+    def clean(self):
+        """Validações de integridade do estado do pedido."""
+        super().clean()
+        errors = {}
+        
+        # Validação: Entrega precisa de endereço (apenas para novos pedidos ou se tipo mudou)
+        if DeliveryType.requires_address(self.delivery_type) and not self.delivery_address:
+            if self.delivery_status == DeliveryStatus.PENDING:
+                errors['delivery_address'] = "Endereço é obrigatório para este tipo de entrega."
+        
+        # Validação: Correios precisa de rastreio quando enviado
+        if (self.delivery_status in [DeliveryStatus.SHIPPED, DeliveryStatus.DELIVERED] 
+            and DeliveryType.requires_tracking(self.delivery_type)
+            and not self.tracking_code):
+            errors['tracking_code'] = "Código de rastreio é obrigatório para SEDEX/PAC."
+        
+        # Validação: COMPLETED requer entrega finalizada
+        if self.order_status == OrderStatus.COMPLETED:
+            if self.delivery_status not in [DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]:
+                errors['order_status'] = "Pedido só pode ser concluído após entrega/retirada."
+        
+        # Validação: REFUNDED requer CANCELLED ou RETURNED
+        if self.payment_status == PaymentStatus.REFUNDED:
+            if self.order_status not in [OrderStatus.CANCELLED, OrderStatus.RETURNED]:
+                errors['payment_status'] = "Reembolso só é permitido para pedidos cancelados/devolvidos."
+        
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = self._generate_code()
+        
+        # Limpa endereço se for retirada
+        if self.delivery_type == DeliveryType.PICKUP:
+            self.delivery_address = ""
+            self.tracking_code = ""
+        
+        # Executa validações de integridade
+        # Skip validation se explicitamente solicitado (para operações internas)
+        skip_validation = kwargs.pop('skip_validation', False)
+        if not skip_validation:
+            self.full_clean()
+        
         super().save(*args, **kwargs)
 
     def _generate_code(self):
@@ -210,6 +278,19 @@ class Order(TenantModel):
             random_part = "".join(random.choices(chars, k=5))
             code = f"PED-{random_part}"
             if not self.__class__._default_manager.filter(code=code).exists():
+                return code
+    
+    def generate_pickup_code(self):
+        """Gera código de retirada único de 4 dígitos."""
+        while True:
+            code = "".join(random.choices(string.digits, k=4))
+            # Verifica se não existe outro pedido ativo com esse código no mesmo tenant
+            exists = Order.objects.filter(
+                tenant=self.tenant,
+                pickup_code=code,
+                delivery_status=DeliveryStatus.READY_FOR_PICKUP
+            ).exclude(pk=self.pk).exists()
+            if not exists:
                 return code
 
     # ==================== PROPRIEDADES ====================
@@ -223,17 +304,17 @@ class Order(TenantModel):
 
     @property
     def is_finalized(self):
-        """Pedido foi finalizado (concluído, cancelado ou devolvido)."""
+        """Pedido foi finalizado."""
         return not self.is_active
 
     @property
     def can_be_cancelled(self):
-        """Pode ser cancelado (antes da entrega/retirada)."""
+        """Pode ser cancelado."""
         return self.order_status not in [OrderStatus.CANCELLED, OrderStatus.RETURNED]
 
     @property
     def can_be_returned(self):
-        """Pode ser devolvido (após entrega/retirada)."""
+        """Pode ser devolvido (após entrega)."""
         return (
             self.order_status == OrderStatus.COMPLETED
             and self.delivery_status in [DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
@@ -252,7 +333,7 @@ class Order(TenantModel):
         """Pode ser enviado."""
         return (
             DeliveryType.is_delivery(self.delivery_type)
-            and self.delivery_status == DeliveryStatus.PENDING
+            and self.delivery_status in [DeliveryStatus.PENDING, DeliveryStatus.FAILED_ATTEMPT]
             and self.order_status not in [OrderStatus.CANCELLED, OrderStatus.RETURNED]
         )
 
@@ -283,16 +364,11 @@ class Order(TenantModel):
 
     @property
     def can_mark_failed_attempt(self):
-        """Pode marcar tentativa de entrega falha."""
+        """Pode marcar tentativa falha."""
         return (
             DeliveryType.is_delivery(self.delivery_type)
             and self.delivery_status == DeliveryStatus.SHIPPED
         )
-
-    @property
-    def can_resend_notification(self):
-        """Pode reenviar notificação WhatsApp."""
-        return self.order_status not in [OrderStatus.CANCELLED, OrderStatus.RETURNED]
 
     @property
     def requires_tracking(self):

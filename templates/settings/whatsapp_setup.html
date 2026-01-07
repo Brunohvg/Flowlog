@@ -1,0 +1,505 @@
+{% extends "base/base.html" %}
+
+{% block title %}WhatsApp - Configuração{% endblock %}
+{% block page_title %}Configurar WhatsApp{% endblock %}
+{% block page_subtitle %}Conecte seu WhatsApp para enviar notificações automáticas{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <!-- Voltar -->
+  <a href="{% url 'settings' %}" class="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-6">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+    Voltar para Configurações
+  </a>
+
+  {% if not api_configured %}
+  <!-- ============================================================ -->
+  <!-- ERRO: API não configurada no sistema -->
+  <!-- ============================================================ -->
+  <div class="card p-8 text-center">
+    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500"></i>
+    </div>
+    <h2 class="text-xl font-bold text-slate-800 mb-2">API não configurada</h2>
+    <p class="text-slate-600 mb-4">
+      A Evolution API não está configurada no sistema.<br>
+      Entre em contato com o administrador.
+    </p>
+  </div>
+  
+  {% elif not tenant_settings.evolution_instance %}
+  <!-- ============================================================ -->
+  <!-- PASSO 1: Criar Instância - Apenas nome -->
+  <!-- ============================================================ -->
+  <div class="grid md:grid-cols-2 gap-6">
+    
+    <!-- Formulário -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Criar Instância WhatsApp</h3>
+          <p class="text-sm text-slate-500">Escolha um nome único</p>
+        </div>
+      </div>
+      
+      <form id="create-instance-form">
+        {% csrf_token %}
+        
+        <div class="mb-6">
+          <label class="form-label">Nome da Instância</label>
+          <input 
+            type="text" 
+            name="instance_name" 
+            id="instance-name"
+            class="form-input"
+            placeholder="ex: minha-loja"
+            pattern="[a-z0-9-]+"
+            minlength="3"
+            maxlength="50"
+            required
+          >
+          <p class="text-xs text-slate-500 mt-2">
+            Será criada automaticamente se não existir
+          </p>
+        </div>
+        
+        <button type="submit" id="create-btn" class="btn btn-primary w-full">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          Salvar Configurações
+        </button>
+      </form>
+      
+      <div id="create-error" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
+    </div>
+    
+    <!-- Info -->
+    <div class="card p-6 bg-blue-50 border-blue-200">
+      <div class="flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"></i>
+        <div class="text-sm text-blue-700">
+          <p class="font-semibold mb-2">Como funciona:</p>
+          <ol class="space-y-2 list-decimal list-inside">
+            <li>Escolha um nome único para sua instância</li>
+            <li>A instância será criada automaticamente</li>
+            <li>Na próxima tela, escaneie o QR Code com seu celular</li>
+            <li>Pronto! O WhatsApp está conectado</li>
+          </ol>
+          <div class="mt-4 p-3 bg-blue-100 rounded-lg">
+            <p class="text-xs">
+              <strong>Dica:</strong> Use um nome que identifique sua loja, 
+              como "loja-maria" ou "bibelo-whatsapp"
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  {% elif status and status.connected %}
+  <!-- ============================================================ -->
+  <!-- CONECTADO -->
+  <!-- ============================================================ -->
+  <div class="grid md:grid-cols-2 gap-6">
+    
+    <!-- Status -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="check-circle" class="w-6 h-6 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-lg">WhatsApp Conectado!</h3>
+          <p class="text-sm text-emerald-600">Tudo funcionando perfeitamente</p>
+        </div>
+        <span class="ml-auto px-3 py-1 bg-emerald-500 text-white rounded-full text-sm font-medium flex items-center gap-1">
+          <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+          Online
+        </span>
+      </div>
+      
+      <div class="space-y-3">
+        <!-- Número -->
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+          <i data-lucide="smartphone" class="w-5 h-5 text-slate-400"></i>
+          <div>
+            <p class="text-xs text-slate-500">Número conectado</p>
+            <p class="font-semibold text-slate-700">
+              {% if tenant_settings.whatsapp_number %}
+                +{{ tenant_settings.whatsapp_number }}
+              {% else %}
+                Conectado
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        
+        <!-- Instância -->
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+          <i data-lucide="server" class="w-5 h-5 text-slate-400"></i>
+          <div>
+            <p class="text-xs text-slate-500">Instância</p>
+            <p class="font-mono font-semibold text-slate-700">{{ tenant_settings.evolution_instance }}</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Botão desconectar -->
+      <div class="mt-6 pt-4 border-t border-slate-100">
+        <button onclick="disconnect()" class="btn btn-secondary w-full">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          Desconectar WhatsApp
+        </button>
+      </div>
+    </div>
+    
+    <!-- Testar -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="send" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Enviar Mensagem de Teste</h3>
+          <p class="text-sm text-slate-500">Verifique se está funcionando</p>
+        </div>
+      </div>
+      
+      <form id="test-form">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="form-label">Número do WhatsApp</label>
+          <input 
+            type="tel" 
+            name="phone" 
+            class="form-input"
+            placeholder="11999999999"
+            required
+          >
+          <p class="text-xs text-slate-500 mt-1">Apenas números com DDD</p>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          Enviar Teste
+        </button>
+      </form>
+      
+      <p id="test-result" class="text-sm mt-3 hidden text-center"></p>
+    </div>
+    
+  </div>
+  
+  {% else %}
+  <!-- ============================================================ -->
+  <!-- AGUARDANDO CONEXÃO - Mostrar QR Code -->
+  <!-- ============================================================ -->
+  <div class="grid md:grid-cols-2 gap-6">
+    
+    <!-- QR Code -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="qr-code" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Conectar WhatsApp</h3>
+          <p class="text-sm text-slate-500">Escaneie o QR Code</p>
+        </div>
+      </div>
+      
+      <div id="qr-container" class="bg-slate-50 rounded-2xl p-6 min-h-[300px] flex items-center justify-center">
+        <!-- Loading -->
+        <div id="qr-loading" class="text-center">
+          <i data-lucide="loader" class="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-3"></i>
+          <p class="text-slate-500">Carregando QR Code...</p>
+        </div>
+        
+        <!-- QR Image -->
+        <div id="qr-image" class="hidden text-center">
+          <img id="qr-img" src="" alt="QR Code" class="w-64 h-64 mx-auto rounded-xl shadow-lg">
+        </div>
+        
+        <!-- Erro -->
+        <div id="qr-error" class="hidden text-center">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="alert-circle" class="w-8 h-8 text-red-500"></i>
+          </div>
+          <p class="text-red-600 font-medium" id="qr-error-text">Erro na API: Not Found</p>
+        </div>
+        
+        <!-- Conectado -->
+        <div id="qr-connected" class="hidden text-center">
+          <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="check-circle" class="w-10 h-10 text-emerald-500"></i>
+          </div>
+          <p class="text-emerald-600 font-bold text-lg">Conectado!</p>
+          <p class="text-slate-500 text-sm mt-1">Recarregando página...</p>
+        </div>
+      </div>
+      
+      <button onclick="loadQR()" class="mt-4 text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-2 mx-auto">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        Atualizar QR Code
+      </button>
+      
+      <!-- Info da Instância -->
+      <div class="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500">
+        <span class="flex items-center gap-2">
+          <i data-lucide="server" class="w-4 h-4"></i>
+          Instância: <strong class="text-slate-700">{{ tenant_settings.evolution_instance }}</strong>
+        </span>
+      </div>
+    </div>
+    
+    <!-- Instruções -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="help-circle" class="w-5 h-5 text-emerald-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Como conectar:</h3>
+        </div>
+      </div>
+      
+      <ol class="space-y-4">
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</span>
+          <span class="text-slate-600">Abra o <strong>WhatsApp</strong> no seu celular</span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</span>
+          <span class="text-slate-600">Toque em <strong>Mais opções</strong> (⋮) ou <strong>Configurações</strong></span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</span>
+          <span class="text-slate-600">Toque em <strong>Aparelhos conectados</strong></span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</span>
+          <span class="text-slate-600">Toque em <strong>Conectar um aparelho</strong></span>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">5</span>
+          <span class="text-slate-600">Aponte a câmera para o <strong>QR Code</strong> ao lado</span>
+        </li>
+      </ol>
+      
+      <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <p class="text-amber-800 text-sm flex items-start gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+          <span><strong>Importante:</strong> O QR Code expira em 45 segundos. Se não conseguir escanear a tempo, clique em "Atualizar QR Code".</span>
+        </p>
+      </div>
+    </div>
+    
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pollInterval = null;
+
+{% if tenant_settings.evolution_instance and not status.connected %}
+// Carrega QR Code ao abrir a página
+document.addEventListener('DOMContentLoaded', loadQR);
+{% endif %}
+
+{% if not tenant_settings.evolution_instance %}
+// Form de criar instância
+document.getElementById('create-instance-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const btn = document.getElementById('create-btn');
+  const errorDiv = document.getElementById('create-error');
+  const instanceName = document.getElementById('instance-name').value.toLowerCase().trim();
+  
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Criando...';
+  errorDiv.classList.add('hidden');
+  
+  try {
+    const formData = new FormData();
+    formData.append('instance_name', instanceName);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    const response = await fetch('{% url "whatsapp_create_instance" %}', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Recarrega a página para mostrar QR code
+      window.location.reload();
+    } else {
+      errorDiv.textContent = data.error || 'Erro ao criar instância';
+      errorDiv.classList.remove('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar Configurações';
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Erro de conexão. Tente novamente.';
+    errorDiv.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar Configurações';
+  }
+  
+  lucide.createIcons();
+});
+{% endif %}
+
+async function loadQR() {
+  const loading = document.getElementById('qr-loading');
+  const imageDiv = document.getElementById('qr-image');
+  const errorDiv = document.getElementById('qr-error');
+  const connectedDiv = document.getElementById('qr-connected');
+  const img = document.getElementById('qr-img');
+  
+  // Reset
+  loading.classList.remove('hidden');
+  imageDiv.classList.add('hidden');
+  errorDiv.classList.add('hidden');
+  connectedDiv.classList.add('hidden');
+  
+  try {
+    const response = await fetch('{% url "whatsapp_get_qrcode" %}');
+    const data = await response.json();
+    
+    loading.classList.add('hidden');
+    
+    if (data.connected) {
+      connectedDiv.classList.remove('hidden');
+      stopPolling();
+      setTimeout(() => window.location.reload(), 1500);
+      return;
+    }
+    
+    if (data.qrcode) {
+      // Se já é base64 com prefixo data:image
+      if (data.qrcode.startsWith('data:image')) {
+        img.src = data.qrcode;
+      } else {
+        // Adiciona prefixo se necessário
+        img.src = 'data:image/png;base64,' + data.qrcode;
+      }
+      imageDiv.classList.remove('hidden');
+      startPolling();
+    } else if (data.error) {
+      document.getElementById('qr-error-text').textContent = 'Erro na API: ' + data.error;
+      errorDiv.classList.remove('hidden');
+    }
+    
+  } catch (error) {
+    loading.classList.add('hidden');
+    document.getElementById('qr-error-text').textContent = 'Erro de conexão';
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+function startPolling() {
+  stopPolling();
+  pollInterval = setInterval(checkStatus, 3000);
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+async function checkStatus() {
+  try {
+    const response = await fetch('{% url "whatsapp_check_status" %}');
+    const data = await response.json();
+    
+    if (data.connected) {
+      stopPolling();
+      document.getElementById('qr-loading').classList.add('hidden');
+      document.getElementById('qr-image').classList.add('hidden');
+      document.getElementById('qr-error').classList.add('hidden');
+      document.getElementById('qr-connected').classList.remove('hidden');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  } catch (error) {
+    console.error('Erro ao verificar status:', error);
+  }
+}
+
+async function disconnect() {
+  if (!confirm('Tem certeza que deseja desconectar o WhatsApp?')) return;
+  
+  try {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    const response = await fetch('{% url "whatsapp_disconnect" %}', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert(data.error || 'Erro ao desconectar');
+    }
+  } catch (error) {
+    alert('Erro de conexão');
+  }
+}
+
+{% if status and status.connected %}
+// Form de teste de mensagem
+document.getElementById('test-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const form = e.target;
+  const resultP = document.getElementById('test-result');
+  const phone = form.phone.value;
+  
+  resultP.classList.remove('hidden', 'text-emerald-600', 'text-red-600');
+  resultP.textContent = 'Enviando...';
+  resultP.classList.add('text-slate-500');
+  
+  try {
+    const formData = new FormData(form);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    const response = await fetch('{% url "whatsapp_test_message" %}', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    resultP.classList.remove('text-slate-500');
+    
+    if (data.success) {
+      resultP.textContent = '✓ ' + data.message;
+      resultP.classList.add('text-emerald-600');
+      form.phone.value = '';
+    } else {
+      resultP.textContent = '✗ ' + (data.error || 'Erro ao enviar');
+      resultP.classList.add('text-red-600');
+    }
+  } catch (error) {
+    resultP.classList.remove('text-slate-500');
+    resultP.textContent = '✗ Erro de conexão';
+    resultP.classList.add('text-red-600');
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

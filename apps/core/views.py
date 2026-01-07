@@ -41,24 +41,48 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         orders = Order.objects.filter(tenant=tenant)
 
         # 1. KPI Principais
+        # CORREÇÃO: Só conta como receita pedidos pagos E não cancelados/devolvidos
         total_revenue = (
-            orders.filter(payment_status=PaymentStatus.PAID).aggregate(
-                s=Sum("total_value")
-            )["s"]
+            orders.filter(
+                payment_status=PaymentStatus.PAID
+            ).exclude(
+                order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]
+            ).aggregate(s=Sum("total_value"))["s"]
             or 0
         )
         orders_today = orders.filter(created_at__date=today).count()
 
-        # 2. Dados do Funil (Pipeline)
-        # Contamos quantos pedidos estão em cada "fase" macro do processo
-        total_active = orders.exclude(
+        # 2. Dados do Funil (Pipeline) - CORRIGIDO
+        # Exclui cancelados/devolvidos do total ativo
+        active_orders = orders.exclude(
             order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]
-        ).count()
+        )
+        total_active = active_orders.count()
 
-        pending = orders.filter(order_status=OrderStatus.PENDING).count()
-        processing = orders.filter(order_status=OrderStatus.CONFIRMED).count()
-        shipped = orders.filter(delivery_status=DeliveryStatus.SHIPPED).count()
-        delivered = orders.filter(
+        # Cada fase do funil é MUTUAMENTE EXCLUSIVA
+        # Pendentes: order_status=PENDING + delivery_status=PENDING (aguardando confirmação)
+        pending = active_orders.filter(
+            order_status=OrderStatus.PENDING,
+            delivery_status=DeliveryStatus.PENDING
+        ).count()
+        
+        # Em processamento: CONFIRMED + delivery ainda PENDING (preparando)
+        processing = active_orders.filter(
+            order_status=OrderStatus.CONFIRMED,
+            delivery_status=DeliveryStatus.PENDING
+        ).count()
+        
+        # Enviados/Prontos: em trânsito ou aguardando retirada
+        in_transit = active_orders.filter(
+            delivery_status__in=[
+                DeliveryStatus.SHIPPED, 
+                DeliveryStatus.READY_FOR_PICKUP,
+                DeliveryStatus.FAILED_ATTEMPT
+            ]
+        ).count()
+        
+        # Concluídos: entregues ou retirados
+        delivered = active_orders.filter(
             delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
         ).count()
 
@@ -68,7 +92,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         stats = {
             "revenue": total_revenue,
             "orders_today": orders_today,
-            # Estrutura do Funil melhorada
+            # Estrutura do Funil corrigida
             "pipeline": {
                 "pending": {
                     "count": pending,
@@ -83,9 +107,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                     "icon": "package-open",
                 },
                 "shipped": {
-                    "count": shipped,
-                    "pct": calc_pct(shipped, total_active),
-                    "label": "Enviados",
+                    "count": in_transit,
+                    "pct": calc_pct(in_transit, total_active),
+                    "label": "Em Trânsito",
                     "icon": "truck",
                 },
                 "delivered": {
@@ -96,13 +120,17 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 },
             },
             "pending_count": pending,
-            "shipped_count": shipped,
+            "shipped_count": in_transit,
         }
         context["stats"] = stats
 
         # 3. Alertas (Critical Path)
         alerts = []
-        failed = orders.filter(delivery_status=DeliveryStatus.FAILED_ATTEMPT).count()
+        failed = orders.filter(
+            delivery_status=DeliveryStatus.FAILED_ATTEMPT
+        ).exclude(
+            order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]
+        ).count()
         if failed:
             alerts.append(
                 {
@@ -113,16 +141,36 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                     "link": f"?delivery_status={DeliveryStatus.FAILED_ATTEMPT}",
                 }
             )
+        
+        # Alerta: Retiradas prontas há mais de 24h
+        expiring_soon = orders.filter(
+            delivery_status=DeliveryStatus.READY_FOR_PICKUP,
+            expires_at__lte=timezone.now() + timedelta(hours=12)
+        ).count()
+        if expiring_soon:
+            alerts.append(
+                {
+                    "level": "warning",
+                    "icon": "clock",
+                    "title": "Retiradas Expirando",
+                    "msg": f"{expiring_soon} pedidos com prazo curto.",
+                    "link": "?status=ready",
+                }
+            )
 
         context["alerts"] = alerts
 
-        # 4. Top Clientes (Para preencher o espaço na direita)
+        # 4. Top Clientes
         context["top_customers"] = (
             Customer.objects.filter(tenant=tenant)
             .annotate(
                 total_spent=Sum(
                     "orders__total_value",
-                    filter=Q(orders__payment_status=PaymentStatus.PAID),
+                    filter=Q(
+                        orders__payment_status=PaymentStatus.PAID
+                    ) & ~Q(
+                        orders__order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]
+                    ),
                 )
             )
             .order_by("-total_spent")[:5]

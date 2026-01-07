@@ -3,120 +3,292 @@
 {% block title %}{{ order.code }}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8">
-  
-  <!-- Back -->
-  <a href="{% url 'tracking_search' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors">
-    <i data-lucide="arrow-left" class="w-5 h-5"></i>
-    Voltar
-  </a>
-  
-  <!-- Main Card -->
-  <div class="glass-card rounded-2xl shadow-2xl overflow-hidden mb-6">
+<div class="min-h-screen px-4 py-6">
+  <div class="max-w-lg mx-auto">
     
-    <!-- Status Banner -->
-    <div class="p-6 text-center text-white
-      {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}bg-red-500
-      {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500
-      {% elif order.delivery_status == 'shipped' %}bg-blue-500
-      {% elif order.delivery_status == 'ready_for_pickup' %}bg-purple-500
-      {% elif order.delivery_status == 'expired' %}bg-red-500
-      {% else %}bg-amber-500{% endif %}">
+    <!-- Header com Logo -->
+    <div class="flex items-center justify-between mb-6">
+      <a href="{% url 'tracking_search' %}" class="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm">Voltar</span>
+      </a>
+      <span class="text-white/50 text-sm font-mono">{{ order.code }}</span>
+    </div>
+    
+    <!-- ============================================================ -->
+    <!-- CARD PRINCIPAL -->
+    <!-- ============================================================ -->
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
       
-      <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-        {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
-          <i data-lucide="x-circle" class="w-8 h-8"></i>
-        {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
-          <i data-lucide="check-circle" class="w-8 h-8"></i>
-        {% elif order.delivery_status == 'shipped' %}
-          <i data-lucide="truck" class="w-8 h-8"></i>
-        {% elif order.delivery_status == 'ready_for_pickup' %}
-          <i data-lucide="package-check" class="w-8 h-8"></i>
-        {% else %}
-          <i data-lucide="loader" class="w-8 h-8"></i>
+      <!-- Status Banner -->
+      <div class="p-6 sm:p-8 text-center text-white relative overflow-hidden
+        {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}bg-gradient-to-br from-red-500 to-rose-600
+        {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-gradient-to-br from-emerald-500 to-teal-600
+        {% elif order.delivery_status == 'shipped' %}bg-gradient-to-br from-blue-500 to-indigo-600
+        {% elif order.delivery_status == 'ready_for_pickup' %}bg-gradient-to-br from-purple-500 to-violet-600
+        {% elif order.delivery_status == 'expired' %}bg-gradient-to-br from-orange-500 to-red-600
+        {% elif order.delivery_status == 'failed_attempt' %}bg-gradient-to-br from-amber-500 to-orange-600
+        {% else %}bg-gradient-to-br from-amber-400 to-yellow-500{% endif %}">
+        
+        <!-- Círculos decorativos -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+        
+        <div class="relative">
+          <!-- Ícone -->
+          <div class="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+            {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
+              <i data-lucide="x-circle" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
+              <i data-lucide="check-circle" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% elif order.delivery_status == 'shipped' %}
+              <i data-lucide="truck" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% elif order.delivery_status == 'ready_for_pickup' %}
+              <i data-lucide="package-check" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% elif order.delivery_status == 'expired' %}
+              <i data-lucide="clock" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% elif order.delivery_status == 'failed_attempt' %}
+              <i data-lucide="alert-triangle" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+            {% else %}
+              <i data-lucide="loader" class="w-8 h-8 sm:w-10 sm:h-10 animate-spin"></i>
+            {% endif %}
+          </div>
+          
+          <!-- Status Text -->
+          <h1 class="text-2xl sm:text-3xl font-bold mb-1">{{ order.status_display }}</h1>
+          <p class="text-white/80 font-mono text-sm sm:text-base">{{ order.code }}</p>
+        </div>
+      </div>
+      
+      <!-- ============================================================ -->
+      <!-- CÓDIGO DE RETIRADA - Destaque quando pronto -->
+      <!-- ============================================================ -->
+      {% if order.delivery_type == 'pickup' and order.delivery_status == 'ready_for_pickup' and order.pickup_code %}
+      <div class="p-5 bg-gradient-to-br from-purple-50 to-indigo-50 border-b-2 border-purple-400">
+        
+        <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+          
+          <!-- Código -->
+          <div class="text-center flex-1">
+            <p class="text-[10px] sm:text-xs text-purple-600 font-semibold uppercase tracking-wider mb-2">
+              Código de Retirada
+            </p>
+            <div class="bg-white rounded-xl px-5 py-3 shadow-md inline-block border border-purple-200">
+              <p class="font-mono text-3xl sm:text-4xl font-bold text-slate-800 tracking-[0.15em]">
+                {{ order.pickup_code }}
+              </p>
+            </div>
+            <p class="text-slate-400 mt-2 text-[10px] sm:text-xs">
+              Apresente ao retirar
+            </p>
+          </div>
+          
+          <!-- QR Code -->
+          <div class="flex-shrink-0">
+            <div class="bg-white p-2 rounded-xl shadow-md border border-slate-200">
+              <img 
+                src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ order.code }}-{{ order.pickup_code }}&bgcolor=ffffff" 
+                alt="QR Code" 
+                class="w-20 h-20 sm:w-24 sm:h-24"
+                loading="lazy"
+              >
+            </div>
+          </div>
+          
+        </div>
+        
+        <!-- Timer de Expiração -->
+        {% if order.expires_at %}
+        <div class="mt-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-purple-700 bg-purple-100/50 rounded-lg px-3 py-2">
+          <i data-lucide="clock" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          <span>Retire até <strong>{{ order.expires_at|date:"d/m" }} às {{ order.expires_at|date:"H:i" }}</strong></span>
+        </div>
         {% endif %}
       </div>
       
-      <h1 class="text-2xl font-bold mb-1">{{ order.status_display }}</h1>
-      <p class="opacity-80 font-mono">{{ order.code }}</p>
-    </div>
-    
-    <!-- Progress -->
-    {% if order.order_status != 'cancelled' and order.order_status != 'returned' and order.delivery_status != 'expired' %}
-    <div class="p-6 bg-slate-50">
-      <div class="flex items-center justify-between">
-        <div class="flex flex-col items-center flex-1">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-emerald-500 text-white">
-            <i data-lucide="check" class="w-5 h-5"></i>
+      <!-- Local de Retirada -->
+      {% if order.tenant.address %}
+      <div class="p-4 bg-purple-500 text-white">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <i data-lucide="map-pin" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </div>
-          <span class="text-xs font-medium text-slate-600">Confirmado</span>
-        </div>
-        <div class="h-1 flex-1 {% if order.delivery_status != 'pending' %}bg-emerald-500{% else %}bg-slate-200{% endif %}"></div>
-        <div class="flex flex-col items-center flex-1">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
-            {% if order.delivery_status == 'shipped' or order.delivery_status == 'delivered' or order.delivery_status == 'ready_for_pickup' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
-            <i data-lucide="truck" class="w-5 h-5"></i>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm sm:text-base">{{ order.tenant.name }}</p>
+            <p class="text-purple-100 text-xs sm:text-sm truncate">{{ order.tenant.address|truncatewords:10 }}</p>
           </div>
-          <span class="text-xs font-medium text-slate-600">{% if order.delivery_type == 'pickup' %}Pronto{% else %}Enviado{% endif %}</span>
-        </div>
-        <div class="h-1 flex-1 {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500{% else %}bg-slate-200{% endif %}"></div>
-        <div class="flex flex-col items-center flex-1">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mb-2
-            {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
-            <i data-lucide="check-circle" class="w-5 h-5"></i>
-          </div>
-          <span class="text-xs font-medium text-slate-600">{% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}</span>
         </div>
       </div>
-    </div>
-    {% endif %}
-    
-    <!-- Details -->
-    <div class="p-6 space-y-4">
-      <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="store" class="w-5 h-5 text-indigo-600"></i>
-        </div>
-        <div>
-          <p class="text-xs text-slate-500">Vendido por</p>
-          <p class="font-semibold text-slate-800">{{ order.tenant.name }}</p>
-        </div>
-      </div>
+      {% endif %}
+      {% endif %}
       
-      {% if order.tracking_code %}
-      <div class="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs text-indigo-600 font-semibold mb-1">Código de Rastreio</p>
-            <p class="font-mono text-xl font-bold text-indigo-700">{{ order.tracking_code }}</p>
+      <!-- ============================================================ -->
+      <!-- PROGRESS STEPS -->
+      <!-- ============================================================ -->
+      {% if order.order_status != 'cancelled' and order.order_status != 'returned' and order.delivery_status != 'expired' %}
+      <div class="p-5 sm:p-6 bg-slate-50">
+        <div class="flex items-center justify-between relative">
+          
+          <!-- Linha de fundo -->
+          <div class="absolute top-5 left-[15%] right-[15%] h-1 bg-slate-200 rounded-full"></div>
+          
+          <!-- Linha de progresso -->
+          <div class="absolute top-5 left-[15%] h-1 bg-emerald-500 rounded-full transition-all duration-500
+            {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}right-[15%]
+            {% elif order.delivery_status == 'shipped' or order.delivery_status == 'ready_for_pickup' or order.delivery_status == 'failed_attempt' %}right-[50%]
+            {% else %}right-[75%]{% endif %}">
           </div>
-          {% if order.tracking_url %}
-          <a href="{{ order.tracking_url }}" target="_blank" class="px-4 py-2 bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-600 transition-colors">
-            Rastrear
-          </a>
-          {% endif %}
+          
+          <!-- Step 1: Confirmado -->
+          <div class="flex flex-col items-center flex-1 z-10">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
+              <i data-lucide="check" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs font-semibold text-slate-600 text-center mt-2">Confirmado</span>
+          </div>
+          
+          <!-- Step 2: Pronto/Enviado -->
+          <div class="flex flex-col items-center flex-1 z-10">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all
+              {% if order.delivery_status == 'shipped' or order.delivery_status == 'delivered' or order.delivery_status == 'ready_for_pickup' or order.delivery_status == 'picked_up' or order.delivery_status == 'failed_attempt' %}
+                bg-emerald-500 text-white shadow-emerald-500/30
+              {% else %}
+                bg-white text-slate-300 border-2 border-slate-200
+              {% endif %}">
+              {% if order.delivery_type == 'pickup' %}
+                <i data-lucide="package-check" class="w-5 h-5"></i>
+              {% else %}
+                <i data-lucide="truck" class="w-5 h-5"></i>
+              {% endif %}
+            </div>
+            <span class="text-[10px] sm:text-xs font-semibold text-slate-600 text-center mt-2">
+              {% if order.delivery_type == 'pickup' %}Pronto{% else %}Enviado{% endif %}
+            </span>
+          </div>
+          
+          <!-- Step 3: Entregue/Retirado -->
+          <div class="flex flex-col items-center flex-1 z-10">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all
+              {% if order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
+                bg-emerald-500 text-white shadow-emerald-500/30
+              {% else %}
+                bg-white text-slate-300 border-2 border-slate-200
+              {% endif %}">
+              <i data-lucide="check-circle" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[10px] sm:text-xs font-semibold text-slate-600 text-center mt-2">
+              {% if order.delivery_type == 'pickup' %}Retirado{% else %}Entregue{% endif %}
+            </span>
+          </div>
         </div>
       </div>
       {% endif %}
       
-      <div class="pt-4 border-t border-slate-100 text-sm">
-        <div class="flex justify-between">
-          <span class="text-slate-500">Data do pedido</span>
-          <span class="text-slate-700">{{ order.created_at|date:"d/m/Y H:i" }}</span>
+      <!-- ============================================================ -->
+      <!-- INFORMAÇÕES -->
+      <!-- ============================================================ -->
+      <div class="p-5 sm:p-6 space-y-4">
+        
+        <!-- Loja -->
+        <div class="flex items-center gap-3 p-3 sm:p-4 bg-slate-50 rounded-xl">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <i data-lucide="store" class="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wider">Vendido por</p>
+            <p class="font-bold text-slate-800 text-sm sm:text-base truncate">{{ order.tenant.name }}</p>
+          </div>
+        </div>
+        
+        <!-- Código de Rastreio (Correios) -->
+        {% if order.tracking_code %}
+        <div class="p-4 sm:p-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p class="text-indigo-100 text-xs sm:text-sm font-medium mb-1">Código de Rastreio</p>
+              <p class="font-mono text-xl sm:text-2xl font-bold tracking-wider">{{ order.tracking_code }}</p>
+            </div>
+            {% if order.tracking_url %}
+            <a href="{{ order.tracking_url }}" target="_blank" 
+               class="px-4 py-2.5 sm:px-5 sm:py-3 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base">
+              <i data-lucide="external-link" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+              Rastrear
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Aviso: Aguardando (quando retirada pendente) -->
+        {% if order.delivery_type == 'pickup' and order.delivery_status == 'pending' %}
+        <div class="p-4 sm:p-5 bg-amber-50 border-2 border-amber-200 rounded-2xl text-center">
+          <div class="w-12 h-12 sm:w-14 sm:h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="clock" class="w-6 h-6 sm:w-7 sm:h-7 text-amber-600"></i>
+          </div>
+          <h3 class="font-bold text-amber-800 text-base sm:text-lg mb-2">Aguardando Preparação</h3>
+          <p class="text-amber-700 text-sm">
+            Você será notificado quando seu pedido estiver pronto para retirada.
+          </p>
+        </div>
+        {% endif %}
+        
+        <!-- Tentativa de entrega falhou -->
+        {% if order.delivery_status == 'failed_attempt' %}
+        <div class="p-4 sm:p-5 bg-orange-50 border-2 border-orange-200 rounded-2xl">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <i data-lucide="alert-triangle" class="w-5 h-5 sm:w-6 sm:h-6 text-orange-600"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-orange-800 text-sm sm:text-base mb-1">Tentativa de Entrega</h3>
+              <p class="text-orange-700 text-xs sm:text-sm">
+                Tentamos entregar mas não conseguimos. Nova tentativa em breve.
+              </p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Data -->
+        <div class="pt-4 border-t border-slate-100">
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-slate-500">Data do pedido</span>
+            <span class="text-slate-700 font-medium">{{ order.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
         </div>
       </div>
     </div>
+    
+    <!-- ============================================================ -->
+    <!-- CARD: VER MAIS DETALHES -->
+    <!-- ============================================================ -->
+    <div class="bg-white rounded-2xl p-5 sm:p-6 mt-5 text-center shadow-lg">
+      <div class="w-12 h-12 sm:w-14 sm:h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="lock" class="w-6 h-6 sm:w-7 sm:h-7 text-slate-400"></i>
+      </div>
+      <h3 class="font-bold text-slate-700 text-base sm:text-lg mb-1">Ver mais detalhes</h3>
+      <p class="text-xs sm:text-sm text-slate-500 mb-4">Entre com seus dados para ver o histórico completo</p>
+      <a href="{% url 'tracking_login' %}" class="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-indigo-500 text-white font-bold rounded-xl hover:bg-indigo-600 transition-colors text-sm sm:text-base">
+        <i data-lucide="log-in" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        Entrar
+      </a>
+    </div>
+    
+    <!-- ============================================================ -->
+    <!-- CONTATO WHATSAPP -->
+    <!-- ============================================================ -->
+    {% if order.tenant.contact_phone %}
+    <div class="mt-5 text-center">
+      <p class="text-white/60 text-xs sm:text-sm mb-3">Dúvidas sobre seu pedido?</p>
+      <a href="https://wa.me/55{{ order.tenant.contact_phone|cut:' '|cut:'-'|cut:'('|cut:')' }}?text=Olá! Gostaria de informações sobre o pedido {{ order.code }}" 
+         target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors text-sm sm:text-base">
+        <i data-lucide="message-circle" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        Falar no WhatsApp
+      </a>
+    </div>
+    {% endif %}
+    
   </div>
-  
-  <!-- Login Prompt -->
-  <div class="glass-card rounded-2xl p-5 text-center">
-    <i data-lucide="lock" class="w-8 h-8 text-slate-400 mx-auto mb-3"></i>
-    <h3 class="font-semibold text-slate-700 mb-1">Ver mais detalhes</h3>
-    <p class="text-sm text-slate-500 mb-4">Entre com seus dados para ver o histórico completo</p>
-    <a href="{% url 'tracking_login' %}" class="inline-block px-6 py-2 bg-indigo-500 text-white font-semibold rounded-xl hover:bg-indigo-600 transition-colors">
-      Entrar
-    </a>
-  </div>
-  
 </div>
 {% endblock %}

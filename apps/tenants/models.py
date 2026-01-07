@@ -37,29 +37,28 @@ class TenantSettings(BaseModel):
         related_name="settings",
     )
 
-    # ==================== EVOLUTION API ====================
+    # ==================== WHATSAPP / EVOLUTION API ====================
+    # URL e API Key Global são do settings.py (apenas para criar instância)
+    # Cada tenant tem seu próprio token de instância (gerado ao criar)
     whatsapp_enabled = models.BooleanField("WhatsApp Ativo", default=False)
-    evolution_api_url = models.URLField(
-        "URL da Evolution API",
-        blank=True,
-        help_text="Ex: https://api.evolution.com.br",
-    )
-    evolution_api_key = models.CharField(
-        "API Key da Evolution",
-        max_length=200,
-        blank=True,
-    )
     evolution_instance = models.CharField(
         "Nome da Instância",
         max_length=100,
         blank=True,
-        help_text="Nome da instância criada na Evolution API",
+        unique=True,
+        help_text="Nome único da instância (será criada automaticamente)",
+    )
+    evolution_instance_token = models.CharField(
+        "Token da Instância",
+        max_length=200,
+        blank=True,
+        help_text="Token individual da instância (gerado automaticamente)",
     )
     whatsapp_number = models.CharField(
         "Número do WhatsApp",
         max_length=20,
         blank=True,
-        help_text="Número conectado (apenas visualização)",
+        help_text="Número conectado (preenchido automaticamente)",
     )
     whatsapp_connected = models.BooleanField(
         "WhatsApp Conectado",
@@ -154,14 +153,15 @@ class TenantSettings(BaseModel):
     # ==================== MENSAGENS - RETIRADA ====================
     msg_order_ready_for_pickup = models.TextField(
         "Mensagem: Pronto para Retirada",
-        help_text="Placeholders: {nome}, {codigo}, {valor}, {endereco}, {loja}",
+        help_text="Placeholders: {nome}, {codigo}, {valor}, {endereco}, {pickup_code}, {loja}",
         default=(
             "Olá {nome}! 🏬\n\n"
             "Seu pedido *{codigo}* está pronto para retirada!\n"
             "Valor: R$ {valor}\n\n"
+            "🔑 *Código de retirada: {pickup_code}*\n\n"
             "📍 Retire em:\n{endereco}\n\n"
             "⏰ Prazo: 48 horas\n\n"
-            "Aguardamos você!\n"
+            "Apresente o código na loja.\n"
             "_{loja}_"
         ),
     )
@@ -224,11 +224,12 @@ class TenantSettings(BaseModel):
     @property
     def is_whatsapp_configured(self):
         """Verifica se WhatsApp está configurado."""
+        from django.conf import settings
+        # Precisa ter: URL global + instância + token da instância
         return bool(
-            self.whatsapp_enabled
-            and self.evolution_api_url
-            and self.evolution_api_key
+            settings.EVOLUTION_API_URL
             and self.evolution_instance
+            and self.evolution_instance_token
         )
 
 

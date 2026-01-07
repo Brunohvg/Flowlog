@@ -329,6 +329,9 @@ class OrderStatusService:
         if order.delivery_status != DeliveryStatus.PENDING:
             raise ValueError("Pedido não está pendente.")
 
+        # Gera código de retirada de 4 dígitos
+        order.pickup_code = order.generate_pickup_code()
+        
         order.delivery_status = DeliveryStatus.READY_FOR_PICKUP
         order.shipped_at = timezone.now()
         # Define expiração em 48 horas
@@ -338,18 +341,23 @@ class OrderStatusService:
             order.order_status = OrderStatus.CONFIRMED
 
         order.save(update_fields=[
-            "delivery_status", "shipped_at", "expires_at", "order_status", "updated_at"
+            "delivery_status", "shipped_at", "expires_at", "order_status", 
+            "pickup_code", "updated_at"
         ])
 
         OrderActivity.log(
             order=order,
             activity_type=OrderActivity.ActivityType.READY_PICKUP,
-            description=f"Pedido pronto para retirada. Expira em {PICKUP_EXPIRY_HOURS}h.",
+            description=f"Pedido pronto para retirada. Código: {order.pickup_code}. Expira em {PICKUP_EXPIRY_HOURS}h.",
             user=actor,
+            pickup_code=order.pickup_code,
             expires_at=order.expires_at.isoformat(),
         )
 
-        logger.info("Pedido pronto para retirada | order=%s | expires=%s", order.code, order.expires_at)
+        logger.info(
+            "Pedido pronto para retirada | order=%s | pickup_code=%s | expires=%s", 
+            order.code, order.pickup_code, order.expires_at
+        )
 
         send_order_ready_for_pickup_whatsapp.delay(str(order.id))
         return order
