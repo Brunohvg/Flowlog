@@ -111,8 +111,10 @@ volumes:
   media_volume:
   redis_data:
 
+
 networks:
   traefik_public:
     external: true
   app_network:
     external: true
+
