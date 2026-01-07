@@ -46,6 +46,7 @@ class TenantSettings(BaseModel):
         max_length=100,
         blank=True,
         unique=True,
+        null=True,
         help_text="Nome único da instância (será criada automaticamente)",
     )
     evolution_instance_token = models.CharField(
@@ -66,10 +67,26 @@ class TenantSettings(BaseModel):
         editable=False,
     )
 
+    # ==================== CONTROLE GRANULAR DE NOTIFICAÇÕES ====================
+    # Cada tipo de mensagem pode ser ativado/desativado individualmente
+    notify_order_created = models.BooleanField("Notificar: Pedido Criado", default=True)
+    notify_order_confirmed = models.BooleanField("Notificar: Pedido Confirmado", default=False)
+    notify_payment_received = models.BooleanField("Notificar: Pagamento Recebido", default=True)
+    notify_payment_refunded = models.BooleanField("Notificar: Pagamento Estornado", default=True)
+    notify_order_shipped = models.BooleanField("Notificar: Pedido Enviado", default=True)
+    notify_order_delivered = models.BooleanField("Notificar: Pedido Entregue", default=True)
+    notify_delivery_failed = models.BooleanField("Notificar: Tentativa de Entrega Falha", default=True)
+    notify_order_ready_for_pickup = models.BooleanField("Notificar: Pronto para Retirada", default=True)
+    notify_order_picked_up = models.BooleanField("Notificar: Pedido Retirado", default=False)
+    notify_order_expired = models.BooleanField("Notificar: Pedido Expirado", default=True)
+    notify_order_cancelled = models.BooleanField("Notificar: Pedido Cancelado", default=True)
+    notify_order_returned = models.BooleanField("Notificar: Pedido Devolvido", default=True)
+
     # ==================== MENSAGENS - PEDIDO ====================
     msg_order_created = models.TextField(
         "Mensagem: Pedido Criado",
-        help_text="Placeholders: {nome}, {codigo}, {valor}, {loja}",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {valor}, {loja}, {link_rastreio}",
         default=(
             "Olá {nome}! 🎉\n\n"
             "Seu pedido *{codigo}* foi recebido!\n"
@@ -82,6 +99,7 @@ class TenantSettings(BaseModel):
 
     msg_order_confirmed = models.TextField(
         "Mensagem: Pedido Confirmado",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {loja}",
         default=(
             "Olá {nome}! ✅\n\n"
@@ -93,6 +111,7 @@ class TenantSettings(BaseModel):
     # ==================== MENSAGENS - PAGAMENTO ====================
     msg_payment_received = models.TextField(
         "Mensagem: Pagamento Recebido",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {valor}, {loja}",
         default=(
             "Olá {nome}! 💰\n\n"
@@ -105,6 +124,7 @@ class TenantSettings(BaseModel):
 
     msg_payment_refunded = models.TextField(
         "Mensagem: Pagamento Estornado",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {valor}, {loja}",
         default=(
             "Olá {nome}!\n\n"
@@ -117,7 +137,8 @@ class TenantSettings(BaseModel):
     # ==================== MENSAGENS - ENTREGA ====================
     msg_order_shipped = models.TextField(
         "Mensagem: Pedido Enviado",
-        help_text="Placeholders: {nome}, {codigo}, {rastreio}, {link_rastreio}, {loja}",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {rastreio}, {rastreio_info}, {link_rastreio}, {loja}",
         default=(
             "Olá {nome}! 📦\n\n"
             "Seu pedido *{codigo}* foi enviado!\n\n"
@@ -129,6 +150,7 @@ class TenantSettings(BaseModel):
 
     msg_order_delivered = models.TextField(
         "Mensagem: Pedido Entregue",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {loja}",
         default=(
             "Olá {nome}! ✅\n\n"
@@ -140,6 +162,7 @@ class TenantSettings(BaseModel):
 
     msg_delivery_failed = models.TextField(
         "Mensagem: Tentativa de Entrega Falha",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {tentativa}, {loja}",
         default=(
             "Olá {nome}! ⚠️\n\n"
@@ -153,6 +176,7 @@ class TenantSettings(BaseModel):
     # ==================== MENSAGENS - RETIRADA ====================
     msg_order_ready_for_pickup = models.TextField(
         "Mensagem: Pronto para Retirada",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {valor}, {endereco}, {pickup_code}, {loja}",
         default=(
             "Olá {nome}! 🏬\n\n"
@@ -168,6 +192,7 @@ class TenantSettings(BaseModel):
 
     msg_order_picked_up = models.TextField(
         "Mensagem: Pedido Retirado",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {loja}",
         default=(
             "Olá {nome}! ✅\n\n"
@@ -179,6 +204,7 @@ class TenantSettings(BaseModel):
 
     msg_order_expired = models.TextField(
         "Mensagem: Pedido Expirado (Retirada)",
+        blank=True,
         help_text="Placeholders: {nome}, {codigo}, {loja}",
         default=(
             "Olá {nome}! ⚠️\n\n"
@@ -191,11 +217,12 @@ class TenantSettings(BaseModel):
     # ==================== MENSAGENS - CANCELAMENTO ====================
     msg_order_cancelled = models.TextField(
         "Mensagem: Pedido Cancelado",
-        help_text="Placeholders: {nome}, {codigo}, {motivo}, {loja}",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {motivo}, {motivo_info}, {loja}",
         default=(
             "Olá {nome}!\n\n"
             "Seu pedido *{codigo}* foi cancelado.\n"
-            "{motivo_info}\n"
+            "{motivo_info}"
             "Em caso de dúvidas, entre em contato.\n"
             "_{loja}_"
         ),
@@ -203,11 +230,12 @@ class TenantSettings(BaseModel):
 
     msg_order_returned = models.TextField(
         "Mensagem: Pedido Devolvido",
-        help_text="Placeholders: {nome}, {codigo}, {motivo}, {loja}",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {motivo}, {motivo_info}, {loja}",
         default=(
             "Olá {nome}!\n\n"
             "Registramos a devolução do pedido *{codigo}*.\n"
-            "{motivo_info}\n"
+            "{motivo_info}"
             "Obrigado pelo contato.\n"
             "_{loja}_"
         ),
@@ -227,10 +255,54 @@ class TenantSettings(BaseModel):
         from django.conf import settings
         # Precisa ter: URL global + instância + token da instância
         return bool(
-            settings.EVOLUTION_API_URL
+            getattr(settings, 'EVOLUTION_API_URL', '')
             and self.evolution_instance
             and self.evolution_instance_token
         )
+    
+    @property
+    def is_whatsapp_ready(self):
+        """Verifica se WhatsApp está pronto para enviar (configurado + habilitado + conectado)."""
+        return (
+            self.is_whatsapp_configured
+            and self.whatsapp_enabled
+            and self.whatsapp_connected
+        )
+    
+    def can_send_notification(self, notification_type: str) -> bool:
+        """
+        Verifica se pode enviar um tipo específico de notificação.
+        
+        Args:
+            notification_type: Tipo da notificação (ex: 'order_created', 'payment_received')
+        
+        Returns:
+            bool: True se pode enviar
+        """
+        if not self.whatsapp_enabled:
+            return False
+        
+        # Mapeia tipo para campo
+        field_map = {
+            'order_created': 'notify_order_created',
+            'order_confirmed': 'notify_order_confirmed',
+            'payment_received': 'notify_payment_received',
+            'payment_refunded': 'notify_payment_refunded',
+            'order_shipped': 'notify_order_shipped',
+            'order_delivered': 'notify_order_delivered',
+            'delivery_failed': 'notify_delivery_failed',
+            'ready_for_pickup': 'notify_order_ready_for_pickup',
+            'picked_up': 'notify_order_picked_up',
+            'expired': 'notify_order_expired',
+            'cancelled': 'notify_order_cancelled',
+            'returned': 'notify_order_returned',
+        }
+        
+        field_name = field_map.get(notification_type)
+        if not field_name:
+            return True  # Tipo desconhecido, permite por padrão
+        
+        return getattr(self, field_name, True)
 
 
 @receiver(post_save, sender=Tenant)

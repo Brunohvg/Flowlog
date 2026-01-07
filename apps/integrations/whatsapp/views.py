@@ -174,40 +174,12 @@ def whatsapp_create_instance(request):
     
     # Verifica se já existe NA EVOLUTION API
     if global_client.instance_exists(instance_name):
-        # Instância já existe na API - tenta conectar a ela
-        try:
-            existing_token = global_client.get_instance_token(instance_name)
-            
-            if existing_token:
-                # Salva no tenant (conectando a instância existente)
-                tenant_settings.evolution_instance = instance_name
-                tenant_settings.evolution_instance_token = existing_token
-                tenant_settings.whatsapp_enabled = True
-                tenant_settings.save()
-                
-                logger.info(
-                    "Conectado a instância existente | tenant=%s | instance=%s",
-                    tenant.slug, instance_name
-                )
-                
-                return JsonResponse({
-                    'success': True,
-                    'created': False,
-                    'connected': False,
-                    'instance': instance_name,
-                    'message': 'Instância encontrada! Escaneie o QR Code para conectar.'
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'A instância "{instance_name}" já existe na API mas não foi possível obter o token. Escolha outro nome ou contate o administrador.'
-                }, status=400)
-                
-        except EvolutionAPIError as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'A instância "{instance_name}" já existe. Escolha outro nome.'
-            }, status=400)
+        # SEGURANÇA: Se instância existe na API mas não está no nosso banco,
+        # NÃO permite conectar (pode ser de outro sistema)
+        return JsonResponse({
+            'success': False,
+            'error': f'O nome "{instance_name}" já está em uso. Escolha outro nome.'
+        }, status=400)
     
     try:
         # Cria instância e recebe o token individual

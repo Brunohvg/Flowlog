@@ -21,12 +21,13 @@ class Migration(migrations.Migration):
             model_name='tenantsettings',
             name='evolution_api_key',
         ),
-        # Atualiza evolution_instance para ser único
+        # Atualiza evolution_instance para ser único (null=True para permitir múltiplos vazios)
         migrations.AlterField(
             model_name='tenantsettings',
             name='evolution_instance',
             field=models.CharField(
                 blank=True,
+                null=True,
                 help_text='Nome único da instância (será criada automaticamente)',
                 max_length=100,
                 unique=True,

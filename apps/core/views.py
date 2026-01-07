@@ -157,6 +157,24 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                     "link": "?status=ready",
                 }
             )
+        
+        # Alerta: Pedidos prioritários pendentes
+        priority_orders = orders.filter(
+            is_priority=True
+        ).exclude(
+            order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED],
+            delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
+        ).count()
+        if priority_orders:
+            alerts.append(
+                {
+                    "level": "critical",
+                    "icon": "alert-triangle",
+                    "title": "Pedidos Prioritários",
+                    "msg": f"{priority_orders} pedidos marcados como urgentes.",
+                    "link": "?priority=1",
+                }
+            )
 
         context["alerts"] = alerts
 
@@ -277,7 +295,7 @@ def reports(request):
 
 
 # ==============================================================================
-# CONFIGURAÇÕES (Settings)
+# CONFIGURAÇÕES (Settings) - CORRIGIDO
 # ==============================================================================
 @login_required
 def settings(request):
@@ -285,38 +303,59 @@ def settings(request):
     tenant = request.tenant
     try:
         tenant_settings = tenant.settings
-    except AttributeError:
+    except (AttributeError, TenantSettings.DoesNotExist):
         tenant_settings = TenantSettings.objects.create(tenant=tenant)
 
     if request.method == "POST":
         action = request.POST.get("action")
 
         if action == "save_store":
-            tenant.name = request.POST.get("store_name")
-            tenant.contact_phone = request.POST.get("contact_phone")
+            # Dados da loja
+            tenant.name = request.POST.get("store_name", tenant.name)
+            tenant.contact_email = request.POST.get("contact_email", tenant.contact_email)
+            tenant.contact_phone = request.POST.get("contact_phone", "")
+            tenant.address = request.POST.get("address", "")
             tenant.save()
             messages.success(request, "Dados da loja atualizados!")
 
-        elif action == "save_whatsapp":
-            tenant_settings.evolution_api_url = request.POST.get("evolution_api_url")
-            tenant_settings.evolution_api_key = request.POST.get("evolution_api_key")
-            tenant_settings.evolution_instance = request.POST.get("evolution_instance")
-            tenant_settings.whatsapp_enabled = (
-                request.POST.get("whatsapp_enabled") == "on"
-            )
+        elif action == "save_notifications":
+            # Controle granular de notificações (checkboxes)
+            tenant_settings.whatsapp_enabled = request.POST.get("whatsapp_enabled") == "on"
+            tenant_settings.notify_order_created = request.POST.get("notify_order_created") == "on"
+            tenant_settings.notify_order_confirmed = request.POST.get("notify_order_confirmed") == "on"
+            tenant_settings.notify_payment_received = request.POST.get("notify_payment_received") == "on"
+            tenant_settings.notify_payment_refunded = request.POST.get("notify_payment_refunded") == "on"
+            tenant_settings.notify_order_shipped = request.POST.get("notify_order_shipped") == "on"
+            tenant_settings.notify_order_delivered = request.POST.get("notify_order_delivered") == "on"
+            tenant_settings.notify_delivery_failed = request.POST.get("notify_delivery_failed") == "on"
+            tenant_settings.notify_order_ready_for_pickup = request.POST.get("notify_order_ready_for_pickup") == "on"
+            tenant_settings.notify_order_picked_up = request.POST.get("notify_order_picked_up") == "on"
+            tenant_settings.notify_order_expired = request.POST.get("notify_order_expired") == "on"
+            tenant_settings.notify_order_cancelled = request.POST.get("notify_order_cancelled") == "on"
+            tenant_settings.notify_order_returned = request.POST.get("notify_order_returned") == "on"
             tenant_settings.save()
-            messages.success(request, "Configurações de WhatsApp salvas!")
+            messages.success(request, "Configurações de notificações salvas!")
 
         elif action == "save_messages":
-            fields = [
+            # TODOS os campos de mensagens
+            message_fields = [
                 "msg_order_created",
                 "msg_order_confirmed",
+                "msg_payment_received",
+                "msg_payment_refunded",
                 "msg_order_shipped",
                 "msg_order_delivered",
+                "msg_delivery_failed",
                 "msg_order_ready_for_pickup",
+                "msg_order_picked_up",
+                "msg_order_expired",
+                "msg_order_cancelled",
+                "msg_order_returned",
             ]
-            for field in fields:
-                setattr(tenant_settings, field, request.POST.get(field))
+            for field in message_fields:
+                value = request.POST.get(field)
+                if value is not None:
+                    setattr(tenant_settings, field, value)
             tenant_settings.save()
             messages.success(request, "Mensagens salvas!")
 

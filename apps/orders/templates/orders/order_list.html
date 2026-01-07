@@ -129,7 +129,11 @@
           
           <td>
             <span class="font-semibold text-slate-800">R$ {{ order.total_value|currency }}</span>
-            {% if order.payment_status == 'paid' %}
+            {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
+              {% if order.payment_status == 'paid' %}
+              <span class="badge bg-orange-100 text-orange-700 ml-1">Reembolsado</span>
+              {% endif %}
+            {% elif order.payment_status == 'paid' %}
             <span class="badge bg-emerald-100 text-emerald-700 ml-1">Pago</span>
             {% endif %}
           </td>
@@ -152,6 +156,8 @@
           <td>
             {% if order.order_status == 'cancelled' %}
               <span class="badge bg-red-100 text-red-700">Cancelado</span>
+            {% elif order.order_status == 'returned' %}
+              <span class="badge bg-orange-100 text-orange-700">Devolvido</span>
             {% elif order.delivery_status == 'picked_up' or order.delivery_status == 'delivered' %}
               <span class="badge bg-emerald-100 text-emerald-700">Concluído</span>
             {% elif order.delivery_status == 'shipped' %}

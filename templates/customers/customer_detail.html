@@ -102,6 +102,8 @@
               <td>
                 {% if order.order_status == 'cancelled' %}
                   <span class="badge bg-red-100 text-red-700">Cancelado</span>
+                {% elif order.order_status == 'returned' %}
+                  <span class="badge bg-orange-100 text-orange-700">Devolvido</span>
                 {% elif order.delivery_status == 'delivered' or order.delivery_status == 'picked_up' %}
                   <span class="badge bg-emerald-100 text-emerald-700">Concluído</span>
                 {% else %}

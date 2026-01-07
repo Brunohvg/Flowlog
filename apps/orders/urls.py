@@ -1,5 +1,5 @@
 """
-URLs do app orders - Flowlog.
+URLs do app Orders: CRUD de pedidos e ações.
 """
 
 from django.urls import path

@@ -2,6 +2,8 @@
 Services de notificação via WhatsApp - Flowlog.
 Usa Evolution API para envio de mensagens.
 Cada tenant configura sua própria instância.
+
+IMPORTANTE: Verifica controle granular antes de enviar cada tipo de mensagem.
 """
 
 import logging
@@ -19,6 +21,10 @@ class WhatsAppNotificationService:
     - URL global vem do settings.py
     - Token é individual por instância (salvo no tenant)
     - Cada tenant só pode enviar para sua própria instância
+    
+    Controle:
+    - Verifica whatsapp_enabled antes de qualquer envio
+    - Verifica notify_* específico para cada tipo de mensagem
     """
 
     def __init__(self, tenant):
@@ -34,21 +40,37 @@ class WhatsAppNotificationService:
             if api_url:
                 self.client = EvolutionClient(
                     base_url=api_url,
-                    api_key=self.settings.evolution_instance_token,  # Token da instância!
+                    api_key=self.settings.evolution_instance_token,
                     instance=self.settings.evolution_instance,
                 )
 
-    def _can_send(self):
-        """Verifica se pode enviar mensagens."""
+    def _can_send(self, notification_type: str = None):
+        """
+        Verifica se pode enviar mensagens.
+        
+        Args:
+            notification_type: Tipo específico da notificação para verificação granular
+        """
         if not self.settings:
             logger.warning("Tenant %s sem configurações", self.tenant.id)
             return False
+        
         if not self.settings.whatsapp_enabled:
-            logger.info("WhatsApp desabilitado para tenant %s", self.tenant.id)
+            logger.debug("WhatsApp desabilitado para tenant %s", self.tenant.id)
             return False
+        
         if not self.client:
             logger.warning("WhatsApp não configurado para tenant %s", self.tenant.id)
             return False
+        
+        # Verificação granular por tipo de notificação
+        if notification_type and not self.settings.can_send_notification(notification_type):
+            logger.debug(
+                "Notificação '%s' desabilitada para tenant %s",
+                notification_type, self.tenant.id
+            )
+            return False
+        
         return True
 
     def _get_tracking_link(self, order):
@@ -83,14 +105,17 @@ class WhatsAppNotificationService:
             logger.error("Placeholder inválido na mensagem: %s", e)
             return template
 
-    def _send(self, phone, message):
+    def _send(self, phone, message, notification_type: str = None):
         """Envia mensagem via Evolution API."""
-        if not self._can_send():
+        if not self._can_send(notification_type):
             return False
 
         try:
             self.client.send_text_message(phone=phone, message=message)
-            logger.info("WhatsApp enviado | tenant=%s | phone=***%s", self.tenant.id, phone[-4:])
+            logger.info(
+                "WhatsApp enviado | tenant=%s | type=%s | phone=***%s",
+                self.tenant.id, notification_type or "unknown", phone[-4:]
+            )
             return True
         except Exception as e:
             logger.error("Erro ao enviar WhatsApp: %s", e)
@@ -108,7 +133,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'order_created')
 
     def send_order_confirmed(self, order):
         """Notifica confirmação do pedido."""
@@ -118,7 +143,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'order_confirmed')
 
     # ==================== PAGAMENTO ====================
 
@@ -131,7 +156,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'payment_received')
 
     def send_payment_refunded(self, order):
         """Notifica estorno de pagamento."""
@@ -141,7 +166,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'payment_refunded')
 
     # ==================== ENTREGA ====================
 
@@ -163,7 +188,7 @@ class WhatsAppNotificationService:
             rastreio=order.tracking_code or "",
             rastreio_info=rastreio_info,
         )
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'order_shipped')
 
     def send_order_delivered(self, order):
         """Notifica entrega do pedido."""
@@ -174,7 +199,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'order_delivered')
 
     def send_delivery_failed(self, order):
         """Notifica tentativa de entrega falha."""
@@ -189,7 +214,7 @@ class WhatsAppNotificationService:
             template, order,
             tentativa=str(order.delivery_attempts),
         )
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'delivery_failed')
 
     # ==================== RETIRADA ====================
 
@@ -209,7 +234,7 @@ class WhatsAppNotificationService:
             template, order,
             pickup_code=order.pickup_code or "----",
         )
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'ready_for_pickup')
 
     def send_order_picked_up(self, order):
         """Notifica retirada do pedido."""
@@ -220,7 +245,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'picked_up')
 
     def send_order_expired(self, order):
         """Notifica expiração do pedido (retirada não realizada)."""
@@ -231,7 +256,7 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         message = self._format_message(template, order)
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'expired')
 
     # ==================== CANCELAMENTO ====================
 
@@ -253,7 +278,7 @@ class WhatsAppNotificationService:
             motivo=order.cancel_reason or "",
             motivo_info=motivo_info,
         )
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'cancelled')
 
     def send_order_returned(self, order):
         """Notifica devolução do pedido."""
@@ -264,7 +289,7 @@ class WhatsAppNotificationService:
         template = getattr(self.settings, 'msg_order_returned', None) or (
             "Olá {nome}!\n\n"
             "Devolução do pedido *{codigo}* registrada.\n"
-            "{motivo_info}"
+            "{motivo_info}\n"
             "_{loja}_"
         )
         message = self._format_message(
@@ -272,4 +297,4 @@ class WhatsAppNotificationService:
             motivo=order.return_reason or "",
             motivo_info=motivo_info,
         )
-        return self._send(order.customer.phone_normalized, message)
+        return self._send(order.customer.phone_normalized, message, 'returned')

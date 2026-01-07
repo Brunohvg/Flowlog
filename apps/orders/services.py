@@ -39,6 +39,30 @@ logger = logging.getLogger(__name__)
 PICKUP_EXPIRY_HOURS = 48
 
 
+def _safe_send_whatsapp(task, order_id: str, task_name: str = "whatsapp"):
+    """
+    Envia task do Celery de forma segura.
+    Se Redis não estiver disponível, apenas loga e continua.
+    """
+    from django.conf import settings
+    
+    # Em modo DEBUG, pula notificações (dev local sem Redis)
+    if getattr(settings, 'DEBUG', False):
+        logger.debug("DEBUG=True, pulando notificação %s", task_name)
+        return
+    
+    # Se não tem broker configurado, pula
+    broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
+    if not broker_url:
+        logger.debug("Celery não configurado, pulando notificação %s", task_name)
+        return
+    
+    try:
+        task.apply_async(args=[order_id], expires=60)
+    except Exception as e:
+        logger.debug("Redis indisponível para task %s: %s", task_name, type(e).__name__)
+
+
 class OrderService:
     """
     Service responsável pela criação de pedidos.
@@ -127,7 +151,7 @@ class OrderService:
         )
 
         # 🔔 WhatsApp assíncrono
-        send_order_created_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_created_whatsapp, str(order.id), "order_created")
 
         return order
 
@@ -196,7 +220,7 @@ class OrderStatusService:
         logger.info("Pedido marcado como pago | order=%s", order.code)
         
         # 🔔 WhatsApp
-        send_payment_received_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_payment_received_whatsapp, str(order.id), "payment_received")
         
         return order
 
@@ -245,7 +269,7 @@ class OrderStatusService:
 
         logger.info("Pedido enviado | order=%s | tracking=%s", order.code, order.tracking_code)
 
-        send_order_shipped_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_shipped_whatsapp, str(order.id), "order_shipped")
         return order
 
     @db_transaction.atomic
@@ -278,7 +302,7 @@ class OrderStatusService:
 
         logger.info("Pedido entregue | order=%s", order.code)
 
-        send_order_delivered_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_delivered_whatsapp, str(order.id), "order_delivered")
         return order
 
     @db_transaction.atomic
@@ -307,7 +331,7 @@ class OrderStatusService:
         logger.info("Tentativa de entrega falha | order=%s | attempt=%d", order.code, order.delivery_attempts)
         
         # 🔔 WhatsApp
-        send_delivery_failed_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_delivery_failed_whatsapp, str(order.id), "delivery_failed")
         
         return order
 
@@ -359,7 +383,7 @@ class OrderStatusService:
             order.code, order.pickup_code, order.expires_at
         )
 
-        send_order_ready_for_pickup_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_ready_for_pickup_whatsapp, str(order.id), "ready_for_pickup")
         return order
 
     @db_transaction.atomic
@@ -396,7 +420,7 @@ class OrderStatusService:
         logger.info("Pedido retirado | order=%s", order.code)
 
         # 🔔 WhatsApp
-        send_order_picked_up_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_picked_up_whatsapp, str(order.id), "picked_up")
         
         return order
 
@@ -433,7 +457,7 @@ class OrderStatusService:
         logger.info("Pedido cancelado | order=%s | reason=%s", order.code, reason)
         
         # 🔔 WhatsApp
-        send_order_cancelled_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_cancelled_whatsapp, str(order.id), "cancelled")
         
         return order
 
@@ -477,12 +501,12 @@ class OrderStatusService:
                 user=actor,
             )
             # 🔔 WhatsApp - notifica estorno
-            send_payment_refunded_whatsapp.delay(str(order.id))
+            _safe_send_whatsapp(send_payment_refunded_whatsapp, str(order.id), "payment_refunded")
 
         logger.info("Pedido devolvido | order=%s | refund=%s", order.code, refund)
         
         # 🔔 WhatsApp - notifica devolução
-        send_order_returned_whatsapp.delay(str(order.id))
+        _safe_send_whatsapp(send_order_returned_whatsapp, str(order.id), "returned")
         
         return order
 
@@ -581,7 +605,7 @@ class OrderStatusService:
         if not task:
             raise ValueError(f"Tipo de notificação inválido: {notification_type}")
         
-        task.delay(str(order.id))
+        _safe_send_whatsapp(task, str(order.id), notification_type)
 
         OrderActivity.log(
             order=order,

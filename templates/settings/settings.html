@@ -80,7 +80,7 @@
   <!-- Tab: WhatsApp -->
   <div id="tab-whatsapp" class="tab-content hidden">
     
-    <!-- Banner para nova página -->
+    <!-- Banner para página de configuração -->
     <div class="card p-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white mb-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -99,31 +99,31 @@
       </div>
     </div>
     
-    <!-- Status Rápido -->
-    <div class="card p-6">
+    <!-- Status da Conexão - CORRIGIDO -->
+    <div class="card p-6 mb-6">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
           <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
         </div>
-        <div>
+        <div class="flex-1">
           <h3 class="font-bold text-slate-800">Status da Conexão</h3>
           <p class="text-sm text-slate-500">Visão geral da integração WhatsApp</p>
         </div>
 
-        <!-- Status -->
-        <div class="ml-auto">
-          {% if tenant_settings.whatsapp_connected %}
-            <span class="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+        <!-- Status Badge - CORRIGIDO: Usa lógica consistente -->
+        <div>
+          {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
               <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
               Conectado
             </span>
           {% elif tenant_settings.is_whatsapp_configured %}
-            <span class="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
               <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-              Aguardando Conexão
+              Aguardando QR Code
             </span>
           {% else %}
-            <span class="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
               <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
               Não configurado
             </span>
@@ -131,13 +131,24 @@
         </div>
       </div>
 
-      {% if tenant_settings.whatsapp_number %}
+      <!-- Info Box - CORRIGIDO: Consistente com o badge -->
+      {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected and tenant_settings.whatsapp_number %}
       <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
         <div class="flex items-center gap-3">
           <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
           <div>
-            <p class="font-medium text-emerald-800">Número conectado</p>
+            <p class="font-medium text-emerald-800">WhatsApp conectado e funcionando</p>
             <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
+          </div>
+        </div>
+      </div>
+      {% elif tenant_settings.is_whatsapp_configured %}
+      <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div class="flex items-start gap-3">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"></i>
+          <div class="text-sm text-amber-700">
+            <p class="font-semibold mb-1">Instância criada, aguardando conexão</p>
+            <p>Clique em "Configurar WhatsApp" para escanear o QR Code.</p>
           </div>
         </div>
       </div>
@@ -146,13 +157,154 @@
         <div class="flex items-start gap-3">
           <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
           <div class="text-sm text-blue-700">
-            <p class="font-semibold mb-1">WhatsApp não conectado</p>
-            <p>Clique no botão acima para configurar a integração e escanear o QR Code.</p>
+            <p class="font-semibold mb-1">WhatsApp não configurado</p>
+            <p>Clique no botão acima para criar uma instância e conectar seu WhatsApp.</p>
           </div>
         </div>
       </div>
       {% endif %}
     </div>
+
+    <!-- Controle de Notificações -->
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_notifications">
+
+      <div class="card p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="bell" class="w-5 h-5 text-purple-600"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Controle de Notificações</h3>
+            <p class="text-sm text-slate-500">Escolha quais mensagens enviar automaticamente</p>
+          </div>
+        </div>
+
+        <!-- Master Switch -->
+        <div class="p-4 bg-slate-50 rounded-xl mb-6">
+          <label class="flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="power" class="w-5 h-5 text-emerald-600"></i>
+              </div>
+              <div>
+                <p class="font-semibold text-slate-800">Ativar WhatsApp</p>
+                <p class="text-sm text-slate-500">Liga/desliga todas as notificações</p>
+              </div>
+            </div>
+            <div class="relative">
+              <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Notificações por Categoria -->
+        <div class="space-y-6">
+          
+          <!-- Pedido -->
+          <div>
+            <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i data-lucide="shopping-bag" class="w-4 h-4 text-indigo-500"></i> Pedido
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_created" class="w-4 h-4 text-indigo-600 rounded" {% if tenant_settings.notify_order_created %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Criado</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_confirmed" class="w-4 h-4 text-indigo-600 rounded" {% if tenant_settings.notify_order_confirmed %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Confirmado</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Pagamento -->
+          <div>
+            <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i data-lucide="credit-card" class="w-4 h-4 text-emerald-500"></i> Pagamento
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_payment_received" class="w-4 h-4 text-emerald-600 rounded" {% if tenant_settings.notify_payment_received %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pagamento Recebido</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_payment_refunded" class="w-4 h-4 text-emerald-600 rounded" {% if tenant_settings.notify_payment_refunded %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pagamento Estornado</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Entrega -->
+          <div>
+            <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i data-lucide="truck" class="w-4 h-4 text-blue-500"></i> Entrega
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_shipped" class="w-4 h-4 text-blue-600 rounded" {% if tenant_settings.notify_order_shipped %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Enviado</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_delivered" class="w-4 h-4 text-blue-600 rounded" {% if tenant_settings.notify_order_delivered %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Entregue</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_delivery_failed" class="w-4 h-4 text-blue-600 rounded" {% if tenant_settings.notify_delivery_failed %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Tentativa de Entrega Falha</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Retirada -->
+          <div>
+            <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i data-lucide="store" class="w-4 h-4 text-purple-500"></i> Retirada
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_ready_for_pickup" class="w-4 h-4 text-purple-600 rounded" {% if tenant_settings.notify_order_ready_for_pickup %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pronto para Retirada</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_picked_up" class="w-4 h-4 text-purple-600 rounded" {% if tenant_settings.notify_order_picked_up %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Retirado</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_expired" class="w-4 h-4 text-purple-600 rounded" {% if tenant_settings.notify_order_expired %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Retirada Expirada</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Cancelamento -->
+          <div>
+            <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i data-lucide="x-circle" class="w-4 h-4 text-red-500"></i> Cancelamento / Devolução
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_cancelled" class="w-4 h-4 text-red-600 rounded" {% if tenant_settings.notify_order_cancelled %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Cancelado</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_order_returned" class="w-4 h-4 text-red-600 rounded" {% if tenant_settings.notify_order_returned %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Pedido Devolvido</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar Notificações
+          </button>
+        </div>
+      </div>
+    </form>
   </div>
 
   <!-- Tab: Mensagens -->
@@ -196,11 +348,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Pedido Criado</label>
-            <textarea name="msg_order_created" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
+            <textarea name="msg_order_created" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
           </div>
           <div>
             <label class="form-label">Pedido Confirmado</label>
-            <textarea name="msg_order_confirmed" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_confirmed }}</textarea>
+            <textarea name="msg_order_confirmed" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_confirmed }}</textarea>
           </div>
         </div>
       </div>
@@ -215,11 +367,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Pagamento Recebido</label>
-            <textarea name="msg_payment_received" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_received }}</textarea>
+            <textarea name="msg_payment_received" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_received }}</textarea>
           </div>
           <div>
             <label class="form-label">Pagamento Estornado</label>
-            <textarea name="msg_payment_refunded" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_refunded }}</textarea>
+            <textarea name="msg_payment_refunded" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_refunded }}</textarea>
           </div>
         </div>
       </div>
@@ -234,16 +386,16 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label class="form-label">Pedido Enviado</label>
-            <textarea name="msg_order_shipped" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
+            <textarea name="msg_order_shipped" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
           </div>
           <div>
             <label class="form-label">Pedido Entregue</label>
-            <textarea name="msg_order_delivered" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
+            <textarea name="msg_order_delivered" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
           </div>
         </div>
         <div>
           <label class="form-label">Tentativa de Entrega Falha</label>
-          <textarea name="msg_delivery_failed" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_delivery_failed }}</textarea>
+          <textarea name="msg_delivery_failed" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_delivery_failed }}</textarea>
         </div>
       </div>
 
@@ -257,16 +409,16 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label class="form-label">Pronto para Retirada</label>
-            <textarea name="msg_order_ready_for_pickup" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
+            <textarea name="msg_order_ready_for_pickup" rows="6" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
           </div>
           <div>
             <label class="form-label">Pedido Retirado</label>
-            <textarea name="msg_order_picked_up" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_picked_up }}</textarea>
+            <textarea name="msg_order_picked_up" rows="6" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_picked_up }}</textarea>
           </div>
         </div>
         <div>
           <label class="form-label">Retirada Expirada (48h)</label>
-          <textarea name="msg_order_expired" rows="3" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_expired }}</textarea>
+          <textarea name="msg_order_expired" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_expired }}</textarea>
         </div>
       </div>
 
@@ -280,11 +432,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Pedido Cancelado</label>
-            <textarea name="msg_order_cancelled" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_cancelled }}</textarea>
+            <textarea name="msg_order_cancelled" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_cancelled }}</textarea>
           </div>
           <div>
             <label class="form-label">Pedido Devolvido</label>
-            <textarea name="msg_order_returned" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_returned }}</textarea>
+            <textarea name="msg_order_returned" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_returned }}</textarea>
           </div>
         </div>
       </div>
