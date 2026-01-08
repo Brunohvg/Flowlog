@@ -1,10 +1,18 @@
 """
 Services do app orders - Flowlog.
 Toda lógica de negócio está aqui. Views são burras.
+
+IMPORTANTE: Todas as notificações WhatsApp são enviadas via transaction.on_commit()
+para evitar Race Condition entre o commit do banco e o Celery worker.
+
+SEGURANÇA: Todos os métodos que modificam pedidos usam select_for_update()
+para evitar race condition de concorrência (Lost Update).
 """
 
 import logging
+import uuid
 from datetime import timedelta
+from functools import partial
 
 from django.db import transaction as db_transaction
 from django.utils import timezone
@@ -33,34 +41,136 @@ from apps.orders.models import (
     PaymentStatus,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("flowlog.orders.services")
 
 # Tempo padrão para expiração de retiradas (48 horas)
 PICKUP_EXPIRY_HOURS = 48
+
+
+def validate_cpf(cpf: str) -> bool:
+    """
+    Valida CPF usando algoritmo oficial dos dígitos verificadores.
+    
+    Args:
+        cpf: String contendo CPF (com ou sem formatação)
+        
+    Returns:
+        bool: True se CPF é válido
+    """
+    # Remove caracteres não numéricos
+    cpf = ''.join(filter(str.isdigit, cpf))
+    
+    # CPF deve ter 11 dígitos
+    if len(cpf) != 11:
+        return False
+    
+    # Rejeita CPFs com todos os dígitos iguais (ex: 111.111.111-11)
+    if cpf == cpf[0] * 11:
+        return False
+    
+    # Calcula primeiro dígito verificador
+    soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
+    resto = soma % 11
+    digito1 = 0 if resto < 2 else 11 - resto
+    
+    if int(cpf[9]) != digito1:
+        return False
+    
+    # Calcula segundo dígito verificador
+    soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
+    resto = soma % 11
+    digito2 = 0 if resto < 2 else 11 - resto
+    
+    if int(cpf[10]) != digito2:
+        return False
+    
+    return True
+
+
+def normalize_cpf(cpf: str) -> str:
+    """
+    Normaliza CPF removendo formatação.
+    
+    Args:
+        cpf: String contendo CPF
+        
+    Returns:
+        str: CPF apenas com dígitos
+    """
+    return ''.join(filter(str.isdigit, cpf))
 
 
 def _safe_send_whatsapp(task, order_id: str, task_name: str = "whatsapp"):
     """
     Envia task do Celery de forma segura.
     Se Redis não estiver disponível, apenas loga e continua.
+    
+    NOTA: Esta função deve ser chamada DENTRO de transaction.on_commit()
+    quando usada dentro de métodos @atomic para evitar Race Condition.
     """
     from django.conf import settings
     
+    correlation_id = str(uuid.uuid4())[:8]
+    
     # Em modo DEBUG, pula notificações (dev local sem Redis)
     if getattr(settings, 'DEBUG', False):
-        logger.debug("DEBUG=True, pulando notificação %s", task_name)
+        logger.debug(
+            "WHATSAPP_SKIP | correlation_id=%s | task=%s | order_id=%s | reason=DEBUG_MODE",
+            correlation_id, task_name, order_id
+        )
         return
     
     # Se não tem broker configurado, pula
     broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
-        logger.debug("Celery não configurado, pulando notificação %s", task_name)
+        logger.debug(
+            "WHATSAPP_SKIP | correlation_id=%s | task=%s | order_id=%s | reason=NO_BROKER",
+            correlation_id, task_name, order_id
+        )
         return
     
     try:
-        task.apply_async(args=[order_id], expires=60)
+        logger.info(
+            "CELERY_TASK_DISPATCH | correlation_id=%s | task=%s | order_id=%s | status=sending",
+            correlation_id, task_name, order_id
+        )
+        
+        # Envia task com correlation_id nos headers para rastreamento
+        result = task.apply_async(
+            args=[order_id],
+            expires=300,  # 5 minutos para expirar se não processado
+            headers={'correlation_id': correlation_id}
+        )
+        
+        logger.info(
+            "CELERY_TASK_DISPATCH | correlation_id=%s | task=%s | order_id=%s | "
+            "status=dispatched | celery_task_id=%s",
+            correlation_id, task_name, order_id, result.id
+        )
+        
     except Exception as e:
-        logger.debug("Redis indisponível para task %s: %s", task_name, type(e).__name__)
+        logger.error(
+            "CELERY_TASK_DISPATCH | correlation_id=%s | task=%s | order_id=%s | "
+            "status=error | error_type=%s | error=%s",
+            correlation_id, task_name, order_id, type(e).__name__, str(e)
+        )
+
+
+def _schedule_whatsapp_after_commit(task, order_id: str, task_name: str):
+    """
+    Agenda envio de WhatsApp para APÓS o commit da transação.
+    Resolve Race Condition entre banco e Celery worker.
+    
+    Uso:
+        _schedule_whatsapp_after_commit(send_order_created_whatsapp, str(order.id), "order_created")
+    """
+    db_transaction.on_commit(
+        partial(_safe_send_whatsapp, task, order_id, task_name)
+    )
+    logger.debug(
+        "WHATSAPP_SCHEDULED | task=%s | order_id=%s | status=waiting_commit",
+        task_name, order_id
+    )
 
 
 class OrderService:
@@ -73,18 +183,36 @@ class OrderService:
         """
         Cria um novo pedido.
         """
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_CREATE_START | correlation_id=%s | tenant=%s | seller=%s",
+            correlation_id, tenant.id, seller.email
+        )
+        
         if seller.tenant_id != tenant.id:
+            logger.warning(
+                "ORDER_CREATE_FAILED | correlation_id=%s | error=tenant_mismatch",
+                correlation_id
+            )
             raise ValueError("Usuário não pertence ao tenant.")
 
         # Normalização do telefone
         phone = data["customer_phone"]
         phone_normalized = "".join(filter(str.isdigit, phone))
         
-        # CPF opcional
+        # CPF opcional - valida se fornecido
         cpf = data.get("customer_cpf", "")
+        if cpf:
+            cpf = normalize_cpf(cpf)
+            if cpf and not validate_cpf(cpf):
+                logger.warning(
+                    "ORDER_CREATE_FAILED | correlation_id=%s | error=invalid_cpf",
+                    correlation_id
+                )
+                raise ValueError("CPF inválido. Verifique os dígitos informados.")
 
         # Cliente único por tenant + telefone
-        # IMPORTANTE: Inclui tenant no lookup para evitar duplicação
         customer, created = Customer.objects.get_or_create(
             tenant=tenant,
             phone_normalized=phone_normalized,
@@ -94,6 +222,12 @@ class OrderService:
                 "cpf": cpf,
             },
         )
+        
+        if created:
+            logger.info(
+                "CUSTOMER_CREATED | correlation_id=%s | customer_id=%s | phone=***%s",
+                correlation_id, customer.id, phone_normalized[-4:]
+            )
         
         # Se cliente já existia, atualiza nome e CPF se fornecidos
         if not created:
@@ -109,6 +243,10 @@ class OrderService:
         
         # Verificar se cliente está bloqueado
         if customer.is_blocked:
+            logger.warning(
+                "ORDER_CREATE_FAILED | correlation_id=%s | error=customer_blocked | customer_id=%s",
+                correlation_id, customer.id
+            )
             raise ValueError("Este cliente está bloqueado e não pode fazer pedidos.")
 
         # Tipo de entrega
@@ -146,12 +284,16 @@ class OrderService:
         )
 
         logger.info(
-            "Pedido criado | order=%s | type=%s | customer=%s",
-            order.code, delivery_type, customer.name,
+            "ORDER_CREATE_SUCCESS | correlation_id=%s | order_code=%s | order_id=%s | "
+            "delivery_type=%s | customer=%s | value=%s",
+            correlation_id, order.code, order.id, delivery_type, 
+            customer.name, order.total_value
         )
 
-        # 🔔 WhatsApp assíncrono
-        _safe_send_whatsapp(send_order_created_whatsapp, str(order.id), "order_created")
+        # 🔔 WhatsApp - APÓS COMMIT para evitar Race Condition
+        _schedule_whatsapp_after_commit(
+            send_order_created_whatsapp, str(order.id), "order_created"
+        )
 
         return order
 
@@ -160,6 +302,13 @@ class OrderService:
         """
         Duplica um pedido existente.
         """
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_DUPLICATE_START | correlation_id=%s | original_order=%s | actor=%s",
+            correlation_id, order.code, actor.email
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
 
@@ -182,7 +331,15 @@ class OrderService:
             original_order=order.code,
         )
 
-        logger.info("Pedido duplicado | original=%s | new=%s", order.code, new_order.code)
+        logger.info(
+            "ORDER_DUPLICATE_SUCCESS | correlation_id=%s | original=%s | new=%s",
+            correlation_id, order.code, new_order.code
+        )
+
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_created_whatsapp, str(new_order.id), "order_created"
+        )
 
         return new_order
 
@@ -195,10 +352,24 @@ class OrderStatusService:
     @db_transaction.atomic
     def mark_as_paid(self, *, order: Order, actor):
         """Marca pedido como pago."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_PAYMENT_START | correlation_id=%s | order=%s | actor=%s",
+            correlation_id, order.code, actor.email
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
 
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
+
         if order.payment_status == PaymentStatus.PAID:
+            logger.info(
+                "ORDER_PAYMENT_SKIP | correlation_id=%s | order=%s | reason=already_paid",
+                correlation_id, order.code
+            )
             return order
 
         old_status = order.payment_status
@@ -217,18 +388,33 @@ class OrderStatusService:
             old_status=old_status,
         )
 
-        logger.info("Pedido marcado como pago | order=%s", order.code)
+        logger.info(
+            "ORDER_PAYMENT_SUCCESS | correlation_id=%s | order=%s | old_status=%s",
+            correlation_id, order.code, old_status
+        )
         
-        # 🔔 WhatsApp
-        _safe_send_whatsapp(send_payment_received_whatsapp, str(order.id), "payment_received")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_payment_received_whatsapp, str(order.id), "payment_received"
+        )
         
         return order
 
     @db_transaction.atomic
     def mark_as_shipped(self, *, order: Order, actor, tracking_code: str = None):
         """Marca pedido como enviado."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_SHIP_START | correlation_id=%s | order=%s | tracking=%s",
+            correlation_id, order.code, tracking_code or "N/A"
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if not DeliveryType.is_delivery(order.delivery_type):
             raise ValueError("Pedido de retirada não pode ser enviado.")
@@ -267,16 +453,33 @@ class OrderStatusService:
             tracking_code=order.tracking_code,
         )
 
-        logger.info("Pedido enviado | order=%s | tracking=%s", order.code, order.tracking_code)
+        logger.info(
+            "ORDER_SHIP_SUCCESS | correlation_id=%s | order=%s | tracking=%s",
+            correlation_id, order.code, order.tracking_code or "N/A"
+        )
 
-        _safe_send_whatsapp(send_order_shipped_whatsapp, str(order.id), "order_shipped")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_shipped_whatsapp, str(order.id), "order_shipped"
+        )
+        
         return order
 
     @db_transaction.atomic
     def mark_as_delivered(self, *, order: Order, actor):
         """Marca pedido como entregue."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_DELIVER_START | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if not DeliveryType.is_delivery(order.delivery_type):
             raise ValueError("Pedido de retirada não pode ser marcado como entregue.")
@@ -300,16 +503,33 @@ class OrderStatusService:
             user=actor,
         )
 
-        logger.info("Pedido entregue | order=%s", order.code)
+        logger.info(
+            "ORDER_DELIVER_SUCCESS | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
 
-        _safe_send_whatsapp(send_order_delivered_whatsapp, str(order.id), "order_delivered")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_delivered_whatsapp, str(order.id), "order_delivered"
+        )
+        
         return order
 
     @db_transaction.atomic
     def mark_failed_attempt(self, *, order: Order, actor, reason: str = ""):
         """Marca tentativa de entrega falha."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_DELIVERY_FAILED_START | correlation_id=%s | order=%s | attempt=%d",
+            correlation_id, order.code, order.delivery_attempts + 1
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if order.delivery_status != DeliveryStatus.SHIPPED:
             raise ValueError("Pedido precisa estar enviado.")
@@ -328,18 +548,33 @@ class OrderStatusService:
             reason=reason,
         )
 
-        logger.info("Tentativa de entrega falha | order=%s | attempt=%d", order.code, order.delivery_attempts)
+        logger.info(
+            "ORDER_DELIVERY_FAILED_SUCCESS | correlation_id=%s | order=%s | attempt=%d",
+            correlation_id, order.code, order.delivery_attempts
+        )
         
-        # 🔔 WhatsApp
-        _safe_send_whatsapp(send_delivery_failed_whatsapp, str(order.id), "delivery_failed")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_delivery_failed_whatsapp, str(order.id), "delivery_failed"
+        )
         
         return order
 
     @db_transaction.atomic
     def mark_ready_for_pickup(self, *, order: Order, actor):
         """Marca pedido como pronto para retirada."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_READY_PICKUP_START | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if order.delivery_type != DeliveryType.PICKUP:
             raise ValueError("Apenas pedidos de retirada podem usar esta ação.")
@@ -379,18 +614,32 @@ class OrderStatusService:
         )
 
         logger.info(
-            "Pedido pronto para retirada | order=%s | pickup_code=%s | expires=%s", 
-            order.code, order.pickup_code, order.expires_at
+            "ORDER_READY_PICKUP_SUCCESS | correlation_id=%s | order=%s | pickup_code=%s | expires=%s",
+            correlation_id, order.code, order.pickup_code, order.expires_at
         )
 
-        _safe_send_whatsapp(send_order_ready_for_pickup_whatsapp, str(order.id), "ready_for_pickup")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_ready_for_pickup_whatsapp, str(order.id), "ready_for_pickup"
+        )
+        
         return order
 
     @db_transaction.atomic
     def mark_as_picked_up(self, *, order: Order, actor):
         """Marca pedido como retirado."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_PICKED_UP_START | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if order.delivery_type != DeliveryType.PICKUP:
             raise ValueError("Apenas pedidos de retirada podem usar esta ação.")
@@ -417,18 +666,33 @@ class OrderStatusService:
             user=actor,
         )
 
-        logger.info("Pedido retirado | order=%s", order.code)
+        logger.info(
+            "ORDER_PICKED_UP_SUCCESS | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
 
-        # 🔔 WhatsApp
-        _safe_send_whatsapp(send_order_picked_up_whatsapp, str(order.id), "picked_up")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_picked_up_whatsapp, str(order.id), "picked_up"
+        )
         
         return order
 
     @db_transaction.atomic
     def cancel_order(self, *, order: Order, actor, reason: str = ""):
         """Cancela um pedido."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_CANCEL_START | correlation_id=%s | order=%s | reason=%s",
+            correlation_id, order.code, reason or "N/A"
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if order.order_status == OrderStatus.CANCELLED:
             return order
@@ -454,18 +718,33 @@ class OrderStatusService:
             reason=reason,
         )
 
-        logger.info("Pedido cancelado | order=%s | reason=%s", order.code, reason)
+        logger.info(
+            "ORDER_CANCEL_SUCCESS | correlation_id=%s | order=%s | old_status=%s",
+            correlation_id, order.code, old_status
+        )
         
-        # 🔔 WhatsApp
-        _safe_send_whatsapp(send_order_cancelled_whatsapp, str(order.id), "cancelled")
+        # 🔔 WhatsApp - APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_cancelled_whatsapp, str(order.id), "cancelled"
+        )
         
         return order
 
     @db_transaction.atomic
     def return_order(self, *, order: Order, actor, reason: str = "", refund: bool = False):
         """Processa devolução de um pedido."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_RETURN_START | correlation_id=%s | order=%s | refund=%s",
+            correlation_id, order.code, refund
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if order.order_status != OrderStatus.COMPLETED:
             raise ValueError("Apenas pedidos concluídos podem ser devolvidos.")
@@ -500,21 +779,39 @@ class OrderStatusService:
                 description="Reembolso processado",
                 user=actor,
             )
-            # 🔔 WhatsApp - notifica estorno
-            _safe_send_whatsapp(send_payment_refunded_whatsapp, str(order.id), "payment_refunded")
+            # 🔔 WhatsApp - notifica estorno APÓS COMMIT
+            _schedule_whatsapp_after_commit(
+                send_payment_refunded_whatsapp, str(order.id), "payment_refunded"
+            )
 
-        logger.info("Pedido devolvido | order=%s | refund=%s", order.code, refund)
+        logger.info(
+            "ORDER_RETURN_SUCCESS | correlation_id=%s | order=%s | refund=%s",
+            correlation_id, order.code, refund
+        )
         
-        # 🔔 WhatsApp - notifica devolução
-        _safe_send_whatsapp(send_order_returned_whatsapp, str(order.id), "returned")
+        # 🔔 WhatsApp - notifica devolução APÓS COMMIT
+        _schedule_whatsapp_after_commit(
+            send_order_returned_whatsapp, str(order.id), "returned"
+        )
         
         return order
 
     @db_transaction.atomic
     def change_delivery_type(self, *, order: Order, actor, new_type: str, address: str = ""):
         """Altera o tipo de entrega do pedido."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "ORDER_DELIVERY_TYPE_CHANGE_START | correlation_id=%s | order=%s | "
+            "old_type=%s | new_type=%s",
+            correlation_id, order.code, order.delivery_type, new_type
+        )
+        
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant do pedido.")
+
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
 
         if not order.can_change_delivery_type:
             raise ValueError("Não é possível alterar o tipo de entrega neste momento.")
@@ -549,12 +846,22 @@ class OrderStatusService:
             new_type=new_type,
         )
 
-        logger.info("Tipo de entrega alterado | order=%s | %s -> %s", order.code, old_type, new_type)
+        logger.info(
+            "ORDER_DELIVERY_TYPE_CHANGE_SUCCESS | correlation_id=%s | order=%s | "
+            "%s -> %s",
+            correlation_id, order.code, old_type, new_type
+        )
+        
         return order
 
     @db_transaction.atomic
     def expire_pickup_order(self, *, order: Order):
         """Expira pedido de retirada não realizada (chamado por task)."""
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        # Lock da linha para evitar race condition de concorrência
+        order = Order.objects.select_for_update().get(id=order.id)
+        
         if order.delivery_type != DeliveryType.PICKUP:
             return order
 
@@ -563,6 +870,11 @@ class OrderStatusService:
 
         if not order.expires_at or timezone.now() < order.expires_at:
             return order
+
+        logger.info(
+            "ORDER_EXPIRE_START | correlation_id=%s | order=%s | expires_at=%s",
+            correlation_id, order.code, order.expires_at
+        )
 
         order.delivery_status = DeliveryStatus.EXPIRED
         order.order_status = OrderStatus.CANCELLED
@@ -580,11 +892,26 @@ class OrderStatusService:
             user=None,
         )
 
-        logger.info("Pedido expirado | order=%s", order.code)
+        logger.info(
+            "ORDER_EXPIRE_SUCCESS | correlation_id=%s | order=%s",
+            correlation_id, order.code
+        )
+        
         return order
 
     def resend_notification(self, *, order: Order, notification_type: str):
-        """Reenvia notificação WhatsApp."""
+        """
+        Reenvia notificação WhatsApp.
+        
+        NOTA: Este método NÃO está dentro de @atomic, então não precisa de on_commit.
+        """
+        correlation_id = str(uuid.uuid4())[:8]
+        
+        logger.info(
+            "NOTIFICATION_RESEND_START | correlation_id=%s | order=%s | type=%s",
+            correlation_id, order.code, notification_type
+        )
+        
         if order.order_status in [OrderStatus.CANCELLED, OrderStatus.RETURNED]:
             if notification_type not in ["cancelled", "returned"]:
                 raise ValueError("Não é possível enviar notificação para pedido cancelado/devolvido.")
@@ -605,6 +932,7 @@ class OrderStatusService:
         if not task:
             raise ValueError(f"Tipo de notificação inválido: {notification_type}")
         
+        # Resend não está em transação, pode enviar direto
         _safe_send_whatsapp(task, str(order.id), notification_type)
 
         OrderActivity.log(
@@ -615,4 +943,7 @@ class OrderStatusService:
             notification_type=notification_type,
         )
 
-        logger.info("Notificação reenviada | order=%s | type=%s", order.code, notification_type)
+        logger.info(
+            "NOTIFICATION_RESEND_SUCCESS | correlation_id=%s | order=%s | type=%s",
+            correlation_id, order.code, notification_type
+        )

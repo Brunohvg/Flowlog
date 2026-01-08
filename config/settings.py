@@ -226,3 +226,153 @@ CELERY_BEAT_SCHEDULE = {
 # CONFIGURAÇÕES DO SITE
 # ==============================================================================
 SITE_URL = config("SITE_URL", default="http://localhost:8000")
+
+
+# ==============================================================================
+# LOGGING - Configuração para diagnóstico de notificações WhatsApp
+# ==============================================================================
+import os
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} | {levelname} | {name} | {message}",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "simple": {
+            "format": "{levelname} | {message}",
+            "style": "{",
+        },
+    },
+    "filters": {
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG" if DEBUG else "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "file_flowlog": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": LOG_DIR / "flowlog.log",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 30,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "file_whatsapp": {
+            "level": "DEBUG",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": LOG_DIR / "whatsapp.log",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 60,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "file_celery": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": LOG_DIR / "celery.log",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 30,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "file_errors": {
+            "level": "ERROR",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": LOG_DIR / "errors.log",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 90,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+    },
+    "loggers": {
+        # Django
+        "django": {
+            "handlers": ["console", "file_flowlog"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console", "file_errors"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        # Flowlog - Orders
+        "flowlog.orders": {
+            "handlers": ["console", "file_flowlog"],
+            "level": "DEBUG" if DEBUG else "INFO",
+            "propagate": False,
+        },
+        "flowlog.orders.services": {
+            "handlers": ["console", "file_flowlog"],
+            "level": "DEBUG" if DEBUG else "INFO",
+            "propagate": False,
+        },
+        # Flowlog - WhatsApp (logs detalhados)
+        "flowlog.whatsapp": {
+            "handlers": ["console", "file_whatsapp"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "flowlog.whatsapp.client": {
+            "handlers": ["console", "file_whatsapp"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "flowlog.whatsapp.tasks": {
+            "handlers": ["console", "file_whatsapp", "file_celery"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "flowlog.whatsapp.notifications": {
+            "handlers": ["console", "file_whatsapp"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # Celery
+        "celery": {
+            "handlers": ["console", "file_celery"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "celery.task": {
+            "handlers": ["console", "file_celery"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+    "root": {
+        "handlers": ["console", "file_flowlog"],
+        "level": "INFO",
+    },
+}
+
+
+# ==============================================================================
+# CELERY BEAT - TASK DE LIMPEZA DE LOGS
+# ==============================================================================
+CELERY_BEAT_SCHEDULE["cleanup-notification-logs"] = {
+    "task": "apps.integrations.whatsapp.tasks.cleanup_old_notification_logs",
+    "schedule": crontab(hour=3, minute=0),  # Todo dia às 3h da manhã
+    "kwargs": {"days": 90},  # Mantém 90 dias de logs
+}

@@ -159,11 +159,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             )
         
         # Alerta: Pedidos prioritários pendentes
+        # CORRIGIDO: Usa Q() com OR para excluir cancelados OU concluídos
         priority_orders = orders.filter(
             is_priority=True
         ).exclude(
-            order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED],
-            delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP]
+            Q(order_status__in=[OrderStatus.CANCELLED, OrderStatus.RETURNED]) |
+            Q(delivery_status__in=[DeliveryStatus.DELIVERED, DeliveryStatus.PICKED_UP])
         ).count()
         if priority_orders:
             alerts.append(
@@ -375,32 +376,44 @@ def settings(request):
 def profile(request):
     """Perfil do usuário logado."""
     user = request.user
+    tenant = request.tenant
 
     if request.method == "POST":
-        user.first_name = request.POST.get("first_name")
-        user.last_name = request.POST.get("last_name")
+        user.first_name = request.POST.get("first_name", "").strip()
+        user.last_name = request.POST.get("last_name", "").strip()
 
-        p1 = request.POST.get("new_password")
-        p2 = request.POST.get("confirm_password")
-        if p1 and p1 == p2:
-            user.set_password(p1)
-            messages.success(
-                request, "Senha alterada com sucesso! Faça login novamente."
-            )
-        elif p1:
-            messages.error(request, "As senhas não coincidem.")
+        # Alteração de senha com verificação da senha atual
+        current_password = request.POST.get("current_password", "")
+        p1 = request.POST.get("new_password", "")
+        p2 = request.POST.get("confirm_password", "")
+        
+        if p1:
+            # Só permite trocar senha se informou a senha atual correta
+            if not current_password:
+                messages.error(request, "Informe a senha atual para alterar.")
+            elif not user.check_password(current_password):
+                messages.error(request, "Senha atual incorreta.")
+            elif p1 != p2:
+                messages.error(request, "As senhas não coincidem.")
+            elif len(p1) < 6:
+                messages.error(request, "A nova senha deve ter pelo menos 6 caracteres.")
+            else:
+                user.set_password(p1)
+                messages.success(
+                    request, "Senha alterada com sucesso! Faça login novamente."
+                )
 
         user.save()
         if not p1:
             messages.success(request, "Perfil atualizado!")
         return redirect("profile")
 
+    # Stats filtradas por tenant para consistência
     user_stats = {
-        "sales_count": Order.objects.filter(seller=user).count(),
-        "sales_total": Order.objects.filter(seller=user).aggregate(
+        "sales_count": Order.objects.filter(seller=user, tenant=tenant).count() if tenant else 0,
+        "sales_total": Order.objects.filter(seller=user, tenant=tenant).aggregate(
             s=Sum("total_value")
-        )["s"]
-        or 0,
+        )["s"] or 0 if tenant else 0,
     }
 
     return render(

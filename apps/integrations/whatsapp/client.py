@@ -1,30 +1,49 @@
 """
-Cliente Evolution API - Flowlog v9.
+Cliente Evolution API - Flowlog.
 
-Refatorado para produção:
+Funcionalidades:
 - Criação automática de instância
 - Obtenção de QR Code para exibição no sistema
 - Verificação de status de conexão
 - Tratamento robusto de erros
 - Suporte a múltiplas versões da API
+- Logging estruturado com correlation_id
+- Medição de tempo de resposta
 """
 
 import logging
+import time
+import uuid
 from typing import Optional
 from urllib.parse import urljoin
 
 import requests
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, Timeout, ConnectionError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("flowlog.whatsapp.client")
 
 
 class EvolutionAPIError(Exception):
-    """Erro específico da Evolution API."""
-    def __init__(self, message: str, status_code: int = None, response: dict = None):
+    """
+    Erro específico da Evolution API.
+    
+    Attributes:
+        message: Mensagem de erro
+        status_code: Código HTTP (se aplicável)
+        response: Resposta da API (se aplicável)
+        request_data: Dados enviados na requisição
+    """
+    def __init__(
+        self, 
+        message: str, 
+        status_code: int = None, 
+        response: dict = None,
+        request_data: dict = None
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.response = response
+        self.request_data = request_data
 
 
 class EvolutionClient:
@@ -39,12 +58,20 @@ class EvolutionClient:
     - Verificar status de conexão
     - Enviar mensagens de texto
     - Suporte a múltiplas versões da API
+    - Logging estruturado para diagnóstico
     """
     
     # Timeout padrão para requisições
     DEFAULT_TIMEOUT = 15
     
-    def __init__(self, *, base_url: str, api_key: str, instance: str = None):
+    def __init__(
+        self, 
+        *, 
+        base_url: str, 
+        api_key: str, 
+        instance: str = None,
+        correlation_id: str = None
+    ):
         """
         Inicializa o cliente.
         
@@ -52,14 +79,83 @@ class EvolutionClient:
             base_url: URL base da Evolution API (ex: https://api.evolution.com)
             api_key: Chave de API global
             instance: Nome da instância (opcional, pode ser definido depois)
+            correlation_id: ID de correlação para rastreamento
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.instance = instance
+        self.correlation_id = correlation_id or str(uuid.uuid4())[:8]
         self.headers = {
             "apikey": self.api_key,
             "Content-Type": "application/json",
         }
+    
+    def _mask_sensitive_data(self, data: dict) -> dict:
+        """Mascara dados sensíveis para logging."""
+        if not data:
+            return data
+        
+        masked = dict(data)
+        sensitive_keys = ['apikey', 'token', 'password', 'secret']
+        
+        for key in sensitive_keys:
+            if key in masked:
+                masked[key] = "***MASKED***"
+        
+        # Mascara números de telefone
+        if 'number' in masked and isinstance(masked['number'], str):
+            phone = masked['number']
+            if len(phone) >= 4:
+                masked['number'] = f"***{phone[-4:]}"
+        
+        return masked
+    
+    def _log_to_db(
+        self, 
+        method: str, 
+        endpoint: str, 
+        request_data: dict,
+        response_data: dict,
+        status_code: int,
+        response_time_ms: int,
+        error_message: str = None
+    ):
+        """
+        Registra requisição no banco de dados.
+        
+        Args:
+            method: Método HTTP
+            endpoint: Endpoint da API
+            request_data: Dados enviados
+            response_data: Dados recebidos
+            status_code: Código de status HTTP
+            response_time_ms: Tempo de resposta em ms
+            error_message: Mensagem de erro (se houver)
+        """
+        try:
+            from django.apps import apps
+            APIRequestLog = apps.get_model("integrations", "APIRequestLog")
+            
+            APIRequestLog.objects.create(
+                correlation_id=self.correlation_id,
+                method=method,
+                endpoint=endpoint,
+                instance_name=self.instance,
+                request_body=request_data,
+                response_body=response_data,
+                status_code=status_code,
+                response_time_ms=response_time_ms,
+                error_message=error_message,
+            )
+            
+        except LookupError:
+            # Model não existe ainda
+            pass
+        except Exception as e:
+            logger.warning(
+                "API_LOG_DB_ERROR | correlation_id=%s | error=%s",
+                self.correlation_id, str(e)
+            )
     
     def _request(
         self, 
@@ -86,6 +182,20 @@ class EvolutionClient:
         url = urljoin(self.base_url, endpoint)
         timeout = timeout or self.DEFAULT_TIMEOUT
         
+        # Dados mascarados para log
+        masked_data = self._mask_sensitive_data(data)
+        
+        logger.debug(
+            "API_REQUEST_START | correlation_id=%s | method=%s | "
+            "endpoint=%s | instance=%s",
+            self.correlation_id, method, endpoint, self.instance
+        )
+        
+        start_time = time.time()
+        status_code = None
+        result = None
+        error_message = None
+        
         try:
             response = requests.request(
                 method=method,
@@ -95,26 +205,129 @@ class EvolutionClient:
                 timeout=timeout,
             )
             
+            response_time_ms = int((time.time() - start_time) * 1000)
+            status_code = response.status_code
+            
             # Tenta parsear JSON mesmo em erro
             try:
                 result = response.json()
             except ValueError:
                 result = {"raw": response.text}
             
+            # Log no banco
+            self._log_to_db(
+                method=method,
+                endpoint=endpoint,
+                request_data=masked_data,
+                response_data=result,
+                status_code=status_code,
+                response_time_ms=response_time_ms,
+            )
+            
             # Verifica erros HTTP
             if response.status_code >= 400:
                 error_msg = result.get("message") or result.get("error") or str(result)
+                error_message = f"HTTP {status_code}: {error_msg}"
+                
+                logger.error(
+                    "API_RESPONSE_ERROR | correlation_id=%s | method=%s | "
+                    "endpoint=%s | status_code=%d | response_time_ms=%d | error=%s",
+                    self.correlation_id, method, endpoint, 
+                    status_code, response_time_ms, error_msg
+                )
+                
                 raise EvolutionAPIError(
                     f"Erro na API: {error_msg}",
                     status_code=response.status_code,
                     response=result,
+                    request_data=masked_data,
                 )
+            
+            logger.info(
+                "API_RESPONSE_SUCCESS | correlation_id=%s | method=%s | "
+                "endpoint=%s | status_code=%d | response_time_ms=%d",
+                self.correlation_id, method, endpoint, 
+                status_code, response_time_ms
+            )
             
             return result
             
+        except Timeout as e:
+            response_time_ms = int((time.time() - start_time) * 1000)
+            error_message = f"Timeout após {timeout}s"
+            
+            self._log_to_db(
+                method=method,
+                endpoint=endpoint,
+                request_data=masked_data,
+                response_data=None,
+                status_code=0,
+                response_time_ms=response_time_ms,
+                error_message=error_message,
+            )
+            
+            logger.error(
+                "API_TIMEOUT | correlation_id=%s | method=%s | "
+                "endpoint=%s | timeout=%ds | response_time_ms=%d",
+                self.correlation_id, method, endpoint, 
+                timeout, response_time_ms
+            )
+            
+            raise EvolutionAPIError(
+                f"Timeout: API não respondeu em {timeout}s",
+                request_data=masked_data,
+            )
+            
+        except ConnectionError as e:
+            response_time_ms = int((time.time() - start_time) * 1000)
+            error_message = f"Erro de conexão: {str(e)}"
+            
+            self._log_to_db(
+                method=method,
+                endpoint=endpoint,
+                request_data=masked_data,
+                response_data=None,
+                status_code=0,
+                response_time_ms=response_time_ms,
+                error_message=error_message,
+            )
+            
+            logger.error(
+                "API_CONNECTION_ERROR | correlation_id=%s | method=%s | "
+                "endpoint=%s | error=%s",
+                self.correlation_id, method, endpoint, str(e)
+            )
+            
+            raise EvolutionAPIError(
+                f"Erro de conexão: {str(e)}",
+                request_data=masked_data,
+            )
+            
         except RequestException as e:
-            logger.error("Erro de conexão com Evolution API: %s", e)
-            raise EvolutionAPIError(f"Erro de conexão: {str(e)}")
+            response_time_ms = int((time.time() - start_time) * 1000)
+            error_message = str(e)
+            
+            self._log_to_db(
+                method=method,
+                endpoint=endpoint,
+                request_data=masked_data,
+                response_data=None,
+                status_code=0,
+                response_time_ms=response_time_ms,
+                error_message=error_message,
+            )
+            
+            logger.error(
+                "API_REQUEST_ERROR | correlation_id=%s | method=%s | "
+                "endpoint=%s | error_type=%s | error=%s",
+                self.correlation_id, method, endpoint, 
+                type(e).__name__, str(e)
+            )
+            
+            raise EvolutionAPIError(
+                f"Erro de requisição: {str(e)}",
+                request_data=masked_data,
+            )
     
     # =========================================================================
     # GERENCIAMENTO DE INSTÂNCIA
@@ -137,12 +350,17 @@ class EvolutionClient:
                 "qrcode": {"base64": "...", "code": "..."} (se disponível)
             }
         """
+        logger.info(
+            "INSTANCE_CREATE_START | correlation_id=%s | instance=%s",
+            self.correlation_id, instance_name
+        )
+        
         data = {
             "instanceName": instance_name,
             "integration": "WHATSAPP-BAILEYS",
-            "qrcode": True,  # Gera QR code automaticamente
-            "reject_call": True,  # Rejeita chamadas
-            "always_online": True,  # Mantém online
+            "qrcode": True,
+            "reject_call": True,
+            "always_online": True,
         }
         
         if webhook_url:
@@ -164,17 +382,14 @@ class EvolutionClient:
             self.instance = result["instance"]["instanceName"]
         
         # Extrai token da instância de múltiplos caminhos possíveis
-        # CUIDADO: hash pode ser string ou dict dependendo da versão da API
         instance_token = None
         
-        # Tenta extrair de hash (pode ser dict ou string)
         hash_value = result.get("hash")
         if isinstance(hash_value, dict):
             instance_token = hash_value.get("apikey")
         elif isinstance(hash_value, str):
             instance_token = hash_value
         
-        # Outros caminhos possíveis
         if not instance_token:
             instance_token = (
                 result.get("token") or
@@ -187,31 +402,25 @@ class EvolutionClient:
         if instance_token:
             result["token"] = instance_token
         
-        logger.info("Instância criada - resultado: %s", result)
+        logger.info(
+            "INSTANCE_CREATE_SUCCESS | correlation_id=%s | instance=%s | "
+            "has_token=%s",
+            self.correlation_id, instance_name, instance_token is not None
+        )
         
         return result
     
     def get_instance_token(self, instance_name: str = None) -> Optional[str]:
         """
         Busca o token de uma instância existente.
-        
-        Usa endpoint de fetch para obter detalhes da instância.
-        
-        Args:
-            instance_name: Nome da instância
-            
-        Returns:
-            Token da instância ou None se não encontrado
         """
         name = instance_name or self.instance
         if not name:
             return None
         
         try:
-            # Tenta buscar instância específica
             result = self._request("GET", f"/instance/fetchInstances?instanceName={name}")
             
-            # Extrai token
             if isinstance(result, list) and result:
                 inst = result[0]
             elif isinstance(result, dict):
@@ -219,51 +428,37 @@ class EvolutionClient:
             else:
                 return None
             
-            # Extrai token com cuidado para hash string/dict
             hash_value = inst.get("hash")
             if isinstance(hash_value, dict):
                 return hash_value.get("apikey")
             elif isinstance(hash_value, str):
                 return hash_value
             
-            return (
-                inst.get("token") or
-                inst.get("apikey")
-            )
+            return inst.get("token") or inst.get("apikey")
+            
         except EvolutionAPIError:
             return None
     
     def delete_instance(self, instance_name: str = None) -> dict:
-        """
-        Deleta uma instância.
-        
-        Args:
-            instance_name: Nome da instância (usa self.instance se não informado)
-        """
+        """Deleta uma instância."""
         name = instance_name or self.instance
         if not name:
             raise EvolutionAPIError("Nome da instância não informado")
         
+        logger.info(
+            "INSTANCE_DELETE | correlation_id=%s | instance=%s",
+            self.correlation_id, name
+        )
+        
         return self._request("DELETE", f"/instance/delete/{name}")
     
     def list_instances(self) -> list:
-        """
-        Lista todas as instâncias disponíveis.
-        
-        Returns:
-            Lista de instâncias com seus status
-        """
+        """Lista todas as instâncias."""
         result = self._request("GET", "/instance/fetchInstances")
-        
-        # Normaliza resposta (pode variar entre versões)
-        if isinstance(result, list):
-            return result
-        return result.get("instances", result.get("data", []))
+        return result if isinstance(result, list) else []
     
     def instance_exists(self, instance_name: str = None) -> bool:
-        """
-        Verifica se uma instância existe.
-        """
+        """Verifica se uma instância existe."""
         name = instance_name or self.instance
         if not name:
             return False
@@ -271,7 +466,7 @@ class EvolutionClient:
         try:
             instances = self.list_instances()
             for inst in instances:
-                inst_name = inst.get("name") or inst.get("instance", {}).get("instanceName")
+                inst_name = inst.get("instanceName") or inst.get("instance", {}).get("instanceName")
                 if inst_name == name:
                     return True
             return False
@@ -279,19 +474,15 @@ class EvolutionClient:
             return False
     
     # =========================================================================
-    # CONEXÃO / QR CODE
+    # CONEXÃO E QR CODE
     # =========================================================================
     
     def get_connection_state(self, instance_name: str = None) -> dict:
         """
-        Obtém o estado de conexão da instância.
+        Verifica o estado de conexão do WhatsApp.
         
         Returns:
-            {
-                "connected": bool,
-                "state": "open" | "close" | "connecting",
-                "number": str (número conectado, se disponível)
-            }
+            {"connected": bool, "state": str, "number": str}
         """
         name = instance_name or self.instance
         if not name:
@@ -299,16 +490,15 @@ class EvolutionClient:
         
         result = self._request("GET", f"/instance/connectionState/{name}")
         
-        # Normaliza resposta (varia entre versões)
+        # Normaliza resposta
         state = (
-            result.get("state") or 
-            result.get("instance", {}).get("state") or 
-            "close"
+            result.get("state") or
+            result.get("instance", {}).get("state") or
+            "unknown"
         )
         
-        connected = state.lower() in ("open", "connected")
+        connected = state.lower() in ["open", "connected", "online"]
         
-        # Tenta obter número conectado
         number = ""
         if connected:
             number = (
@@ -327,9 +517,6 @@ class EvolutionClient:
         """
         Obtém o QR Code para conexão.
         
-        IMPORTANTE: Tenta extrair QR de múltiplos caminhos possíveis,
-        pois diferentes versões da Evolution API retornam em formatos diferentes.
-        
         Returns:
             {
                 "qrcode": str (base64 da imagem ou código texto),
@@ -343,7 +530,6 @@ class EvolutionClient:
         
         result = self._request("GET", f"/instance/connect/{name}")
         
-        # Extrai QR Code de múltiplos caminhos possíveis
         qrcode = None
         code = None
         pairing_code = None
@@ -366,11 +552,9 @@ class EvolutionClient:
         elif result.get("instance", {}).get("qrcode"):
             qrcode = result["instance"]["qrcode"]
         
-        # Código de pareamento (para vincular sem QR)
         pairing_code = result.get("pairingCode") or result.get("code")
         
         if not qrcode and not pairing_code:
-            # Verifica se já está conectado
             state = self.get_connection_state(name)
             if state["connected"]:
                 raise EvolutionAPIError(
@@ -391,6 +575,11 @@ class EvolutionClient:
         if not name:
             raise EvolutionAPIError("Nome da instância não informado")
         
+        logger.info(
+            "INSTANCE_RESTART | correlation_id=%s | instance=%s",
+            self.correlation_id, name
+        )
+        
         return self._request("PUT", f"/instance/restart/{name}")
     
     def logout_instance(self, instance_name: str = None) -> dict:
@@ -398,6 +587,11 @@ class EvolutionClient:
         name = instance_name or self.instance
         if not name:
             raise EvolutionAPIError("Nome da instância não informado")
+        
+        logger.info(
+            "INSTANCE_LOGOUT | correlation_id=%s | instance=%s",
+            self.correlation_id, name
+        )
         
         return self._request("DELETE", f"/instance/logout/{name}")
     
@@ -433,13 +627,15 @@ class EvolutionClient:
         payload = {
             "number": phone_clean,
             "text": message,
-            "delay": 1200,  # Delay em ms para parecer mais natural
+            "delay": 1200,
         }
         
+        # Log com telefone mascarado
+        phone_masked = f"***{phone_clean[-4:]}" if len(phone_clean) >= 4 else "***"
+        
         logger.info(
-            "WhatsApp: enviando mensagem | instance=%s | phone=***%s",
-            self.instance,
-            phone_clean[-4:],
+            "SEND_MESSAGE_START | correlation_id=%s | instance=%s | phone=%s",
+            self.correlation_id, self.instance, phone_masked
         )
         
         result = self._request(
@@ -449,9 +645,8 @@ class EvolutionClient:
         )
         
         logger.info(
-            "WhatsApp: mensagem enviada | instance=%s | phone=***%s",
-            self.instance,
-            phone_clean[-4:],
+            "SEND_MESSAGE_SUCCESS | correlation_id=%s | instance=%s | phone=%s",
+            self.correlation_id, self.instance, phone_masked
         )
         
         return result
@@ -469,7 +664,8 @@ class EvolutionClient:
                 "api_ok": bool,
                 "instance_exists": bool,
                 "connected": bool,
-                "number": str
+                "number": str,
+                "error": str
             }
         """
         result = {
@@ -481,16 +677,13 @@ class EvolutionClient:
         }
         
         try:
-            # Testa se API está acessível
             instances = self.list_instances()
             result["api_ok"] = True
             
             if self.instance:
-                # Verifica se instância existe
                 result["instance_exists"] = self.instance_exists()
                 
                 if result["instance_exists"]:
-                    # Verifica status de conexão
                     state = self.get_connection_state()
                     result["connected"] = state["connected"]
                     result["number"] = state["number"]
@@ -503,21 +696,9 @@ class EvolutionClient:
     def ensure_instance(self, instance_name: str, webhook_url: str = None) -> dict:
         """
         Garante que uma instância existe, criando se necessário.
-        
-        Args:
-            instance_name: Nome da instância
-            webhook_url: URL de webhook (opcional)
-            
-        Returns:
-            {
-                "created": bool (True se foi criada, False se já existia),
-                "instance": {...},
-                "qrcode": {...} (se criada e não conectada)
-            }
         """
         self.instance = instance_name
         
-        # Verifica se já existe
         if self.instance_exists():
             state = self.get_connection_state()
             
@@ -528,7 +709,6 @@ class EvolutionClient:
                 "number": state["number"],
             }
             
-            # Se não está conectada, retorna QR
             if not state["connected"]:
                 try:
                     qr = self.get_qrcode()
@@ -538,7 +718,6 @@ class EvolutionClient:
             
             return result
         
-        # Cria nova instância
         create_result = self.create_instance(instance_name, webhook_url)
         
         return {
