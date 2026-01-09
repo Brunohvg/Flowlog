@@ -139,7 +139,9 @@ def order_edit(request, order_id):
         is_priority = request.POST.get("is_priority") == "on"
         
         try:
-            order.total_value = float(total_value) if total_value else order.total_value
+            from decimal import Decimal, ROUND_HALF_UP
+            if total_value:
+                order.total_value = Decimal(total_value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             order.delivery_address = delivery_address
             order.notes = notes
             order.internal_notes = internal_notes
@@ -295,6 +297,26 @@ def order_cancel(request, order_id):
         form = OrderCancelForm()
     
     return render(request, "orders/order_cancel.html", {"order": order, "form": form})
+
+
+@login_required
+def order_delete(request, order_id):
+    """Deleta pedido permanentemente."""
+    order = get_object_or_404(
+        Order.objects.for_tenant(request.tenant),
+        id=order_id,
+    )
+    
+    if request.method == "POST":
+        try:
+            code = OrderStatusService().delete_order(order=order, actor=request.user)
+            messages.success(request, f"Pedido {code} deletado.")
+            return redirect("order_list")
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect("order_detail", order_id=order_id)
+    
+    return redirect("order_detail", order_id=order_id)
 
 
 @login_required

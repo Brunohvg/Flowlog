@@ -6,6 +6,7 @@ from django.urls import path
 
 from .views import (
     order_cancel,
+    order_delete,
     order_change_delivery,
     order_create,
     order_detail,
@@ -52,6 +53,7 @@ urlpatterns = [
     
     # Cancelamento e devolução
     path("<uuid:order_id>/cancelar/", order_cancel, name="order_cancel"),
+    path("<uuid:order_id>/deletar/", order_delete, name="order_delete"),
     path("<uuid:order_id>/devolver/", order_return, name="order_return"),
     
     # Alterações

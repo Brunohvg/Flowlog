@@ -343,6 +343,20 @@
         </a>
         {% endif %}
         
+        {% if order.order_status == 'pending' or order.order_status == 'cancelled' %}
+        {% if order.payment_status != 'paid' %}
+        <button onclick="openDeleteModal()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left">
+          <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-red-600">Deletar</p>
+            <p class="text-xs text-slate-500">Remover permanentemente</p>
+          </div>
+        </button>
+        {% endif %}
+        {% endif %}
+        
         {% if order.is_finalized %}
         <div class="p-4 bg-slate-50 rounded-xl text-center">
           <i data-lucide="{% if order.order_status == 'completed' %}check-circle{% else %}x-circle{% endif %}" class="w-8 h-8 mx-auto mb-2 {% if order.order_status == 'completed' %}text-emerald-500{% else %}text-red-500{% endif %}"></i>
@@ -421,6 +435,26 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Modal Delete -->
+<div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-2xl">
+    <div class="text-center">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="trash-2" class="w-8 h-8 text-red-600"></i>
+      </div>
+      <h3 class="text-xl font-bold text-slate-800 mb-2">Deletar Pedido?</h3>
+      <p class="text-slate-500 mb-6">Esta ação é <strong>permanente</strong> e não pode ser desfeita.</p>
+      <div class="flex gap-3">
+        <button onclick="closeDeleteModal()" class="flex-1 btn btn-secondary">Cancelar</button>
+        <form method="post" action="{% url 'order_delete' order.id %}" class="flex-1">
+          {% csrf_token %}
+          <button type="submit" class="w-full btn bg-red-600 text-white hover:bg-red-700">Deletar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   function copyLink() {
     const input = document.getElementById('tracking-link');
@@ -428,5 +462,19 @@
     document.execCommand('copy');
     alert('Link copiado!');
   }
+  
+  function openDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('hidden');
+    document.getElementById('deleteModal').classList.add('flex');
+  }
+  
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+    document.getElementById('deleteModal').classList.remove('flex');
+  }
+  
+  document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+  });
 </script>
 {% endblock %}

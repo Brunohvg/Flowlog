@@ -132,13 +132,15 @@
       </div>
 
       <!-- Info Box - CORRIGIDO: Consistente com o badge -->
-      {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected and tenant_settings.whatsapp_number %}
+      {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
       <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
         <div class="flex items-center gap-3">
           <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
           <div>
             <p class="font-medium text-emerald-800">WhatsApp conectado e funcionando</p>
+            {% if tenant_settings.whatsapp_number %}
             <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -164,6 +166,29 @@
       </div>
       {% endif %}
     </div>
+    
+    <!-- Enviar Mensagem de Teste -->
+    {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+    <div class="card p-6 mb-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="send" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800">Enviar Mensagem de Teste</h3>
+          <p class="text-sm text-slate-500">Verifique se a integração está funcionando</p>
+        </div>
+      </div>
+      
+      <div class="flex gap-3">
+        <input type="tel" id="test-phone" class="form-input flex-1" placeholder="11999999999">
+        <button type="button" onclick="sendTestMessage()" class="btn btn-primary">
+          <i data-lucide="send" class="w-4 h-4"></i> Enviar
+        </button>
+      </div>
+      <p id="test-result" class="text-sm mt-2 hidden"></p>
+    </div>
+    {% endif %}
 
     <!-- Controle de Notificações -->
     <form method="post">
@@ -313,138 +338,110 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="save_messages">
 
-      <!-- Placeholders -->
-      <div class="card p-4 bg-blue-50 border-blue-200 mb-6">
-        <div class="flex items-start gap-3">
-          <i data-lucide="lightbulb" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
-          <div class="text-sm text-blue-700">
-            <p class="font-semibold mb-2">Variáveis disponíveis:</p>
-            <div class="flex flex-wrap gap-2">
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{nome}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{codigo}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{valor}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{loja}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{link_rastreio}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{endereco}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{rastreio}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{tentativa}</code>
-              <code class="bg-blue-100 px-2 py-0.5 rounded">{motivo}</code>
-              <code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{pickup_code}</code>
+      <!-- Variáveis -->
+      <div class="bg-slate-100 rounded-lg p-3 mb-6">
+        <p class="text-xs text-slate-600 mb-2"><strong>Variáveis:</strong></p>
+        <div class="flex flex-wrap gap-1.5 text-xs">
+          <code class="bg-white px-2 py-0.5 rounded">{nome}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{codigo}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{valor}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{loja}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{link_rastreio}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{endereco}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{rastreio}</code>
+          <code class="bg-white px-2 py-0.5 rounded">{pickup_code}</code>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <!-- Pedido -->
+        <div class="mb-8">
+          <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Pedido</h4>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Criado</label>
+              <textarea name="msg_order_created" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_created }}</textarea>
             </div>
-            <p class="mt-2 text-xs text-blue-600">
-              <strong>{pickup_code}</strong> = Código de 4 dígitos para retirada na loja
-            </p>
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Confirmado</label>
+              <textarea name="msg_order_confirmed" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_confirmed }}</textarea>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Mensagens de Pedido -->
-      <div class="card p-6 mb-6">
-        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i>
-          Pedido
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Pedido Criado</label>
-            <textarea name="msg_order_created" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_created }}</textarea>
-          </div>
-          <div>
-            <label class="form-label">Pedido Confirmado</label>
-            <textarea name="msg_order_confirmed" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_confirmed }}</textarea>
+        <!-- Pagamento -->
+        <div class="mb-8">
+          <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Pagamento</h4>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pagamento Recebido</label>
+              <textarea name="msg_payment_received" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_received }}</textarea>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pagamento Estornado</label>
+              <textarea name="msg_payment_refunded" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_refunded }}</textarea>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Mensagens de Pagamento -->
-      <div class="card p-6 mb-6">
-        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i data-lucide="credit-card" class="w-5 h-5 text-emerald-500"></i>
-          Pagamento
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Pagamento Recebido</label>
-            <textarea name="msg_payment_received" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_received }}</textarea>
+        <!-- Entrega -->
+        <div class="mb-8">
+          <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Entrega</h4>
+          <div class="grid md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Enviado</label>
+              <textarea name="msg_order_shipped" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_shipped }}</textarea>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Entregue</label>
+              <textarea name="msg_order_delivered" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_delivered }}</textarea>
+            </div>
           </div>
           <div>
-            <label class="form-label">Pagamento Estornado</label>
-            <textarea name="msg_payment_refunded" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_payment_refunded }}</textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- Mensagens de Entrega -->
-      <div class="card p-6 mb-6">
-        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i data-lucide="truck" class="w-5 h-5 text-blue-500"></i>
-          Entrega
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="form-label">Pedido Enviado</label>
-            <textarea name="msg_order_shipped" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_shipped }}</textarea>
-          </div>
-          <div>
-            <label class="form-label">Pedido Entregue</label>
-            <textarea name="msg_order_delivered" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_delivered }}</textarea>
+            <label class="text-sm font-medium text-slate-700 mb-1 block">Tentativa de Entrega Falha</label>
+            <textarea name="msg_delivery_failed" rows="3" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_delivery_failed }}</textarea>
           </div>
         </div>
-        <div>
-          <label class="form-label">Tentativa de Entrega Falha</label>
-          <textarea name="msg_delivery_failed" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_delivery_failed }}</textarea>
-        </div>
-      </div>
 
-      <!-- Mensagens de Retirada -->
-      <div class="card p-6 mb-6">
-        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i data-lucide="store" class="w-5 h-5 text-purple-500"></i>
-          Retirada
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="form-label">Pronto para Retirada</label>
-            <textarea name="msg_order_ready_for_pickup" rows="6" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
+        <!-- Retirada -->
+        <div class="mb-8">
+          <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Retirada</h4>
+          <div class="grid md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pronto para Retirada</label>
+              <textarea name="msg_order_ready_for_pickup" rows="5" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_ready_for_pickup }}</textarea>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Retirado</label>
+              <textarea name="msg_order_picked_up" rows="5" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_picked_up }}</textarea>
+            </div>
           </div>
           <div>
-            <label class="form-label">Pedido Retirado</label>
-            <textarea name="msg_order_picked_up" rows="6" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_picked_up }}</textarea>
+            <label class="text-sm font-medium text-slate-700 mb-1 block">Retirada Expirada</label>
+            <textarea name="msg_order_expired" rows="3" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_expired }}</textarea>
           </div>
         </div>
-        <div>
-          <label class="form-label">Retirada Expirada (48h)</label>
-          <textarea name="msg_order_expired" rows="4" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_expired }}</textarea>
-        </div>
-      </div>
 
-      <!-- Mensagens de Cancelamento -->
-      <div class="card p-6 mb-6">
-        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i data-lucide="x-circle" class="w-5 h-5 text-red-500"></i>
-          Cancelamento / Devolução
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Pedido Cancelado</label>
-            <textarea name="msg_order_cancelled" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_cancelled }}</textarea>
-          </div>
-          <div>
-            <label class="form-label">Pedido Devolvido</label>
-            <textarea name="msg_order_returned" rows="5" class="form-textarea font-mono text-sm">{{ tenant_settings.msg_order_returned }}</textarea>
+        <!-- Cancelamento -->
+        <div class="mb-6">
+          <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Cancelamento / Devolução</h4>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Cancelado</label>
+              <textarea name="msg_order_cancelled" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_cancelled }}</textarea>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Pedido Devolvido</label>
+              <textarea name="msg_order_returned" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_order_returned }}</textarea>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="flex justify-end">
-        <button type="submit" class="btn btn-primary">
-          <i data-lucide="check" class="w-4 h-4"></i> Salvar Mensagens
-        </button>
+        <div class="flex justify-end pt-4 border-t">
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar Mensagens
+          </button>
+        </div>
       </div>
     </form>
   </div>
@@ -477,5 +474,46 @@
       document.getElementById('tab-' + tab).classList.remove('hidden');
     });
   });
+  
+  // Enviar mensagem de teste
+  async function sendTestMessage() {
+    const phone = document.getElementById('test-phone').value.trim();
+    const result = document.getElementById('test-result');
+    
+    if (!phone) {
+      result.textContent = 'Informe o número';
+      result.className = 'text-sm mt-2 text-red-600';
+      result.classList.remove('hidden');
+      return;
+    }
+    
+    result.textContent = 'Enviando...';
+    result.className = 'text-sm mt-2 text-slate-600';
+    result.classList.remove('hidden');
+    
+    try {
+      const response = await fetch('{% url "whatsapp_test_message" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'phone=' + encodeURIComponent(phone)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        result.textContent = '✓ Mensagem enviada!';
+        result.className = 'text-sm mt-2 text-emerald-600';
+      } else {
+        result.textContent = '✗ ' + (data.error || 'Erro ao enviar');
+        result.className = 'text-sm mt-2 text-red-600';
+      }
+    } catch (e) {
+      result.textContent = '✗ Erro de conexão';
+      result.className = 'text-sm mt-2 text-red-600';
+    }
+  }
 </script>
 {% endblock %}
