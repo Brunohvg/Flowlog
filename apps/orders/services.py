@@ -51,14 +51,28 @@ def normalize_cpf(cpf: str) -> str:
 
 
 def _send_whatsapp(task, order_id: str):
+    """
+    Envia task para Celery de forma segura.
+    - Se CELERY_BROKER_URL não estiver configurado: ignora silenciosamente
+    - Se Redis não estiver disponível: ignora silenciosamente (não trava o sistema)
+    """
     from django.conf import settings
-    if getattr(settings, 'DEBUG', False):
+    
+    # Se não tem broker configurado, não faz nada
+    broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
+    if not broker_url:
         return
-    if not getattr(settings, 'CELERY_BROKER_URL', ''):
-        return
+    
+    # Tenta enviar, mas ignora erros de conexão
     try:
-        task.apply_async(args=[order_id], expires=300)
+        # Usa ignore_result=True para não esperar resposta do Redis
+        task.apply_async(
+            args=[order_id], 
+            expires=300,
+            ignore_result=True,
+        )
     except Exception:
+        # Silencia completamente - não queremos travar o sistema por causa de WhatsApp
         pass
 
 
@@ -105,11 +119,21 @@ class OrderService:
         if delivery_type != DeliveryType.PICKUP and not delivery_address.strip():
             raise ValueError("Endereço obrigatório.")
 
+        # Data da venda (default: hoje)
+        sale_date = data.get("sale_date") or timezone.now().date()
+        
+        # Campos Motoboy
+        motoboy_fee = data.get("motoboy_fee") if delivery_type == DeliveryType.MOTOBOY else None
+        motoboy_paid = data.get("motoboy_paid", False) if delivery_type == DeliveryType.MOTOBOY else False
+
         order = Order.objects.create(
             tenant=tenant, customer=customer, seller=seller,
             total_value=data["total_value"], delivery_type=delivery_type,
             delivery_status=DeliveryStatus.PENDING, delivery_address=delivery_address,
             notes=data.get("notes", ""), is_priority=data.get("is_priority", False),
+            sale_date=sale_date,
+            motoboy_fee=motoboy_fee,
+            motoboy_paid=motoboy_paid,
         )
 
         OrderActivity.log(

@@ -3,9 +3,11 @@ Forms do app orders - Flowlog.
 """
 
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django import forms
+from django.utils import timezone
 
 from apps.orders.models import DeliveryType
 
@@ -55,6 +57,12 @@ class OrderCreateForm(forms.Form):
         max_digits=10,
         decimal_places=2,
     )
+    sale_date = forms.DateField(
+        label="Data da Venda",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Deixe em branco para usar a data de hoje"
+    )
     delivery_type = forms.ChoiceField(
         label="Tipo de Entrega",
         choices=DeliveryType.choices,
@@ -70,6 +78,20 @@ class OrderCreateForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 2})
     )
+    
+    # Campos Motoboy
+    motoboy_fee = BrazilianDecimalField(
+        label="Valor Motoboy",
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        help_text="Taxa paga ao motoboy pela entrega"
+    )
+    motoboy_paid = forms.BooleanField(
+        label="Motoboy já foi pago?",
+        required=False,
+        initial=False,
+    )
 
     def clean_customer_cpf(self):
         cpf = self.cleaned_data.get("customer_cpf", "")
@@ -79,6 +101,14 @@ class OrderCreateForm(forms.Form):
             if cpf_digits and len(cpf_digits) != 11:
                 raise forms.ValidationError("CPF deve ter 11 dígitos.")
         return cpf
+
+    def clean_sale_date(self):
+        sale_date = self.cleaned_data.get("sale_date")
+        if sale_date:
+            today = timezone.now().date()
+            if sale_date > today:
+                raise forms.ValidationError("Data da venda não pode ser futura.")
+        return sale_date
 
     def clean(self):
         cleaned_data = super().clean()

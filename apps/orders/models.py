@@ -207,6 +207,24 @@ class Order(TenantModel):
     # Controle
     is_priority = models.BooleanField("Prioritário", default=False)
     delivery_attempts = models.PositiveSmallIntegerField("Tentativas de entrega", default=0)
+    
+    # Motoboy - controle financeiro
+    motoboy_fee = models.DecimalField(
+        "Valor Motoboy", max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        help_text="Valor pago ao motoboy pela entrega"
+    )
+    motoboy_paid = models.BooleanField(
+        "Motoboy Pago", default=False,
+        help_text="Se o motoboy já recebeu o pagamento"
+    )
+    
+    # Data da venda (para lançamentos retroativos)
+    sale_date = models.DateField(
+        "Data da Venda", 
+        null=True, blank=True,
+        help_text="Data efetiva da venda (default: data de criação)"
+    )
 
     class Meta:
         verbose_name = "Pedido"
@@ -214,6 +232,7 @@ class Order(TenantModel):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["tenant", "created_at"]),
+            models.Index(fields=["tenant", "sale_date"]),
             models.Index(fields=["tenant", "order_status"]),
             models.Index(fields=["tenant", "delivery_type"]),
             models.Index(fields=["tenant", "delivery_status"]),

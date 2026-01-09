@@ -83,7 +83,7 @@
                 </div>
             </div>
 
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Valor Total <span class="text-red-500">*</span></label>
                     <div class="relative">
@@ -93,6 +93,20 @@
                                placeholder="0,00"
                                value="{{ request.POST.total_value }}">
                     </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Data da Venda</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i data-lucide="calendar" class="w-4 h-4"></i>
+                        </span>
+                        <input type="date" name="sale_date" id="sale-date"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm"
+                               value="{{ request.POST.sale_date }}"
+                               max="">
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1.5 ml-1">Deixe em branco para usar a data de hoje.</p>
                 </div>
 
                 <div>
@@ -183,6 +197,41 @@
             <textarea name="delivery_address" id="delivery_address" class="hidden">{{ request.POST.delivery_address }}</textarea>
         </div>
 
+        <!-- Seção Motoboy - só aparece quando tipo é motoboy -->
+        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden" id="motoboy-section">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center border border-blue-100">
+                    <i data-lucide="bike" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Dados do Motoboy</h3>
+                    <p class="text-xs text-slate-500">Controle financeiro da entrega.</p>
+                </div>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block">Valor Motoboy</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">R$</span>
+                        <input type="text" name="motoboy_fee" id="motoboy-fee-input"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400 text-sm"
+                               placeholder="0,00"
+                               value="{{ request.POST.motoboy_fee }}">
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1.5 ml-1">Taxa paga ao motoboy pela entrega.</p>
+                </div>
+
+                <div class="flex items-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="motoboy_paid" value="true" class="sr-only peer" {% if request.POST.motoboy_paid %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                        <span class="ml-3 text-sm font-medium text-slate-700">Motoboy já foi pago</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
                 <div class="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center border border-slate-200">
@@ -218,12 +267,19 @@
 <script>
   const deliveryType = document.getElementById('delivery_type');
   const addressSection = document.getElementById('address-section');
+  const motoboySection = document.getElementById('motoboy-section');
   const correiosInfo = document.getElementById('correios-info');
   const phoneInput = document.getElementById('phone-input');
   const cpfInput = document.getElementById('cpf-input');
   const valueInput = document.getElementById('value-input');
+  const motoboyFeeInput = document.getElementById('motoboy-fee-input');
+  const saleDateInput = document.getElementById('sale-date');
   const cepInput = document.getElementById('cep');
   const deliveryAddress = document.getElementById('delivery_address');
+
+  // Definir data máxima como hoje (bloqueia datas futuras)
+  const today = new Date().toISOString().split('T')[0];
+  saleDateInput.setAttribute('max', today);
 
   const fields = {
     street: document.getElementById('street'),
@@ -261,10 +317,21 @@
     e.target.value = v;
   });
 
+  // Máscara valor motoboy
+  motoboyFeeInput.addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v) v = (parseInt(v) / 100).toFixed(2).replace('.', ',');
+    e.target.value = v;
+  });
+
   // Toggle entrega
   function updateDeliveryType() {
     const type = deliveryType.value;
+    // Endereço: esconde para retirada
     addressSection.style.display = type === 'pickup' ? 'none' : 'block';
+    // Motoboy: só mostra para motoboy
+    motoboySection.style.display = type === 'motoboy' ? 'block' : 'none';
+    // Correios info
     if(type === 'sedex' || type === 'pac') {
         correiosInfo.classList.remove('hidden');
     } else {

@@ -9,6 +9,7 @@ from . import views
 urlpatterns = [
     # Dashboard já está no config/urls.py como raiz
     path("relatorios/", views.reports, name="reports"),
+    path("relatorios/csv/", views.reports_csv, name="reports_csv"),
     path("configuracoes/", views.settings, name="settings"),
     path("perfil/", views.profile, name="profile"),
 ]

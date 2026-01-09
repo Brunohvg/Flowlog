@@ -167,10 +167,30 @@ Para rodar comandos como criar superusuário ou migrar banco em produção:
 # Aplicar migrações (se necessário)
 python manage.py migrate
 
+# Se houver conflito de migrations, rode:
+python manage.py makemigrations --merge
+python manage.py migrate
+
 # Criar superusuário
 python manage.py createsuperuser
 
 ```
+
+---
+
+## 5. Resolução de Conflitos de Migrations
+
+Se aparecer erro de "Conflicting migrations detected":
+
+```bash
+# 1. Primeiro, faça o merge das migrations
+python manage.py makemigrations --merge
+
+# 2. Depois aplique
+python manage.py migrate
+```
+
+Isso é normal quando há desenvolvimento paralelo.
 
 ```
 

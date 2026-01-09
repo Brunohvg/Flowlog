@@ -1,9 +1,9 @@
 """
 Tasks Celery para WhatsApp.
-OrderNotFoundError permite retry (resolve Race Condition).
+Rate limiting + OrderNotFoundError para retry.
 """
 
-import logging
+import time
 from functools import partial
 
 from celery import shared_task
@@ -11,8 +11,6 @@ from django.apps import apps
 from django.db import transaction
 
 from apps.integrations.whatsapp.services import WhatsAppNotificationService
-
-logger = logging.getLogger(__name__)
 
 
 class OrderNotFoundError(Exception):
@@ -30,12 +28,13 @@ def _get_order(order_id: str):
 TASK_CONFIG = {
     "bind": True,
     "autoretry_for": (Exception, OrderNotFoundError),
-    "retry_kwargs": {"max_retries": 5, "countdown": 5},
+    "retry_kwargs": {"max_retries": 5, "countdown": 10},
     "retry_backoff": True,
-    "retry_backoff_max": 60,
+    "retry_backoff_max": 120,
     "retry_jitter": True,
     "acks_late": True,
     "reject_on_worker_lost": True,
+    "rate_limit": "10/m",  # Max 10 mensagens por minuto
 }
 
 
@@ -44,7 +43,10 @@ def _process(self, order_id: str, method: str):
     service = WhatsAppNotificationService(order.tenant)
     func = getattr(service, method, None)
     if func:
-        return func(order)
+        result = func(order)
+        # Pequeno delay entre envios para não sobrecarregar
+        time.sleep(0.5)
+        return result
     return {"success": False}
 
 

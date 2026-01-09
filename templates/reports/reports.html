@@ -13,23 +13,70 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-              <div class="bg-white border border-slate-200 p-1 rounded-xl shadow-sm flex items-center">
-                  <a href="?period=7" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '7' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">7D</a>
-                  <a href="?period=30" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '30' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">30D</a>
-                  <a href="?period=90" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '90' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">90D</a>
-                  <a href="?period=365" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all {% if period == '365' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">1 Ano</a>
-              </div>
-
               <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
                   <i data-lucide="printer" class="w-4 h-4"></i>
                   <span class="hidden sm:inline">Imprimir</span>
               </button>
+              <a href="{% url 'reports_csv' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}" 
+                 class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Exportar CSV</span>
+              </a>
           </div>
+      </div>
+
+      <!-- FILTROS AVANÇADOS -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm print:hidden">
+          <form method="get" class="flex flex-wrap items-end gap-4">
+              <div>
+                  <label class="block text-xs font-medium text-slate-500 mb-1">Data Início</label>
+                  <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"
+                         class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+              </div>
+              <div>
+                  <label class="block text-xs font-medium text-slate-500 mb-1">Data Fim</label>
+                  <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"
+                         class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+              </div>
+              <div>
+                  <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
+                  <select name="status" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                      <option value="">Todos</option>
+                      <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pendentes</option>
+                      <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Concluídos</option>
+                      <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelados</option>
+                  </select>
+              </div>
+              <div>
+                  <label class="block text-xs font-medium text-slate-500 mb-1">Pagamento</label>
+                  <select name="payment" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                      <option value="">Todos</option>
+                      <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Pagos</option>
+                      <option value="pending" {% if payment_filter == 'pending' %}selected{% endif %}>Pendentes</option>
+                  </select>
+              </div>
+              <div>
+                  <label class="block text-xs font-medium text-slate-500 mb-1">Entrega</label>
+                  <select name="delivery_type" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                      <option value="">Todos</option>
+                      <option value="motoboy" {% if delivery_filter == 'motoboy' %}selected{% endif %}>Motoboy</option>
+                      <option value="sedex" {% if delivery_filter == 'sedex' %}selected{% endif %}>SEDEX</option>
+                      <option value="pac" {% if delivery_filter == 'pac' %}selected{% endif %}>PAC</option>
+                      <option value="pickup" {% if delivery_filter == 'pickup' %}selected{% endif %}>Retirada</option>
+                  </select>
+              </div>
+              <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+                  <i data-lucide="filter" class="w-4 h-4 inline mr-1"></i> Filtrar
+              </button>
+              <a href="{% url 'reports' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors">
+                  Limpar
+              </a>
+          </form>
       </div>
 
       <div class="hidden print:block mb-6">
           <h1 class="text-3xl font-bold text-black">Relatório Flowlog</h1>
-          <p class="text-gray-600">Período: Últimos {{ period }} dias (A partir de {{ start_date|date:"d/m/Y" }})</p>
+          <p class="text-gray-600">Período: {{ date_from|date:"d/m/Y" }} até {{ date_to|date:"d/m/Y" }}</p>
       </div>
 
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
@@ -69,9 +116,9 @@
                   <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 print:hidden">
                       <i data-lucide="calendar" class="w-4 h-4"></i>
                   </div>
-                  <span class="text-sm font-medium text-slate-500">Análise Desde</span>
+                  <span class="text-sm font-medium text-slate-500">Período</span>
               </div>
-              <p class="text-xl font-bold text-slate-900">{{ start_date|date:"d/m/Y" }}</p>
+              <p class="text-sm font-bold text-slate-900">{{ date_from|date:"d/m/Y" }} - {{ date_to|date:"d/m/Y" }}</p>
           </div>
       </div>
 

@@ -2,50 +2,196 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>{{ order.code }}</title>
+    <title>Pedido {{ order.code }}</title>
     <style>
         @page { size: A4; margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
-        body { padding: 5mm; }
-        .label {
-            width: 100mm; height: 60mm; border: 2px solid #000; padding: 4mm;
-            display: flex; flex-direction: column; justify-content: space-between;
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Helvetica', 'Arial', sans-serif; 
+            background: #fff;
         }
-        .row { display: flex; justify-content: space-between; align-items: center; }
-        .code { font-size: 28px; font-weight: bold; letter-spacing: 1px; }
-        .type { font-size: 11px; font-weight: bold; border: 2px solid #000; padding: 2px 8px; }
-        .line { border-top: 1px dashed #000; margin: 3mm 0; }
-        .name { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-        .info { font-size: 12px; margin-top: 2mm; }
-        .pickup { font-size: 32px; font-weight: bold; background: #000; color: #fff; 
-                  padding: 2mm 5mm; letter-spacing: 3px; display: inline-block; }
-        .value { font-size: 20px; font-weight: bold; }
+
+        .label {
+            position: absolute;
+            top: 5mm;
+            left: 5mm;
+            width: 100mm; 
+            height: auto;
+            border: 4px solid #000;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Utilitários */
+        .text-center { text-align: center; }
+        .bold { font-weight: 800; }
+        .uppercase { text-transform: uppercase; }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            border-bottom: 3px solid #000;
+        }
+        .brand {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+            border-right: 2px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            color: #fff;
+        }
+        .order-info { flex: 2; padding: 5px 10px; }
+        .order-label { font-size: 10px; }
+        .order-code { font-size: 26px; letter-spacing: 1px; }
+
+        /* SECTIONS */
+        .section { padding: 8px; border-bottom: 2px solid #000; }
+        
+        /* CLIENTE */
+        .customer-name { font-size: 16px; margin-bottom: 2px; }
+        .customer-phone { font-size: 12px; font-weight: bold; }
+
+        /* ENDEREÇO */
+        .address-box { background: #f4f4f4; min-height: 80px; }
+        .address-label { font-size: 9px; margin-bottom: 4px; font-weight: bold; }
+        .address-text { font-size: 14px; line-height: 1.3; }
+
+        /* RETIRADA */
+        .pickup-box { text-align: center; padding: 15px 5px; }
+        .pickup-code { font-size: 32px; letter-spacing: 3px; border: 2px dashed #000; display: inline-block; padding: 5px 15px; margin: 5px 0; }
+
+        /* OBS */
+        .obs-section {
+            border-bottom: 2px solid #000;
+            padding: 5px;
+            font-size: 11px;
+            background: repeating-linear-gradient(45deg, #fff, #fff 10px, #eee 10px, #eee 20px);
+        }
+
+        /* ALERTS (FINANCEIRO) */
+        .alerts { display: flex; border-bottom: 2px solid #000; }
+        .alert-box { flex: 1; padding: 5px; text-align: center; font-size: 11px; }
+        .alert-box + .alert-box { border-left: 2px solid #000; }
+        
+        .status-badge {
+            display: block; margin-top: 2px; font-size: 14px; padding: 2px; border: 2px solid #000;
+        }
+        .status-danger { background: #000; color: #fff; border-color: #000; }
+        .status-success { background: #fff; color: #000; text-decoration: line-through; }
+
+        /* DESTAQUE MOTOBOY (NOVO) */
+        .mb-status {
+            display: block;
+            margin-top: 5px;
+            padding: 4px;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            border: 2px solid #000;
+        }
+        /* Se pago: Fundo preto, letra branca */
+        .mb-status.paid { background: #000; color: #fff; }
+        
+        /* Se pendente: Fundo branco, Borda Grossa, Atenção */
+        .mb-status.pending { 
+            background: #fff; 
+            color: #000; 
+            border: 3px dashed #000; 
+            font-size: 15px;
+        }
+
+        /* FOOTER */
+        .footer {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px; background: #000; color: #fff;
+        }
         .date { font-size: 10px; }
+        .total { font-size: 20px; }
+
+        @media print { .no-print { display: none; } }
     </style>
 </head>
 <body>
+
+<div class="no-print" style="position:fixed; top:10px; right:10px;">
+    <button onclick="window.print()" style="padding:10px 20px; font-weight:bold; cursor:pointer;">🖨️ IMPRIMIR</button>
+</div>
+
 <div class="label">
-    <div>
-        <div class="row">
-            <span class="code">{{ order.code }}</span>
-            <span class="type">{{ order.get_delivery_type_display|upper }}</span>
+    <div class="header">
+        <div class="brand bold">LOJA BIBELÔ</div>
+        <div class="order-info">
+            <div class="order-label uppercase">Pedido / {{ order.get_delivery_type_display }}</div>
+            <div class="order-code bold">#{{ order.code }}</div>
         </div>
-        <div class="line"></div>
-        <div class="name">{{ order.customer.name }}</div>
-        <div class="info">TEL: {{ order.customer.phone }}</div>
-        {% if order.delivery_address %}<div class="info">{{ order.delivery_address|truncatechars:60 }}</div>{% endif %}
     </div>
-    <div>
-        <div class="line"></div>
-        <div class="row">
-            <div>
-                {% if order.pickup_code %}<span class="pickup">{{ order.pickup_code }}</span>{% endif %}
-                <div class="date">{{ order.created_at|date:"d/m/Y H:i" }}</div>
-            </div>
-            <span class="value">R$ {{ order.total_value|floatformat:2 }}</span>
+
+    <div class="section">
+        <div class="customer-name bold">{{ order.customer.name|truncatechars:25|upper }}</div>
+        <div class="customer-phone">📞 {{ order.customer.phone }}</div>
+    </div>
+
+    {% if order.delivery_type == 'pickup' %}
+        <div class="section pickup-box">
+            <div class="bold" style="font-size: 18px;">RETIRADA NA LOJA</div>
+            {% if order.pickup_code %}
+                <div class="pickup-code bold">{{ order.pickup_code }}</div>
+                <div style="font-size:10px;">CÓDIGO DE LIBERAÇÃO</div>
+            {% endif %}
         </div>
+    {% else %}
+        <div class="section address-box">
+            <div class="address-label uppercase">Endereço de Entrega:</div>
+            <div class="address-text bold">{{ order.delivery_address|linebreaksbr }}</div>
+        </div>
+    {% endif %}
+
+    {% if order.notes %}
+    <div class="obs-section">
+        <span class="bold">OBS:</span> {{ order.notes }}
+    </div>
+    {% endif %}
+
+    <div class="alerts">
+        <div class="alert-box">
+            <div class="uppercase">Produto</div>
+            {% if order.payment_status == 'paid' %}
+                <span class="status-badge bold">PAGO ✓</span>
+            {% else %}
+                <span class="status-badge status-danger bold">PENDENTE ⚠</span>
+            {% endif %}
+        </div>
+
+        {% if order.delivery_type == 'motoboy' %}
+        <div class="alert-box">
+            <div class="uppercase">Taxa Motoboy</div>
+            <div class="bold" style="font-size:12px;">R$ {{ order.motoboy_fee|floatformat:2 }}</div>
+            
+            {% if order.motoboy_paid %} 
+                <span class="mb-status paid">TAXA PAGA</span> 
+            {% else %} 
+                <span class="mb-status pending">COBRAR ENTREGA</span> 
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="footer bold">
+        <div class="date">{{ order.created_at|date:"d/m/Y H:i" }}</div>
+        <div class="total">R$ {{ order.total_value|floatformat:2 }}</div>
     </div>
 </div>
-<script>window.print()</script>
+
+<script>
+    window.onload = function() { window.print(); }
+</script>
+
 </body>
 </html>

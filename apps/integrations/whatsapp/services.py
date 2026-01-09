@@ -1,10 +1,13 @@
 """
 WhatsApp Notification Service - Flowlog.
-Usa Evolution API para envio de mensagens.
+Usa Evolution API + NotificationLog para confiabilidade.
 """
 
 import logging
+import uuid
+from django.utils import timezone
 from apps.integrations.whatsapp.client import EvolutionClient
+from apps.integrations.models import NotificationLog
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +63,33 @@ class WhatsAppNotificationService:
             return template
 
     def _send(self, phone, message, notification_type, order=None):
+        """Envia mensagem com logging completo."""
+        correlation_id = str(uuid.uuid4())[:12]
+        
+        # Cria log inicial
+        log = NotificationLog.objects.create(
+            correlation_id=correlation_id,
+            tenant=self.tenant,
+            order=order,
+            notification_type=notification_type,
+            status=NotificationLog.Status.PENDING,
+            recipient_phone=phone[-4:] if phone else "????",
+            recipient_name=order.customer.name if order else "",
+            message_preview=message[:200] if message else "",
+        )
+        
         if not self._can_send(notification_type):
-            return {"success": False, "blocked": True}
+            log.mark_blocked("Notificação desabilitada ou WhatsApp não configurado")
+            return {"success": False, "blocked": True, "log_id": str(log.id)}
+        
         try:
-            self.client.send_text_message(phone=phone, message=message)
-            return {"success": True}
+            result = self.client.send_text_message(phone=phone, message=message)
+            log.mark_sent(api_response=result if isinstance(result, dict) else {"status": "sent"})
+            return {"success": True, "log_id": str(log.id)}
         except Exception as e:
-            logger.error("WhatsApp error: %s", str(e))
-            return {"success": False, "error": str(e)}
+            logger.error("WhatsApp error [%s]: %s", correlation_id, str(e))
+            log.mark_failed(error_message=str(e))
+            return {"success": False, "error": str(e), "log_id": str(log.id)}
 
     # === PEDIDO ===
 

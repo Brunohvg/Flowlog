@@ -138,6 +138,10 @@ def order_edit(request, order_id):
         internal_notes = request.POST.get("internal_notes", "").strip()
         is_priority = request.POST.get("is_priority") == "on"
         
+        # Campos motoboy
+        motoboy_fee = request.POST.get("motoboy_fee", "").replace(".", "").replace(",", ".")
+        motoboy_paid = request.POST.get("motoboy_paid") == "on"
+        
         try:
             from decimal import Decimal, ROUND_HALF_UP
             if total_value:
@@ -146,6 +150,15 @@ def order_edit(request, order_id):
             order.notes = notes
             order.internal_notes = internal_notes
             order.is_priority = is_priority
+            
+            # Salvar campos motoboy (só se for entrega motoboy)
+            if order.delivery_type == 'motoboy':
+                if motoboy_fee:
+                    order.motoboy_fee = Decimal(motoboy_fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                else:
+                    order.motoboy_fee = None
+                order.motoboy_paid = motoboy_paid
+            
             order.save()
             
             from apps.orders.models import OrderActivity

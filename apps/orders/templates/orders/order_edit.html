@@ -75,6 +75,36 @@
     </div>
     {% endif %}
     
+    <!-- Motoboy (só aparece para entregas motoboy) -->
+    {% if order.delivery_type == 'motoboy' %}
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-800">Dados do Motoboy</h3>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Valor Motoboy (R$)</label>
+          <input type="text" name="motoboy_fee" value="{% if order.motoboy_fee %}{{ order.motoboy_fee|floatformat:2 }}{% endif %}" class="form-input" id="motoboy-fee-input" placeholder="0,00">
+          <p class="text-xs text-slate-400 mt-1">Taxa paga ao motoboy pela entrega</p>
+        </div>
+        
+        <div class="flex items-center">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="motoboy_paid" {% if order.motoboy_paid %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+            <div>
+              <p class="font-semibold text-slate-800">Motoboy já foi pago</p>
+              <p class="text-xs text-slate-500">Marque quando efetuar o pagamento</p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
     <!-- Observações -->
     <div class="card p-6">
       <div class="flex items-center gap-3 mb-4">
@@ -124,5 +154,18 @@
     }
     e.target.value = v;
   });
+  
+  // Máscara valor motoboy (se existir)
+  const motoboyInput = document.getElementById('motoboy-fee-input');
+  if (motoboyInput) {
+    motoboyInput.addEventListener('input', function(e) {
+      let v = e.target.value.replace(/\D/g, '');
+      if (v.length > 0) {
+        v = (parseInt(v) / 100).toFixed(2);
+        v = v.replace('.', ',');
+      }
+      e.target.value = v;
+    });
+  }
 </script>
 {% endblock %}
