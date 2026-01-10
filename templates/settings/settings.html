@@ -510,18 +510,37 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="save_messages">
 
-      <!-- Variáveis -->
-      <div class="bg-slate-100 rounded-lg p-3 mb-6">
-        <p class="text-xs text-slate-600 mb-2"><strong>Variáveis:</strong></p>
-        <div class="flex flex-wrap gap-1.5 text-xs">
-          <code class="bg-white px-2 py-0.5 rounded">{nome}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{codigo}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{valor}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{loja}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{link_rastreio}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{endereco}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{rastreio}</code>
-          <code class="bg-white px-2 py-0.5 rounded">{pickup_code}</code>
+      <!-- Header -->
+      <div class="card p-5 mb-6 bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+            <i data-lucide="message-square-text" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold">Personalizar Mensagens</h3>
+            <p class="text-indigo-100 text-sm">Configure o texto das notificações enviadas aos clientes</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variáveis - Sticky -->
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <div class="flex items-start gap-3">
+          <i data-lucide="lightbulb" class="w-5 h-5 text-amber-600 mt-0.5"></i>
+          <div>
+            <p class="text-sm font-medium text-amber-800 mb-2">Variáveis disponíveis (copie e cole):</p>
+            <div class="flex flex-wrap gap-2">
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{nome}')" title="Clique para copiar">{nome}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{codigo}')" title="Clique para copiar">{codigo}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{valor}')" title="Clique para copiar">{valor}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{loja}')" title="Clique para copiar">{loja}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{link_rastreio}')" title="Clique para copiar">{link_rastreio}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{endereco}')" title="Clique para copiar">{endereco}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{pickup_code}')" title="Clique para copiar">{pickup_code}</code>
+              <code class="bg-white px-2.5 py-1 rounded-lg text-xs font-mono text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="navigator.clipboard.writeText('{link_pagamento}')" title="Clique para copiar">{link_pagamento}</code>
+            </div>
+            <p class="text-xs text-amber-600 mt-2">💡 Clique na variável para copiar</p>
+          </div>
         </div>
       </div>
 

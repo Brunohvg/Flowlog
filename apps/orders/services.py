@@ -1,10 +1,13 @@
 """
 Services - Flowlog.
-Race Condition: transaction.on_commit() para WhatsApp.
+Race Condition: Usa SNAPSHOT para WhatsApp (dados congelados no momento do evento).
 Concorrência: select_for_update() para Lost Update.
 """
 
+import json
 import logging
+import re
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 from functools import partial
 
@@ -12,6 +15,9 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from apps.integrations.whatsapp.tasks import (
+    send_whatsapp_notification,
+    create_order_snapshot,
+    # Tasks legadas (mantidas para compatibilidade)
     send_order_created_whatsapp,
     send_order_confirmed_whatsapp,
     send_payment_received_whatsapp,
@@ -33,6 +39,10 @@ logger = logging.getLogger(__name__)
 PICKUP_EXPIRY_HOURS = 48
 
 
+# ==============================================================================
+# UTILITÁRIOS
+# ==============================================================================
+
 def validate_cpf(cpf: str) -> bool:
     cpf = ''.join(filter(str.isdigit, cpf))
     if len(cpf) != 11 or cpf == cpf[0] * 11:
@@ -50,20 +60,93 @@ def normalize_cpf(cpf: str) -> str:
     return ''.join(filter(str.isdigit, cpf))
 
 
-def _send_whatsapp(task, order_id: str):
+def parse_brazilian_decimal(value: str) -> Decimal:
     """
-    Envia task para Celery de forma segura.
-    - Se CELERY_BROKER_URL não estiver configurado: ignora silenciosamente
-    - Se Redis não estiver disponível: loga erro mas não trava o sistema
+    Converte valor monetário BR para Decimal de forma SEGURA.
+    
+    Aceita:
+      - "1.234,56" → 1234.56 (formato BR com milhar)
+      - "1234,56"  → 1234.56 (formato BR sem milhar)
+      - "1234.56"  → 1234.56 (formato US/API)
+      - "1234"     → 1234.00
+    
+    Evita o bug crítico onde "1000.00" virava "100000".
+    """
+    if not value:
+        return Decimal("0")
+    
+    # Remove espaços e R$
+    value = re.sub(r'[R$\s]', '', str(value).strip())
+    
+    if not value:
+        return Decimal("0")
+    
+    # Conta pontos e vírgulas
+    dots = value.count('.')
+    commas = value.count(',')
+    
+    if commas == 1 and dots == 0:
+        # "1234,56" → BR sem milhar
+        value = value.replace(',', '.')
+    elif commas == 1 and dots >= 1:
+        # "1.234,56" → BR com milhar
+        value = value.replace('.', '').replace(',', '.')
+    elif commas == 0 and dots == 1:
+        # "1234.56" → US/API (mantém)
+        pass
+    elif commas == 0 and dots > 1:
+        # "1.234.567" → BR só milhares, sem centavos
+        value = value.replace('.', '')
+    # else: número inteiro ou formato estranho, tenta converter direto
+    
+    try:
+        return Decimal(value).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        raise ValueError(f"Valor monetário inválido: {value}")
+
+
+# ==============================================================================
+# WHATSAPP COM SNAPSHOT (evita race condition)
+# ==============================================================================
+
+def _send_whatsapp_with_snapshot(order, method: str):
+    """
+    Envia notificação usando SNAPSHOT (dados congelados).
+    Imune a race condition - não importa se o status mudar depois.
     """
     from django.conf import settings
     
-    # Se não tem broker configurado, não faz nada
     broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
         return
     
-    # Tenta enviar, loga erros mas não trava
+    # Cria snapshot AGORA (dados congelados)
+    snapshot = create_order_snapshot(order)
+    snapshot_json = json.dumps(snapshot)
+    
+    try:
+        db_transaction.on_commit(
+            lambda: send_whatsapp_notification.apply_async(
+                args=[snapshot_json, method],
+                expires=300,
+                ignore_result=True,
+            )
+        )
+    except Exception as e:
+        logger.error("Falha ao agendar WhatsApp [order=%s]: %s", order.id, str(e), exc_info=True)
+
+
+def _send_whatsapp(task, order_id: str):
+    """
+    LEGADO: Envia task para Celery (mantido para compatibilidade).
+    Usar _send_whatsapp_with_snapshot para novos códigos.
+    """
+    from django.conf import settings
+    
+    broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
+    if not broker_url:
+        return
+    
     try:
         task.apply_async(
             args=[order_id], 
@@ -71,11 +154,11 @@ def _send_whatsapp(task, order_id: str):
             ignore_result=True,
         )
     except Exception as e:
-        # Loga o erro para diagnóstico, mas não trava o sistema
         logger.error("Falha ao agendar task WhatsApp [order=%s]: %s", order_id, str(e), exc_info=True)
 
 
 def _schedule_whatsapp(task, order_id: str):
+    """LEGADO: Mantido para compatibilidade."""
     db_transaction.on_commit(partial(_send_whatsapp, task, order_id))
 
 
@@ -141,7 +224,7 @@ class OrderService:
             user=seller, delivery_type=delivery_type, total_value=str(order.total_value),
         )
 
-        _schedule_whatsapp(send_order_created_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_created")
         return order
 
     @db_transaction.atomic
@@ -161,7 +244,7 @@ class OrderService:
             description=f"Duplicado de {order.code}", user=actor,
         )
 
-        _schedule_whatsapp(send_order_created_whatsapp, str(new_order.id))
+        _send_whatsapp_with_snapshot(new_order, "send_order_created")
         return new_order
 
 
@@ -180,7 +263,7 @@ class OrderStatusService:
         order.save(update_fields=["payment_status", "order_status", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.PAYMENT_RECEIVED,
                           description="Pagamento confirmado", user=actor)
-        _schedule_whatsapp(send_payment_received_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_payment_received")
         return order
 
     @db_transaction.atomic
@@ -209,7 +292,7 @@ class OrderStatusService:
         order.save(update_fields=["delivery_status", "shipped_at", "tracking_code", "order_status", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.SHIPPED,
                           description=f"Enviado{f' - {order.tracking_code}' if order.tracking_code else ''}", user=actor)
-        _schedule_whatsapp(send_order_shipped_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_shipped")
         return order
 
     @db_transaction.atomic
@@ -229,7 +312,7 @@ class OrderStatusService:
         order.save(update_fields=["delivery_status", "delivered_at", "order_status", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.DELIVERED,
                           description="Entregue", user=actor)
-        _schedule_whatsapp(send_order_delivered_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_delivered")
         return order
 
     @db_transaction.atomic
@@ -244,7 +327,7 @@ class OrderStatusService:
         order.save(update_fields=["delivery_status", "delivery_attempts", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.FAILED_ATTEMPT,
                           description=f"Tentativa {order.delivery_attempts} falha. {reason}".strip(), user=actor)
-        _schedule_whatsapp(send_delivery_failed_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_delivery_failed")
         return order
 
     @db_transaction.atomic
@@ -269,7 +352,7 @@ class OrderStatusService:
         order.save(update_fields=["delivery_status", "shipped_at", "expires_at", "order_status", "pickup_code", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.READY_PICKUP,
                           description=f"Pronto. Código: {order.pickup_code}", user=actor)
-        _schedule_whatsapp(send_order_ready_for_pickup_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_ready_for_pickup")
         return order
 
     @db_transaction.atomic
@@ -290,7 +373,7 @@ class OrderStatusService:
         order.save(update_fields=["delivery_status", "delivered_at", "order_status", "expires_at", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.PICKED_UP,
                           description="Retirado", user=actor)
-        _schedule_whatsapp(send_order_picked_up_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_picked_up")
         return order
 
     @db_transaction.atomic
@@ -308,7 +391,7 @@ class OrderStatusService:
         order.save(update_fields=["order_status", "cancel_reason", "cancelled_at", "updated_at"])
         OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.CANCELLED,
                           description=f"Cancelado. {reason}".strip(), user=actor)
-        _schedule_whatsapp(send_order_cancelled_whatsapp, str(order.id))
+        _send_whatsapp_with_snapshot(order, "send_order_cancelled")
         return order
 
     @db_transaction.atomic
@@ -331,8 +414,8 @@ class OrderStatusService:
         if refund:
             OrderActivity.log(order=order, activity_type=OrderActivity.ActivityType.REFUNDED,
                               description="Reembolsado", user=actor)
-            _schedule_whatsapp(send_payment_refunded_whatsapp, str(order.id))
-        _schedule_whatsapp(send_order_returned_whatsapp, str(order.id))
+            _send_whatsapp_with_snapshot(order, "send_payment_refunded")
+        _send_whatsapp_with_snapshot(order, "send_order_returned")
         return order
 
     @db_transaction.atomic

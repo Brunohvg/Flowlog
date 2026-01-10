@@ -132,20 +132,21 @@ def order_edit(request, order_id):
         return redirect("order_detail", order_id=order_id)
     
     if request.method == "POST":
-        total_value = request.POST.get("total_value", "").replace(".", "").replace(",", ".")
+        from apps.orders.services import parse_brazilian_decimal
+        
+        total_value_raw = request.POST.get("total_value", "")
         delivery_address = request.POST.get("delivery_address", "").strip()
         notes = request.POST.get("notes", "").strip()
         internal_notes = request.POST.get("internal_notes", "").strip()
         is_priority = request.POST.get("is_priority") == "on"
         
         # Campos motoboy
-        motoboy_fee = request.POST.get("motoboy_fee", "").replace(".", "").replace(",", ".")
+        motoboy_fee_raw = request.POST.get("motoboy_fee", "")
         motoboy_paid = request.POST.get("motoboy_paid") == "on"
         
         try:
-            from decimal import Decimal, ROUND_HALF_UP
-            if total_value:
-                order.total_value = Decimal(total_value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            if total_value_raw:
+                order.total_value = parse_brazilian_decimal(total_value_raw)
             order.delivery_address = delivery_address
             order.notes = notes
             order.internal_notes = internal_notes
@@ -153,8 +154,8 @@ def order_edit(request, order_id):
             
             # Salvar campos motoboy (só se for entrega motoboy)
             if order.delivery_type == 'motoboy':
-                if motoboy_fee:
-                    order.motoboy_fee = Decimal(motoboy_fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                if motoboy_fee_raw:
+                    order.motoboy_fee = parse_brazilian_decimal(motoboy_fee_raw)
                 else:
                     order.motoboy_fee = None
                 order.motoboy_paid = motoboy_paid

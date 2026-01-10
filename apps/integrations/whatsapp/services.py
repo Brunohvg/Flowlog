@@ -1,10 +1,12 @@
 """
 WhatsApp Notification Service - Flowlog.
 Usa Evolution API + NotificationLog para confiabilidade.
+Suporta tanto Order (objeto) quanto Snapshot (dict) para evitar race condition.
 """
 
 import logging
 import uuid
+from decimal import Decimal
 from django.utils import timezone
 from apps.integrations.whatsapp.client import EvolutionClient
 from apps.integrations.models import NotificationLog
@@ -36,24 +38,62 @@ class WhatsAppNotificationService:
             return False
         return True
 
-    def _get_tracking_link(self, order):
+    def _get_tracking_link(self, code: str):
         from django.conf import settings as django_settings
         base_url = getattr(django_settings, 'SITE_URL', 'https://flowlog.app')
-        return f"{base_url}/rastreio/{order.code}"
+        return f"{base_url}/rastreio/{code}"
 
     def _format_value(self, value):
+        """Formata valor para BRL."""
+        if isinstance(value, str):
+            value = Decimal(value)
         return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     def _get_first_name(self, full_name):
         return full_name.split()[0] if full_name else "Cliente"
 
-    def _format_message(self, template, order, **extra):
+    def _extract_data(self, order_or_snapshot):
+        """
+        Extrai dados de um Order (objeto) ou Snapshot (dict).
+        Permite usar o mesmo código para ambos os casos.
+        """
+        if isinstance(order_or_snapshot, dict):
+            # É um snapshot
+            return {
+                "code": order_or_snapshot.get("code", ""),
+                "total_value": order_or_snapshot.get("total_value", "0"),
+                "customer_name": order_or_snapshot.get("customer_name", "Cliente"),
+                "customer_phone": order_or_snapshot.get("customer_phone", ""),
+                "tracking_code": order_or_snapshot.get("tracking_code", ""),
+                "pickup_code": order_or_snapshot.get("pickup_code", ""),
+                "delivery_attempts": order_or_snapshot.get("delivery_attempts", 0),
+                "cancel_reason": order_or_snapshot.get("cancel_reason", ""),
+                "return_reason": order_or_snapshot.get("return_reason", ""),
+                "order_obj": None,
+            }
+        else:
+            # É um objeto Order
+            return {
+                "code": order_or_snapshot.code,
+                "total_value": order_or_snapshot.total_value,
+                "customer_name": order_or_snapshot.customer.name if order_or_snapshot.customer else "Cliente",
+                "customer_phone": order_or_snapshot.customer.phone_normalized if order_or_snapshot.customer else "",
+                "tracking_code": order_or_snapshot.tracking_code or "",
+                "pickup_code": order_or_snapshot.pickup_code or "",
+                "delivery_attempts": order_or_snapshot.delivery_attempts,
+                "cancel_reason": order_or_snapshot.cancel_reason or "",
+                "return_reason": order_or_snapshot.return_reason or "",
+                "order_obj": order_or_snapshot,
+            }
+
+    def _format_message_from_data(self, template, data, **extra):
+        """Formata mensagem usando dados extraídos."""
         placeholders = {
-            "nome": self._get_first_name(order.customer.name),
-            "codigo": order.code,
-            "valor": self._format_value(order.total_value),
+            "nome": self._get_first_name(data["customer_name"]),
+            "codigo": data["code"],
+            "valor": self._format_value(data["total_value"]),
             "loja": self.tenant.name,
-            "link_rastreio": self._get_tracking_link(order),
+            "link_rastreio": self._get_tracking_link(data["code"]),
             "endereco": getattr(self.tenant, 'address', '') or "Consulte a loja",
             **extra,
         }
@@ -74,7 +114,7 @@ class WhatsAppNotificationService:
             notification_type=notification_type,
             status=NotificationLog.Status.PENDING,
             recipient_phone=phone[-4:] if phone else "????",
-            recipient_name=order.customer.name if order else "",
+            recipient_name=order.customer.name if order and hasattr(order, 'customer') else "",
             message_preview=message[:200] if message else "",
         )
         
@@ -93,28 +133,32 @@ class WhatsAppNotificationService:
 
     # === PEDIDO ===
 
-    def send_order_created(self, order):
+    def send_order_created(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_created', None) or (
             "Olá {nome}! 🎉\n\nSeu pedido *{codigo}* foi recebido!\nValor: R$ {valor}\n\nAcompanhe em: {link_rastreio}\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'order_created', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'order_created', data["order_obj"])
 
-    def send_order_confirmed(self, order):
+    def send_order_confirmed(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_confirmed', None) or (
             "Olá {nome}! ✅\n\nSeu pedido *{codigo}* foi confirmado!\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'order_confirmed', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'order_confirmed', data["order_obj"])
 
     # === PAGAMENTO ===
 
-    def send_payment_received(self, order):
+    def send_payment_received(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_payment_received', None) or (
             "Olá {nome}! 💰\n\nPagamento do pedido *{codigo}* confirmado!\nValor: R$ {valor}\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'payment_received', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'payment_received', data["order_obj"])
 
     def send_payment_link(self, order, payment_link):
         """Envia link de pagamento para o cliente."""
+        data = self._extract_data(order)
         template = getattr(self.settings, 'msg_payment_link', None) or (
             "Olá {nome}! 💳\n\n"
             "Segue o link de pagamento do pedido *{codigo}*:\n\n"
@@ -124,71 +168,80 @@ class WhatsAppNotificationService:
             "_{loja}_"
         )
         return self._send(
-            order.customer.phone_normalized, 
-            self._format_message(template, order, link_pagamento=payment_link.checkout_url), 
+            data["customer_phone"], 
+            self._format_message_from_data(template, data, link_pagamento=payment_link.checkout_url), 
             'payment_link', 
-            order
+            data["order_obj"]
         )
 
-    def send_payment_refunded(self, order):
+    def send_payment_refunded(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_payment_refunded', None) or (
             "Olá {nome}!\n\nO valor de R$ {valor} do pedido *{codigo}* foi estornado.\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'payment_refunded', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'payment_refunded', data["order_obj"])
 
     # === ENTREGA ===
 
-    def send_order_shipped(self, order):
-        rastreio = f"Código de rastreio: *{order.tracking_code}*\n\n" if order.tracking_code else ""
+    def send_order_shipped(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
+        rastreio = f"Código de rastreio: *{data['tracking_code']}*\n\n" if data['tracking_code'] else ""
         template = getattr(self.settings, 'msg_order_shipped', None) or (
             "Olá {nome}! 📦\n\nSeu pedido *{codigo}* foi enviado!\n\n{rastreio_info}Acompanhe em: {link_rastreio}\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order, rastreio_info=rastreio), 'order_shipped', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data, rastreio_info=rastreio), 'order_shipped', data["order_obj"])
 
-    def send_order_delivered(self, order):
+    def send_order_delivered(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_delivered', None) or (
             "Olá {nome}! ✅\n\nSeu pedido *{codigo}* foi entregue!\n\nObrigado! 😊\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'order_delivered', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'order_delivered', data["order_obj"])
 
-    def send_delivery_failed(self, order):
+    def send_delivery_failed(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_delivery_failed', None) or (
             "Olá {nome}! ⚠️\n\nTentamos entregar o pedido *{codigo}* mas não conseguimos.\nTentativa: {tentativa}\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order, tentativa=str(order.delivery_attempts)), 'delivery_failed', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data, tentativa=str(data['delivery_attempts'])), 'delivery_failed', data["order_obj"])
 
     # === RETIRADA ===
 
-    def send_order_ready_for_pickup(self, order):
+    def send_order_ready_for_pickup(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_ready_for_pickup', None) or (
             "Olá {nome}! 🏬\n\nSeu pedido *{codigo}* está pronto!\nValor: R$ {valor}\n\n🔑 *Código: {pickup_code}*\n\n📍 {endereco}\n⏰ Prazo: 48h\n\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order, pickup_code=order.pickup_code or "----"), 'ready_for_pickup', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data, pickup_code=data['pickup_code'] or "----"), 'ready_for_pickup', data["order_obj"])
 
-    def send_order_picked_up(self, order):
+    def send_order_picked_up(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_picked_up', None) or (
             "Olá {nome}! ✅\n\nPedido *{codigo}* retirado!\n\nObrigado! 😊\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'picked_up', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'picked_up', data["order_obj"])
 
-    def send_order_expired(self, order):
+    def send_order_expired(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, 'msg_order_expired', None) or (
             "Olá {nome}! ⚠️\n\nO prazo para retirada do pedido *{codigo}* expirou.\n\nEntre em contato.\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order), 'expired', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'expired', data["order_obj"])
 
     # === CANCELAMENTO ===
 
-    def send_order_cancelled(self, order):
-        motivo = f"Motivo: {order.cancel_reason}\n\n" if order.cancel_reason else ""
+    def send_order_cancelled(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
+        motivo = f"Motivo: {data['cancel_reason']}\n\n" if data['cancel_reason'] else ""
         template = getattr(self.settings, 'msg_order_cancelled', None) or (
             "Olá {nome}!\n\nSeu pedido *{codigo}* foi cancelado.\n{motivo_info}Em caso de dúvidas, entre em contato.\n_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order, motivo_info=motivo), 'cancelled', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data, motivo_info=motivo), 'cancelled', data["order_obj"])
 
-    def send_order_returned(self, order):
-        motivo = f"Motivo: {order.return_reason}\n\n" if order.return_reason else ""
+    def send_order_returned(self, order_or_snapshot):
+        data = self._extract_data(order_or_snapshot)
+        motivo = f"Motivo: {data['return_reason']}\n\n" if data['return_reason'] else ""
         template = getattr(self.settings, 'msg_order_returned', None) or (
             "Olá {nome}!\n\nDevolução do pedido *{codigo}* registrada.\n{motivo_info}_{loja}_"
         )
-        return self._send(order.customer.phone_normalized, self._format_message(template, order, motivo_info=motivo), 'returned', order)
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data, motivo_info=motivo), 'returned', data["order_obj"])

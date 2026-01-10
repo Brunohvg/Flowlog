@@ -2,6 +2,8 @@
 Views de Pedidos.
 """
 
+from django_filters.rest_framework import DjangoFilterBackend
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +12,7 @@ from apps.orders.models import Order
 from apps.orders.services import OrderService
 from apps.api.mixins import TenantViewSetMixin
 
+from .filters import OrderFilter
 from .serializers import (
     OrderSerializer,
     OrderListSerializer,
@@ -22,15 +25,19 @@ class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     """
     CRUD de Pedidos.
     
-    Filtros via query params:
+    Filtros via query params (django-filter):
     - ?status=pending
     - ?payment=paid
     - ?delivery=shipped
-    - ?date_from=2024-01-01
-    - ?date_to=2024-01-31
+    - ?date_from=2024-01-01&date_to=2024-01-31
+    - ?customer=uuid
+    - ?search=FL-001
+    - ?min_value=100&max_value=500
     """
     
     queryset = Order.objects.select_related("customer", "seller")
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
     
     def get_serializer_class(self):
         if self.action == "list":
@@ -42,21 +49,7 @@ class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         return OrderSerializer
     
     def get_queryset(self):
-        qs = super().get_queryset()
-        params = self.request.query_params
-        
-        if params.get("status"):
-            qs = qs.filter(order_status=params["status"])
-        if params.get("payment"):
-            qs = qs.filter(payment_status=params["payment"])
-        if params.get("delivery"):
-            qs = qs.filter(delivery_status=params["delivery"])
-        if params.get("date_from"):
-            qs = qs.filter(sale_date__gte=params["date_from"])
-        if params.get("date_to"):
-            qs = qs.filter(sale_date__lte=params["date_to"])
-        
-        return qs.order_by("-created_at")
+        return super().get_queryset().order_by("-created_at")
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
