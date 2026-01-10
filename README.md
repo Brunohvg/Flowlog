@@ -1,82 +1,64 @@
-# 📦 Flowlog - Sistema de Gestão de Pedidos (SaaS)
+# 🚀 Flowlog
 
-![Status](https://img.shields.io/badge/Status-Em%20Desenvolvimento-blue)
-![Python](https://img.shields.io/badge/Python-3.11+-yellow)
-![Django](https://img.shields.io/badge/Django-5.0+-green)
-![Docker](https://img.shields.io/badge/Docker-Ready-blue)
+Sistema de gestão de vendas via WhatsApp com integração de pagamentos.
 
-O **Flowlog** é um sistema robusto de gestão de pedidos e logística (OMS) focado em pequenas operações e e-commerce. Construído com Django, oferece um painel administrativo moderno, integração com WhatsApp e relatórios financeiros detalhados.
+## ✨ Funcionalidades
 
-## 🚀 Funcionalidades Principais
+- 📦 **Gestão de Pedidos** - Criação, acompanhamento e status
+- 👥 **Clientes** - Cadastro e histórico
+- 💳 **Pagamentos** - Links de pagamento via Pagar.me
+- 📱 **WhatsApp** - Notificações automáticas via Evolution API
+- 📊 **Relatórios** - Dashboard e métricas
+- 🔌 **API REST** - Integração com sistemas externos
+- 🏢 **Multi-tenant** - Suporte a múltiplas empresas
 
-* **Dashboard Executivo:** Métricas em tempo real com gráficos interativos (ApexCharts).
-* **Gestão de Pedidos:** Fluxo completo (Pendente -> Processamento -> Enviado -> Entregue).
-* **Funil de Vendas:** Visualização gráfica do pipeline de pedidos.
-* **Integração WhatsApp:** Notificações automáticas de status via Evolution API.
-* **Relatórios Financeiros:** Análise de receita, ticket médio e performance logística.
-* **Multi-Tenant:** Arquitetura preparada para múltiplas lojas (SaaS).
-* **Design Premium:** Interface limpa e responsiva com Tailwind CSS e Alpine.js.
+## 🛠️ Stack
 
-## 🛠️ Tech Stack
+- **Backend:** Django 5.2, Django REST Framework
+- **Database:** PostgreSQL
+- **Queue:** Celery + Redis
+- **WhatsApp:** Evolution API
+- **Pagamentos:** Pagar.me API v5
 
-* **Backend:** Python, Django, Django REST Framework.
-* **Frontend:** Django Templates, Tailwind CSS, Alpine.js, ApexCharts.
-* **Banco de Dados:** PostgreSQL.
-* **Async/Background:** Celery + Redis (para envios de WhatsApp e relatórios pesados).
-* **Infraestrutura:** Docker, Docker Compose, Gunicorn, Whitenoise.
+## 🚀 Quick Start
 
-## 💻 Como Rodar Localmente
+```bash
+# Clone
+git clone <repo> && cd flowlog
 
-### Pré-requisitos
-* Docker e Docker Compose instalados.
-* Git.
+# Instalar dependências
+uv sync
 
-### Passo a Passo
+# Configurar ambiente
+cp .env.example .env
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/seu-usuario/flowlog.git](https://github.com/seu-usuario/flowlog.git)
-    cd flowlog
-    ```
+# Migrations
+uv run manage.py migrate
 
-2.  **Configure as Variáveis de Ambiente:**
-    Crie um arquivo `.env` na raiz (copie o exemplo abaixo):
-    ```ini
-    DEBUG=True
-    SECRET_KEY=sua-chave-secreta-desenvolvimento
-    ALLOWED_HOSTS=*
+# Criar superuser
+uv run manage.py createsuperuser
 
-    # Banco de Dados (Docker)
-    DB_NAME=flowlog
-    DB_USER=postgres
-    DB_PASSWORD=postgres
-    DB_HOST=db
-    DB_PORT=5432
+# Rodar
+uv run manage.py runserver
+```
 
-    # Redis/Celery
-    CELERY_BROKER_URL=redis://redis:6379/0
-    CELERY_RESULT_BACKEND=redis://redis:6379/1
-    ```
+## 📚 Documentação
 
-3.  **Suba o ambiente com Docker:**
-    ```bash
-    docker-compose up --build
-    ```
+Ver [docs/README.md](./docs/README.md) para documentação completa:
 
-4.  **Acesse:**
-    * Sistema: `http://localhost:8000`
-    * Login padrão: Crie um superusuário com `docker-compose exec web python manage.py createsuperuser`.
+- [Arquitetura](./docs/ARCHITECTURE.md)
+- [API REST](./docs/API.md)
+- [Deploy](./docs/DEPLOY.md)
+- [Desenvolvimento](./docs/DEVELOP.md)
 
----
+## 🔗 URLs
 
-## 🎨 Estrutura do Projeto
+| URL | Descrição |
+|-----|-----------|
+| `/` | Dashboard |
+| `/api/docs/` | Swagger (API) |
+| `/admin/` | Django Admin |
 
-* `apps/core`: Views principais (Dashboard, Relatórios).
-* `apps/orders`: Lógica de pedidos e clientes.
-* `apps/tenants`: Gestão de lojas/inquilinos.
-* `apps/integrations`: Conexão com APIs externas (WhatsApp).
-* `templates/`: Arquivos HTML com Tailwind e Alpine.js.
+## 📄 Licença
 
----
-
-**Flowlog** © 2024 - Desenvolvido com ❤️ e Python.
+Proprietário - Todos os direitos reservados.

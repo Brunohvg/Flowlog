@@ -1,0 +1,158 @@
+{% extends "base/base.html" %}
+
+{% block title %}Novo Link de Pagamento | Flowlog{% endblock %}
+{% block page_title %}Novo Link de Pagamento{% endblock %}
+{% block page_subtitle %}Avulso (sem pedido vinculado){% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <div class="mb-4">
+        <a href="{% url 'payment_link_list' %}" class="text-sm text-slate-500 hover:text-slate-700">
+            <i data-lucide="arrow-left" class="w-4 h-4 inline"></i> Voltar
+        </a>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Dados do Pagamento -->
+        <div class="card p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <i data-lucide="credit-card" class="w-5 h-5 text-emerald-600"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Dados do Pagamento</h3>
+                    <p class="text-xs text-slate-500">Informações da cobrança</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="form-label">Descrição *</label>
+                    <input type="text" name="description" required maxlength="200"
+                           class="form-input"
+                           placeholder="Ex: Venda balcão, Serviço X..."
+                           value="{{ form_data.description }}">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Valor (R$) *</label>
+                        <input type="text" name="amount" required
+                               id="amount-input"
+                               class="form-input"
+                               placeholder="0,00"
+                               value="{{ form_data.amount }}">
+                    </div>
+
+                    <div>
+                        <label class="form-label">Parcelas</label>
+                        <select name="installments" class="form-select">
+                            <option value="1" {% if form_data.installments == '1' %}selected{% endif %}>1x (à vista)</option>
+                            {% if max_installments >= 2 %}
+                            <option value="2" {% if form_data.installments == '2' %}selected{% endif %}>até 2x</option>
+                            {% endif %}
+                            {% if max_installments >= 3 %}
+                            <option value="3" {% if form_data.installments == '3' %}selected{% endif %}>até 3x</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dados do Cliente -->
+        <div class="card p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <i data-lucide="user" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Dados do Cliente</h3>
+                    <p class="text-xs text-slate-500">Quem vai pagar</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="form-label">Nome *</label>
+                    <input type="text" name="customer_name" required maxlength="200"
+                           class="form-input"
+                           placeholder="Nome do cliente"
+                           value="{{ form_data.customer_name }}">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">WhatsApp</label>
+                        <input type="tel" name="customer_phone"
+                               id="phone-input"
+                               class="form-input"
+                               placeholder="(00) 00000-0000"
+                               value="{{ form_data.customer_phone }}">
+                    </div>
+
+                    <div>
+                        <label class="form-label">E-mail</label>
+                        <input type="email" name="customer_email"
+                               class="form-input"
+                               placeholder="email@exemplo.com"
+                               value="{{ form_data.customer_email }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <i data-lucide="info" class="w-5 h-5 text-amber-600 mt-0.5"></i>
+                <div class="text-sm text-amber-800">
+                    <p class="font-medium">Informações importantes:</p>
+                    <ul class="mt-1 list-disc list-inside text-amber-700">
+                        <li>O link expira em <strong>12 horas</strong></li>
+                        <li>Aceita <strong>Cartão de Crédito</strong></li>
+                        <li>Cliente pode escolher a forma de pagamento no checkout</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botões -->
+        <div class="flex gap-3">
+            <a href="{% url 'payment_link_list' %}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary flex-1">
+                <i data-lucide="link" class="w-4 h-4"></i> Gerar Link de Pagamento
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Máscara valor
+document.getElementById('amount-input').addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 0) {
+        v = (parseInt(v) / 100).toFixed(2);
+        v = v.replace('.', ',');
+    }
+    e.target.value = v;
+});
+
+// Máscara telefone
+document.getElementById('phone-input').addEventListener('input', function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 11) v = v.slice(0, 11);
+    if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+    else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+    else if (v.length > 0) v = '(' + v;
+    e.target.value = v;
+});
+</script>
+{% endblock %}

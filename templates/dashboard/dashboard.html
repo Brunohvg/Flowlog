@@ -177,16 +177,38 @@
         <div class="space-y-6">
 
             {% if alerts %}
-            <div class="bg-white rounded-2xl border border-red-100 shadow-sm p-5 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-20 h-20 bg-red-50 rounded-bl-full -mr-2 -mt-2"></div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden">
                 <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 relative z-10">
-                    <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+                    <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></span>
                     Atenção
                 </h3>
                 <div class="space-y-3 relative z-10">
                     {% for alert in alerts %}
-                    <a href="{% url 'order_list' %}{{ alert.link }}" class="block p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors border border-red-100">
-                        <div class="flex items-start gap-3"><i data-lucide="{{ alert.icon }}" class="w-5 h-5 text-red-600 mt-0.5"></i><div><p class="text-sm font-bold text-red-800">{{ alert.title }}</p><p class="text-xs text-red-600 mt-0.5">{{ alert.msg }}</p></div></div>
+                    <a href="{% if '/pagamentos' in alert.link or 'http' in alert.link %}{{ alert.link }}{% else %}{% url 'order_list' %}{{ alert.link }}{% endif %}" 
+                       class="block p-3 rounded-xl transition-colors border
+                              {% if alert.level == 'critical' %}bg-red-50 hover:bg-red-100 border-red-100
+                              {% elif alert.level == 'warning' %}bg-amber-50 hover:bg-amber-100 border-amber-100
+                              {% elif alert.level == 'info' %}bg-blue-50 hover:bg-blue-100 border-blue-100
+                              {% else %}bg-slate-50 hover:bg-slate-100 border-slate-100{% endif %}">
+                        <div class="flex items-start gap-3">
+                            <i data-lucide="{{ alert.icon }}" class="w-5 h-5 mt-0.5
+                               {% if alert.level == 'critical' %}text-red-600
+                               {% elif alert.level == 'warning' %}text-amber-600
+                               {% elif alert.level == 'info' %}text-blue-600
+                               {% else %}text-slate-600{% endif %}"></i>
+                            <div>
+                                <p class="text-sm font-bold 
+                                   {% if alert.level == 'critical' %}text-red-800
+                                   {% elif alert.level == 'warning' %}text-amber-800
+                                   {% elif alert.level == 'info' %}text-blue-800
+                                   {% else %}text-slate-800{% endif %}">{{ alert.title }}</p>
+                                <p class="text-xs mt-0.5
+                                   {% if alert.level == 'critical' %}text-red-600
+                                   {% elif alert.level == 'warning' %}text-amber-600
+                                   {% elif alert.level == 'info' %}text-blue-600
+                                   {% else %}text-slate-600{% endif %}">{{ alert.msg }}</p>
+                            </div>
+                        </div>
                     </a>
                     {% endfor %}
                 </div>

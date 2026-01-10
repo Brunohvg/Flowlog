@@ -292,16 +292,20 @@ class Order(TenantModel):
         super().save(*args, **kwargs)
 
     def _generate_code(self):
+        """Gera código único do pedido (PED-XXXXX)."""
         chars = string.ascii_uppercase + string.digits
-        while True:
+        max_attempts = 100
+        for _ in range(max_attempts):
             random_part = "".join(random.choices(chars, k=5))
             code = f"PED-{random_part}"
             if not self.__class__._default_manager.filter(code=code).exists():
                 return code
+        raise ValueError("Não foi possível gerar código único para o pedido após 100 tentativas")
     
     def generate_pickup_code(self):
         """Gera código de retirada único de 4 dígitos."""
-        while True:
+        max_attempts = 50
+        for _ in range(max_attempts):
             code = "".join(random.choices(string.digits, k=4))
             # Verifica se não existe outro pedido ativo com esse código no mesmo tenant
             exists = Order.objects.filter(
@@ -311,6 +315,7 @@ class Order(TenantModel):
             ).exclude(pk=self.pk).exists()
             if not exists:
                 return code
+        raise ValueError("Não foi possível gerar código de retirada único após 50 tentativas")
 
     # ==================== PROPRIEDADES ====================
 

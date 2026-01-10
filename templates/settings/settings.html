@@ -14,6 +14,9 @@
       <button type="button" data-tab="store" class="tab-btn active pb-3 px-1 text-sm font-medium border-b-2 border-indigo-500 text-indigo-600">
         <i data-lucide="store" class="w-4 h-4 inline-block mr-1"></i> Loja
       </button>
+      <button type="button" data-tab="integrations" class="tab-btn pb-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i data-lucide="plug" class="w-4 h-4 inline-block mr-1"></i> Integrações
+      </button>
       <button type="button" data-tab="whatsapp" class="tab-btn pb-3 px-1 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
         <i data-lucide="smartphone" class="w-4 h-4 inline-block mr-1"></i> WhatsApp
       </button>
@@ -75,6 +78,171 @@
         </div>
       </div>
     </form>
+  </div>
+
+  <!-- Tab: Integrações -->
+  <div id="tab-integrations" class="tab-content hidden">
+    
+    <!-- Header -->
+    <div class="mb-6">
+      <h3 class="text-lg font-bold text-slate-800">Integrações</h3>
+      <p class="text-sm text-slate-500">Conecte serviços externos ao Flowlog</p>
+    </div>
+
+    <!-- Grid de Integrações -->
+    <div class="grid md:grid-cols-2 gap-4 mb-6">
+      
+      <!-- Card: Pagar.me -->
+      <div class="card p-5 border-2 {% if tenant_settings.pagarme_enabled and tenant_settings.pagarme_api_key %}border-emerald-200 bg-emerald-50/50{% else %}border-slate-200{% endif %} hover:shadow-md transition-all cursor-pointer" onclick="document.getElementById('pagarme-config').classList.toggle('hidden')">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="credit-card" class="w-6 h-6 text-emerald-600"></i>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-800">Pagar.me</h4>
+              <p class="text-sm text-slate-500">Links de pagamento</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if tenant_settings.pagarme_enabled and tenant_settings.pagarme_api_key %}
+            <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">Ativo</span>
+            {% else %}
+            <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded-full">Desativado</span>
+            {% endif %}
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: WhatsApp (link para aba) -->
+      <div class="card p-5 border-2 {% if tenant_settings.whatsapp_enabled and tenant_settings.whatsapp_connected %}border-emerald-200 bg-emerald-50/50{% else %}border-slate-200{% endif %} hover:shadow-md transition-all cursor-pointer" onclick="document.querySelector('[data-tab=whatsapp]').click()">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="smartphone" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-800">WhatsApp</h4>
+              <p class="text-sm text-slate-500">Notificações automáticas</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if tenant_settings.whatsapp_enabled and tenant_settings.whatsapp_connected %}
+            <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">Conectado</span>
+            {% else %}
+            <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded-full">Desconectado</span>
+            {% endif %}
+            <i data-lucide="external-link" class="w-4 h-4 text-slate-400"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Em breve -->
+      <div class="card p-5 border-2 border-dashed border-slate-200 bg-slate-50/50">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="plus" class="w-6 h-6 text-slate-400"></i>
+          </div>
+          <div>
+            <h4 class="font-semibold text-slate-400">Em breve</h4>
+            <p class="text-sm text-slate-400">Novas integrações</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Config Pagar.me (expandível) -->
+    <div id="pagarme-config" class="hidden">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_pagarme">
+
+        <div class="card p-6 mb-6">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="settings" class="w-5 h-5 text-emerald-600"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-800">Configurar Pagar.me</h3>
+              <p class="text-sm text-slate-500">Cartão de crédito e PIX</p>
+            </div>
+          </div>
+
+          <!-- Toggle Ativo -->
+          <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-4">
+            <div>
+              <p class="font-medium text-slate-800">Ativar Pagar.me</p>
+              <p class="text-sm text-slate-500">Habilita geração de links de pagamento</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="pagarme_enabled" value="1" class="sr-only peer" {% if tenant_settings.pagarme_enabled %}checked{% endif %}>
+              <div class="w-11 h-6 bg-slate-300 peer-focus:ring-4 peer-focus:ring-emerald-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+
+          <!-- API Key -->
+          <div class="mb-4">
+            <label class="form-label">Secret Key</label>
+            <input type="password" name="pagarme_api_key" 
+                   value="{{ tenant_settings.pagarme_api_key }}" 
+                   class="form-input font-mono"
+                   placeholder="sk_live_xxxxxxxxxxxxxxxx">
+            <p class="text-xs text-slate-500 mt-1">
+              Encontre em: Pagar.me Dashboard → Configurações → Chaves (aceita sk_xxx ou base64)
+            </p>
+          </div>
+
+          <!-- Max Parcelas -->
+          <div class="mb-4">
+            <label class="form-label">Máximo de Parcelas</label>
+            <select name="pagarme_max_installments" class="form-select">
+              <option value="1" {% if tenant_settings.pagarme_max_installments == 1 %}selected{% endif %}>1x (à vista)</option>
+              <option value="2" {% if tenant_settings.pagarme_max_installments == 2 %}selected{% endif %}>até 2x</option>
+              <option value="3" {% if tenant_settings.pagarme_max_installments == 3 or not tenant_settings.pagarme_max_installments %}selected{% endif %}>até 3x</option>
+            </select>
+          </div>
+
+          <!-- PIX Toggle -->
+          <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-4">
+            <div>
+              <p class="font-medium text-slate-800">Habilitar PIX</p>
+              <p class="text-sm text-slate-500">Requer liberação no Pagar.me</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="pagarme_pix_enabled" value="1" class="sr-only peer" {% if tenant_settings.pagarme_pix_enabled %}checked{% endif %}>
+              <div class="w-11 h-6 bg-slate-300 peer-focus:ring-4 peer-focus:ring-emerald-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+
+          <div class="flex justify-end mt-6">
+            <button type="submit" class="btn btn-primary">
+              <i data-lucide="check" class="w-4 h-4"></i> Salvar
+            </button>
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+            <div class="text-sm text-blue-800">
+              <p class="font-medium mb-2">Como funciona:</p>
+              <ul class="list-disc list-inside space-y-1 text-blue-700">
+                <li>Links de pagamento expiram em <strong>12 horas</strong></li>
+                <li>Checkout seguro hospedado pelo Pagar.me</li>
+                <li>Status atualizado automaticamente via webhook</li>
+              </ul>
+              <p class="mt-3 text-xs">
+                <strong>Webhook URL:</strong> 
+                <code class="bg-white px-2 py-0.5 rounded">{{ request.scheme }}://{{ request.get_host }}/pagamentos/webhook/pagarme/</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Tab: WhatsApp -->
@@ -252,6 +420,10 @@
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" name="notify_payment_link" class="w-4 h-4 text-emerald-600 rounded" {% if tenant_settings.notify_payment_link %}checked{% endif %}>
+                <span class="text-sm text-slate-700">Link de Pagamento</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                 <input type="checkbox" name="notify_payment_received" class="w-4 h-4 text-emerald-600 rounded" {% if tenant_settings.notify_payment_received %}checked{% endif %}>
                 <span class="text-sm text-slate-700">Pagamento Recebido</span>
               </label>
@@ -372,15 +544,20 @@
         <!-- Pagamento -->
         <div class="mb-8">
           <h4 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 pb-2 border-b">Pagamento</h4>
-          <div class="grid md:grid-cols-2 gap-4">
+          <div class="grid md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 mb-1 block">Link de Pagamento</label>
+              <textarea name="msg_payment_link" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_link }}</textarea>
+              <p class="text-xs text-slate-500 mt-1">Placeholders: {nome}, {codigo}, {valor}, {link_pagamento}, {loja}</p>
+            </div>
             <div>
               <label class="text-sm font-medium text-slate-700 mb-1 block">Pagamento Recebido</label>
               <textarea name="msg_payment_received" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_received }}</textarea>
             </div>
-            <div>
-              <label class="text-sm font-medium text-slate-700 mb-1 block">Pagamento Estornado</label>
-              <textarea name="msg_payment_refunded" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_refunded }}</textarea>
-            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700 mb-1 block">Pagamento Estornado</label>
+            <textarea name="msg_payment_refunded" rows="4" class="w-full text-sm border border-slate-300 rounded-lg p-3 font-mono">{{ tenant_settings.msg_payment_refunded }}</textarea>
           </div>
         </div>
 

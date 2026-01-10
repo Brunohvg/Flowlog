@@ -110,6 +110,24 @@ def send_order_returned_whatsapp(self, order_id):
     return _process(self, order_id, "send_order_returned")
 
 
+@shared_task(**TASK_CONFIG)
+def send_payment_link_whatsapp(self, order_id, payment_link_id):
+    """Envia link de pagamento via WhatsApp."""
+    from apps.payments.models import PaymentLink
+    
+    order = _get_order(order_id)
+    
+    try:
+        payment_link = PaymentLink.objects.get(id=payment_link_id)
+    except PaymentLink.DoesNotExist:
+        return {"success": False, "error": "PaymentLink not found"}
+    
+    service = WhatsAppNotificationService(order.tenant)
+    result = service.send_payment_link(order, payment_link)
+    time.sleep(0.5)
+    return result
+
+
 @shared_task(bind=True)
 def expire_pending_pickups(self):
     from apps.orders.models import Order, DeliveryStatus, DeliveryType

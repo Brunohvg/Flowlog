@@ -1,0 +1,151 @@
+{% extends "base/base.html" %}
+
+{% block title %}Links de Pagamento | Flowlog{% endblock %}
+{% block page_title %}Links de Pagamento{% endblock %}
+{% block page_subtitle %}Pagar.me{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                <i data-lucide="credit-card" class="w-6 h-6 text-emerald-600"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Links de Pagamento</h2>
+                <p class="text-sm text-slate-500">Gerencie seus links do Pagar.me</p>
+            </div>
+        </div>
+        
+        <a href="{% url 'payment_link_create' %}" class="btn btn-primary">
+            <i data-lucide="plus" class="w-4 h-4"></i> Novo Link Avulso
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <form method="get" class="card p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <select name="status" class="form-select w-auto" onchange="this.form.submit()">
+                <option value="">Todos os status</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            
+            {% if status_filter %}
+            <a href="{% url 'payment_link_list' %}" class="text-sm text-slate-500 hover:text-slate-700">
+                Limpar filtro
+            </a>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Lista -->
+    <div class="card overflow-hidden">
+        {% if links %}
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Valor</th>
+                        <th>Cliente</th>
+                        <th>Status</th>
+                        <th>Pedido</th>
+                        <th>Criado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for link in links %}
+                    <tr>
+                        <td>
+                            <div class="font-medium text-slate-800">{{ link.description|truncatechars:30 }}</div>
+                            {% if link.installments > 1 %}
+                            <div class="text-xs text-slate-500">{{ link.installments }}x</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="font-bold text-slate-800">R$ {{ link.amount|floatformat:2 }}</span>
+                        </td>
+                        <td>
+                            <div class="text-sm">{{ link.customer_name|truncatechars:20 }}</div>
+                            {% if link.customer_phone %}
+                            <div class="text-xs text-slate-500">{{ link.customer_phone }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if link.status == 'pending' %}
+                            <span class="badge bg-amber-100 text-amber-800">Aguardando</span>
+                            {% elif link.status == 'paid' %}
+                            <span class="badge bg-emerald-100 text-emerald-800">Pago</span>
+                            {% elif link.status == 'failed' %}
+                            <span class="badge bg-red-100 text-red-800">Falhou</span>
+                            {% elif link.status == 'expired' %}
+                            <span class="badge bg-slate-100 text-slate-600">Expirado</span>
+                            {% elif link.status == 'canceled' %}
+                            <span class="badge bg-slate-100 text-slate-600">Cancelado</span>
+                            {% else %}
+                            <span class="badge bg-slate-100 text-slate-600">{{ link.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if link.order %}
+                            <a href="{% url 'order_detail' link.order.id %}" class="text-indigo-600 hover:underline text-sm font-medium">
+                                {{ link.order.code }}
+                            </a>
+                            {% else %}
+                            <span class="text-slate-400 text-sm">Avulso</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="text-sm text-slate-600">{{ link.created_at|date:"d/m/Y H:i" }}</div>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                {% if link.checkout_url and link.status == 'pending' %}
+                                <button onclick="copyLink('{{ link.checkout_url }}')" class="p-2 hover:bg-slate-100 rounded-lg" title="Copiar link">
+                                    <i data-lucide="copy" class="w-4 h-4 text-slate-500"></i>
+                                </button>
+                                <a href="{{ link.checkout_url }}" target="_blank" class="p-2 hover:bg-slate-100 rounded-lg" title="Abrir link">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-slate-500"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'payment_link_detail' link.id %}" class="p-2 hover:bg-slate-100 rounded-lg" title="Detalhes">
+                                    <i data-lucide="eye" class="w-4 h-4 text-slate-500"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="credit-card" class="w-8 h-8 text-slate-400"></i>
+            </div>
+            <h3 class="text-lg font-medium text-slate-800 mb-1">Nenhum link encontrado</h3>
+            <p class="text-slate-500 mb-4">Crie um link de pagamento para começar</p>
+            <a href="{% url 'payment_link_create' %}" class="btn btn-primary">
+                <i data-lucide="plus" class="w-4 h-4"></i> Novo Link
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Link copiado!');
+    });
+}
+</script>
+{% endblock %}

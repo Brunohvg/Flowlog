@@ -126,7 +126,7 @@
 
 <div class="label">
     <div class="header">
-        <div class="brand bold">LOJA BIBELÔ</div>
+        <div class="brand bold">{{ order.tenant.name|upper|truncatechars:15 }}</div>
         <div class="order-info">
             <div class="order-label uppercase">Pedido / {{ order.get_delivery_type_display }}</div>
             <div class="order-code bold">#{{ order.code }}</div>

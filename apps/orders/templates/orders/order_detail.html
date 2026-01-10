@@ -252,6 +252,16 @@
             <p class="text-xs text-slate-500">Confirmar pagamento</p>
           </div>
         </a>
+        
+        <button onclick="openPaymentLinkModal()" class="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-colors text-left">
+          <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-800">Link de Pagamento</p>
+            <p class="text-xs text-slate-500">Gerar link Pagar.me</p>
+          </div>
+        </button>
         {% endif %}
         
         {% if order.delivery_type != 'pickup' %}
@@ -476,5 +486,184 @@
   document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteModal();
   });
+  
+  // ===== PAYMENT LINK MODAL =====
+  function openPaymentLinkModal() {
+    document.getElementById('paymentLinkModal').classList.remove('hidden');
+    document.getElementById('paymentLinkModal').classList.add('flex');
+    // Reset state
+    document.getElementById('paymentLinkForm').classList.remove('hidden');
+    document.getElementById('paymentLinkResult').classList.add('hidden');
+    document.getElementById('paymentLinkLoading').classList.add('hidden');
+    document.getElementById('paymentLinkError').classList.add('hidden');
+  }
+  
+  function closePaymentLinkModal() {
+    document.getElementById('paymentLinkModal').classList.add('hidden');
+    document.getElementById('paymentLinkModal').classList.remove('flex');
+  }
+  
+  document.getElementById('paymentLinkModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closePaymentLinkModal();
+  });
+  
+  async function generatePaymentLink() {
+    const installments = document.getElementById('installments').value;
+    
+    // Show loading
+    document.getElementById('paymentLinkForm').classList.add('hidden');
+    document.getElementById('paymentLinkLoading').classList.remove('hidden');
+    document.getElementById('paymentLinkError').classList.add('hidden');
+    
+    try {
+      const response = await fetch('/pagamentos/pedido/{{ order.id }}/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'installments=' + installments
+      });
+      
+      const data = await response.json();
+      document.getElementById('paymentLinkLoading').classList.add('hidden');
+      
+      if (data.success) {
+        document.getElementById('generatedLink').value = data.checkout_url;
+        document.getElementById('openLinkBtn').href = data.checkout_url;
+        document.getElementById('paymentLinkResult').classList.remove('hidden');
+        lucide.createIcons();
+      } else {
+        const errorMsg = data.error || 'Erro ao gerar link';
+        document.getElementById('errorMessage').textContent = errorMsg;
+        document.getElementById('paymentLinkError').classList.remove('hidden');
+        
+        // Mostra hint de configurações se for erro de API key
+        const hint = document.getElementById('errorHint');
+        if (errorMsg.toLowerCase().includes('configuração') || errorMsg.toLowerCase().includes('chave') || errorMsg.toLowerCase().includes('inválida')) {
+          hint.classList.remove('hidden');
+        } else {
+          hint.classList.add('hidden');
+        }
+        lucide.createIcons();
+      }
+    } catch (error) {
+      document.getElementById('paymentLinkLoading').classList.add('hidden');
+      document.getElementById('errorMessage').textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      document.getElementById('paymentLinkError').classList.remove('hidden');
+      document.getElementById('errorHint').classList.add('hidden');
+      lucide.createIcons();
+    }
+  }
+  
+  function retryPaymentLink() {
+    // Volta para o form inicial
+    document.getElementById('paymentLinkError').classList.add('hidden');
+    document.getElementById('paymentLinkForm').classList.remove('hidden');
+  }
+  
+  function copyGeneratedLink() {
+    const input = document.getElementById('generatedLink');
+    input.select();
+    document.execCommand('copy');
+    
+    // Feedback visual melhorado
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Copiado!';
+    btn.classList.add('bg-emerald-100', 'text-emerald-700');
+    lucide.createIcons();
+    
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.classList.remove('bg-emerald-100', 'text-emerald-700');
+      lucide.createIcons();
+    }, 2000);
+  }
 </script>
+
+<!-- Modal Gerar Link Pagamento -->
+<div id="paymentLinkModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl w-full">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="credit-card" class="w-7 h-7 text-emerald-600"></i>
+      </div>
+      <h3 class="text-lg font-bold text-slate-800">Gerar Link de Pagamento</h3>
+      <p class="text-slate-500 mt-1">{{ order.code }} - R$ {{ order.total_value|currency }}</p>
+    </div>
+    
+    <!-- Form inicial -->
+    <div id="paymentLinkForm">
+      <div class="mb-4">
+        <label class="form-label">Parcelas</label>
+        <select id="installments" class="form-select">
+          <option value="1">1x (à vista)</option>
+          <option value="2">até 2x</option>
+          <option value="3">até 3x</option>
+        </select>
+      </div>
+      
+      <div class="bg-slate-50 p-3 rounded-xl mb-4 text-sm text-slate-600">
+        <p><i data-lucide="clock" class="w-4 h-4 inline text-amber-500"></i> Link expira em <strong>12 horas</strong></p>
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="closePaymentLinkModal()" class="flex-1 btn btn-secondary">Cancelar</button>
+        <button onclick="generatePaymentLink()" class="flex-1 btn btn-primary">
+          <i data-lucide="link" class="w-4 h-4"></i> Gerar Link
+        </button>
+      </div>
+    </div>
+    
+    <!-- Resultado -->
+    <div id="paymentLinkResult" class="hidden">
+      <div class="bg-emerald-50 p-4 rounded-xl mb-4">
+        <p class="text-emerald-700 font-medium mb-2"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> Link criado!</p>
+        <input type="text" id="generatedLink" readonly class="form-input text-sm" />
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="copyGeneratedLink()" class="flex-1 btn btn-secondary">
+          <i data-lucide="copy" class="w-4 h-4"></i> Copiar
+        </button>
+        <a id="openLinkBtn" href="#" target="_blank" class="flex-1 btn btn-primary">
+          <i data-lucide="external-link" class="w-4 h-4"></i> Abrir
+        </a>
+      </div>
+      
+      <button onclick="closePaymentLinkModal()" class="w-full btn btn-secondary mt-3">Fechar</button>
+    </div>
+    
+    <!-- Loading -->
+    <div id="paymentLinkLoading" class="hidden text-center py-8">
+      <div class="animate-spin w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p class="text-slate-600">Gerando link...</p>
+    </div>
+    
+    <!-- Erro -->
+    <div id="paymentLinkError" class="hidden">
+      <div class="bg-red-50 p-4 rounded-xl mb-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>
+          </div>
+          <div>
+            <p class="font-medium text-red-800">Não foi possível gerar o link</p>
+            <p id="errorMessage" class="text-sm text-red-600 mt-1"></p>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="retryPaymentLink()" class="flex-1 btn btn-secondary">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i> Tentar Novamente
+        </button>
+        <button onclick="closePaymentLinkModal()" class="flex-1 btn btn-primary">Fechar</button>
+      </div>
+      <p id="errorHint" class="text-xs text-slate-500 text-center mt-3 hidden">
+        <a href="{% url 'settings' %}" class="text-indigo-600 hover:underline">Ir para Configurações</a>
+      </p>
+    </div>
+  </div>
+</div>
 {% endblock %}

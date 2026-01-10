@@ -1,0 +1,158 @@
+{% extends "base/base.html" %}
+
+{% block title %}Link {{ link.description|truncatechars:20 }} | Flowlog{% endblock %}
+{% block page_title %}Detalhes do Link{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <div class="mb-4">
+        <a href="{% url 'payment_link_list' %}" class="text-sm text-slate-500 hover:text-slate-700">
+            <i data-lucide="arrow-left" class="w-4 h-4 inline"></i> Voltar
+        </a>
+    </div>
+
+    <!-- Status Card -->
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-800">{{ link.description }}</h2>
+            
+            {% if link.status == 'pending' %}
+            <span class="badge bg-amber-100 text-amber-800 text-sm px-3 py-1">Aguardando Pagamento</span>
+            {% elif link.status == 'paid' %}
+            <span class="badge bg-emerald-100 text-emerald-800 text-sm px-3 py-1">✓ Pago</span>
+            {% elif link.status == 'failed' %}
+            <span class="badge bg-red-100 text-red-800 text-sm px-3 py-1">Falhou</span>
+            {% elif link.status == 'expired' %}
+            <span class="badge bg-slate-200 text-slate-600 text-sm px-3 py-1">Expirado</span>
+            {% else %}
+            <span class="badge bg-slate-200 text-slate-600 text-sm px-3 py-1">{{ link.get_status_display }}</span>
+            {% endif %}
+        </div>
+
+        <div class="text-4xl font-bold text-slate-800 mb-2">
+            R$ {{ link.amount|floatformat:2 }}
+        </div>
+        
+        {% if link.installments > 1 %}
+        <div class="text-slate-500">
+            até {{ link.installments }}x
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Link de Pagamento -->
+    {% if link.checkout_url %}
+    <div class="card p-6">
+        <h3 class="font-bold text-slate-800 mb-4">Link de Pagamento</h3>
+        
+        <div class="bg-slate-50 p-4 rounded-xl mb-4">
+            <code class="text-sm text-slate-700 break-all">{{ link.checkout_url }}</code>
+        </div>
+        
+        {% if link.status == 'pending' and not link.is_expired %}
+        <div class="flex gap-3">
+            <button onclick="copyLink()" class="btn btn-secondary flex-1">
+                <i data-lucide="copy" class="w-4 h-4"></i> Copiar Link
+            </button>
+            <a href="{{ link.checkout_url }}" target="_blank" class="btn btn-primary flex-1">
+                <i data-lucide="external-link" class="w-4 h-4"></i> Abrir Checkout
+            </a>
+        </div>
+        {% endif %}
+        
+        {% if link.is_expired %}
+        <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+            <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
+            Este link expirou em {{ link.expires_at|date:"d/m/Y H:i" }}
+        </div>
+        {% elif link.status == 'pending' %}
+        <div class="bg-amber-50 text-amber-700 p-3 rounded-lg text-sm mt-4">
+            <i data-lucide="clock" class="w-4 h-4 inline"></i>
+            Expira em {{ link.expires_at|date:"d/m/Y H:i" }}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Cliente -->
+    <div class="card p-6">
+        <h3 class="font-bold text-slate-800 mb-4">Cliente</h3>
+        
+        <div class="space-y-3">
+            <div class="flex justify-between">
+                <span class="text-slate-500">Nome</span>
+                <span class="font-medium text-slate-800">{{ link.customer_name }}</span>
+            </div>
+            {% if link.customer_phone %}
+            <div class="flex justify-between">
+                <span class="text-slate-500">Telefone</span>
+                <span class="font-medium text-slate-800">{{ link.customer_phone }}</span>
+            </div>
+            {% endif %}
+            {% if link.customer_email %}
+            <div class="flex justify-between">
+                <span class="text-slate-500">E-mail</span>
+                <span class="font-medium text-slate-800">{{ link.customer_email }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pedido Vinculado -->
+    {% if link.order %}
+    <div class="card p-6">
+        <h3 class="font-bold text-slate-800 mb-4">Pedido Vinculado</h3>
+        
+        <a href="{% url 'order_detail' link.order.id %}" class="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+            <div>
+                <div class="font-bold text-slate-800">{{ link.order.code }}</div>
+                <div class="text-sm text-slate-500">{{ link.order.customer.name }}</div>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400"></i>
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Informações Técnicas -->
+    <div class="card p-6">
+        <h3 class="font-bold text-slate-800 mb-4">Informações</h3>
+        
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between">
+                <span class="text-slate-500">Criado em</span>
+                <span class="text-slate-700">{{ link.created_at|date:"d/m/Y H:i" }}</span>
+            </div>
+            {% if link.paid_at %}
+            <div class="flex justify-between">
+                <span class="text-slate-500">Pago em</span>
+                <span class="text-emerald-600 font-medium">{{ link.paid_at|date:"d/m/Y H:i" }}</span>
+            </div>
+            {% endif %}
+            {% if link.created_by %}
+            <div class="flex justify-between">
+                <span class="text-slate-500">Criado por</span>
+                <span class="text-slate-700">{{ link.created_by.get_full_name|default:link.created_by.email }}</span>
+            </div>
+            {% endif %}
+            {% if link.pagarme_order_id %}
+            <div class="flex justify-between">
+                <span class="text-slate-500">ID Pagar.me</span>
+                <span class="text-slate-700 font-mono text-xs">{{ link.pagarme_order_id }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyLink() {
+    navigator.clipboard.writeText('{{ link.checkout_url }}').then(() => {
+        alert('Link copiado!');
+    });
+}
+</script>
+{% endblock %}

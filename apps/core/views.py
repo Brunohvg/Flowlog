@@ -28,6 +28,12 @@ from apps.orders.models import (
 )
 from apps.tenants.models import TenantSettings
 
+# Import condicional do PaymentLink (pode não existir em versões antigas)
+try:
+    from apps.payments.models import PaymentLink
+except ImportError:
+    PaymentLink = None
+
 
 def _parse_date(date_str, default=None):
     """Parse date string (YYYY-MM-DD) to date object."""
@@ -161,6 +167,21 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ).count()
         if priority_orders:
             alerts.append({"level": "critical", "icon": "alert-triangle", "title": "Pedidos Prioritários", "msg": f"{priority_orders} pedidos marcados como urgentes.", "link": "?priority=1"})
+
+        # Alerta de links de pagamento pendentes (se Pagar.me estiver habilitado)
+        if PaymentLink:
+            pending_links = PaymentLink.objects.filter(
+                tenant=tenant,
+                status="pending"
+            ).count()
+            if pending_links > 0:
+                alerts.append({
+                    "level": "info", 
+                    "icon": "credit-card", 
+                    "title": "Links de Pagamento", 
+                    "msg": f"{pending_links} links aguardando pagamento.",
+                    "link": "/pagamentos/?status=pending"
+                })
 
         context["alerts"] = alerts
 
@@ -358,6 +379,7 @@ def settings(request):
             tenant_settings.whatsapp_enabled = request.POST.get("whatsapp_enabled") == "on"
             tenant_settings.notify_order_created = request.POST.get("notify_order_created") == "on"
             tenant_settings.notify_order_confirmed = request.POST.get("notify_order_confirmed") == "on"
+            tenant_settings.notify_payment_link = request.POST.get("notify_payment_link") == "on"
             tenant_settings.notify_payment_received = request.POST.get("notify_payment_received") == "on"
             tenant_settings.notify_payment_refunded = request.POST.get("notify_payment_refunded") == "on"
             tenant_settings.notify_order_shipped = request.POST.get("notify_order_shipped") == "on"
@@ -373,7 +395,7 @@ def settings(request):
 
         elif action == "save_messages":
             message_fields = [
-                "msg_order_created", "msg_order_confirmed", "msg_payment_received", "msg_payment_refunded",
+                "msg_order_created", "msg_order_confirmed", "msg_payment_link", "msg_payment_received", "msg_payment_refunded",
                 "msg_order_shipped", "msg_order_delivered", "msg_delivery_failed", "msg_order_ready_for_pickup",
                 "msg_order_picked_up", "msg_order_expired", "msg_order_cancelled", "msg_order_returned",
             ]
@@ -383,6 +405,22 @@ def settings(request):
                     setattr(tenant_settings, field, value)
             tenant_settings.save()
             messages.success(request, "Mensagens salvas!")
+
+        elif action == "save_pagarme":
+            tenant_settings.pagarme_enabled = request.POST.get("pagarme_enabled") == "1"
+            tenant_settings.pagarme_pix_enabled = request.POST.get("pagarme_pix_enabled") == "1"
+            api_key = request.POST.get("pagarme_api_key", "").strip()
+            if api_key:
+                tenant_settings.pagarme_api_key = api_key
+            try:
+                max_installments = int(request.POST.get("pagarme_max_installments", 3))
+                if max_installments < 1 or max_installments > 3:
+                    max_installments = 3
+                tenant_settings.pagarme_max_installments = max_installments
+            except (ValueError, TypeError):
+                tenant_settings.pagarme_max_installments = 3
+            tenant_settings.save()
+            messages.success(request, "Configurações do Pagar.me salvas!")
 
         return redirect("settings")
 

@@ -54,7 +54,7 @@ def _send_whatsapp(task, order_id: str):
     """
     Envia task para Celery de forma segura.
     - Se CELERY_BROKER_URL não estiver configurado: ignora silenciosamente
-    - Se Redis não estiver disponível: ignora silenciosamente (não trava o sistema)
+    - Se Redis não estiver disponível: loga erro mas não trava o sistema
     """
     from django.conf import settings
     
@@ -63,17 +63,16 @@ def _send_whatsapp(task, order_id: str):
     if not broker_url:
         return
     
-    # Tenta enviar, mas ignora erros de conexão
+    # Tenta enviar, loga erros mas não trava
     try:
-        # Usa ignore_result=True para não esperar resposta do Redis
         task.apply_async(
             args=[order_id], 
             expires=300,
             ignore_result=True,
         )
-    except Exception:
-        # Silencia completamente - não queremos travar o sistema por causa de WhatsApp
-        pass
+    except Exception as e:
+        # Loga o erro para diagnóstico, mas não trava o sistema
+        logger.error("Falha ao agendar task WhatsApp [order=%s]: %s", order_id, str(e), exc_info=True)
 
 
 def _schedule_whatsapp(task, order_id: str):

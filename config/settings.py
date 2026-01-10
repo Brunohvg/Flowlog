@@ -14,7 +14,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me")
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="*", cast=Csv())
+# Em produção (DEBUG=False), ALLOWED_HOSTS deve ser explícito
+# Em desenvolvimento (DEBUG=True), aceita localhost
+_allowed_hosts = config("ALLOWED_HOSTS", default="", cast=Csv())
+if DEBUG:
+    ALLOWED_HOSTS = _allowed_hosts if _allowed_hosts else ["localhost", "127.0.0.1"]
+else:
+    # Em produção, não aceita "*" nem vazio
+    if not _allowed_hosts or "*" in _allowed_hosts:
+        ALLOWED_HOSTS = ["localhost"]  # Fallback seguro
+    else:
+        ALLOWED_HOSTS = _allowed_hosts
+
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS", default="http://localhost,http://127.0.0.1", cast=Csv()
 )
@@ -38,6 +49,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.orders",
     "apps.integrations",
+    "apps.payments",
+    "apps.api",
 ]
 
 # ==============================================================================
@@ -197,4 +210,31 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+# ==============================================================================
+# DJANGO REST FRAMEWORK
+# ==============================================================================
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ==============================================================================
+# DRF SPECTACULAR (Swagger/OpenAPI)
+# ==============================================================================
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Flowlog API",
+    "DESCRIPTION": "API REST para gestão de vendas via WhatsApp",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }

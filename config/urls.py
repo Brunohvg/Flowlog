@@ -3,6 +3,8 @@ URLs principais do Flowlog.
 
 Estrutura:
     /                       → Dashboard (core)
+    /api/                   → API REST
+    /api/docs/              → Documentação Swagger
     /<ADMIN_PATH>/          → Django Admin (configurável via env)
     /login/, /logout/       → Autenticação
     /pedidos/               → Gestão de pedidos (orders)
@@ -41,6 +43,11 @@ urlpatterns = [
     # Healthcheck
     # ==========================================
     path("healthcheck/", healthcheck, name="healthcheck"),
+
+    # ==========================================
+    # API REST
+    # ==========================================
+    path("api/", include("apps.api.urls")),
 
     # ==========================================
     # Admin
@@ -83,4 +90,7 @@ urlpatterns = [
         "configuracoes/whatsapp/",
         include("apps.integrations.whatsapp.urls"),
     ),
+
+    # Pagamentos (Pagar.me)
+    path("pagamentos/", include("apps.payments.urls")),
 ]

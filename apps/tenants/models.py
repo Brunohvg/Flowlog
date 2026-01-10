@@ -29,12 +29,34 @@ class Tenant(BaseModel):
 
 
 class TenantSettings(BaseModel):
-    """Configurações do tenant (WhatsApp, mensagens, etc)."""
+    """Configurações do tenant (Pagar.me, WhatsApp, mensagens, etc)."""
 
     tenant = models.OneToOneField(
         Tenant,
         on_delete=models.CASCADE,
         related_name="settings",
+    )
+
+    # ==================== PAGAR.ME ====================
+    pagarme_enabled = models.BooleanField(
+        "Pagar.me Ativo",
+        default=False,
+    )
+    pagarme_api_key = models.CharField(
+        "Secret Key",
+        max_length=200,
+        blank=True,
+        help_text="Chave secreta do Pagar.me (sk_xxx)",
+    )
+    pagarme_max_installments = models.PositiveIntegerField(
+        "Máximo de Parcelas",
+        default=3,
+        help_text="1 a 3 parcelas",
+    )
+    pagarme_pix_enabled = models.BooleanField(
+        "PIX Habilitado",
+        default=False,
+        help_text="Habilitar PIX como forma de pagamento (requer liberação na Pagar.me)",
     )
 
     # ==================== WHATSAPP / EVOLUTION API ====================
@@ -71,6 +93,7 @@ class TenantSettings(BaseModel):
     # Cada tipo de mensagem pode ser ativado/desativado individualmente
     notify_order_created = models.BooleanField("Notificar: Pedido Criado", default=True)
     notify_order_confirmed = models.BooleanField("Notificar: Pedido Confirmado", default=False)
+    notify_payment_link = models.BooleanField("Notificar: Link de Pagamento", default=True)
     notify_payment_received = models.BooleanField("Notificar: Pagamento Recebido", default=True)
     notify_payment_refunded = models.BooleanField("Notificar: Pagamento Estornado", default=True)
     notify_order_shipped = models.BooleanField("Notificar: Pedido Enviado", default=True)
@@ -109,6 +132,20 @@ class TenantSettings(BaseModel):
     )
 
     # ==================== MENSAGENS - PAGAMENTO ====================
+    msg_payment_link = models.TextField(
+        "Mensagem: Link de Pagamento",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {valor}, {link_pagamento}, {loja}",
+        default=(
+            "Olá {nome}! 💳\n\n"
+            "Segue o link de pagamento do pedido *{codigo}*:\n\n"
+            "💰 Valor: R$ {valor}\n"
+            "🔗 {link_pagamento}\n\n"
+            "O link expira em 12 horas.\n\n"
+            "_{loja}_"
+        ),
+    )
+
     msg_payment_received = models.TextField(
         "Mensagem: Pagamento Recebido",
         blank=True,
@@ -286,6 +323,7 @@ class TenantSettings(BaseModel):
         field_map = {
             'order_created': 'notify_order_created',
             'order_confirmed': 'notify_order_confirmed',
+            'payment_link': 'notify_payment_link',
             'payment_received': 'notify_payment_received',
             'payment_refunded': 'notify_payment_refunded',
             'order_shipped': 'notify_order_shipped',

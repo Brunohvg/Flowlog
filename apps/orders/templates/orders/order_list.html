@@ -185,6 +185,12 @@
           
           <td>
             <div class="flex items-center justify-end gap-1">
+              {% if order.payment_status == 'pending' and order.order_status != 'cancelled' and order.order_status != 'returned' %}
+              <button onclick="openQuickPaymentLink('{{ order.id }}', '{{ order.code }}', '{{ order.total_value }}')" 
+                      class="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600" title="Gerar Link Pagamento">
+                <i data-lucide="credit-card" class="w-4 h-4"></i>
+              </button>
+              {% endif %}
               <a href="{% url 'order_label' order.id %}" target="_blank" class="p-2 hover:bg-slate-100 rounded-lg text-slate-500" title="Imprimir">
                 <i data-lucide="printer" class="w-4 h-4"></i>
               </a>
@@ -330,5 +336,193 @@ async function markPickedUp(orderId) {
     showResult('error', 'Erro de conexão');
   }
 }
+
+// ========== QUICK PAYMENT LINK ==========
+let currentOrderId = null;
+let currentOrderCode = null;
+
+function openQuickPaymentLink(orderId, orderCode, totalValue) {
+  currentOrderId = orderId;
+  currentOrderCode = orderCode;
+  document.getElementById('quickPaymentOrderCode').textContent = orderCode;
+  document.getElementById('quickPaymentValue').textContent = 'R$ ' + parseFloat(totalValue).toFixed(2).replace('.', ',');
+  document.getElementById('quickPaymentModal').classList.remove('hidden');
+  document.getElementById('quickPaymentModal').classList.add('flex');
+  
+  // Reset state
+  document.getElementById('quickPaymentForm').classList.remove('hidden');
+  document.getElementById('quickPaymentResult').classList.add('hidden');
+  document.getElementById('quickPaymentLoading').classList.add('hidden');
+  document.getElementById('quickPaymentError').classList.add('hidden');
+}
+
+function closeQuickPaymentModal() {
+  document.getElementById('quickPaymentModal').classList.add('hidden');
+  document.getElementById('quickPaymentModal').classList.remove('flex');
+}
+
+async function generateQuickPaymentLink() {
+  const installments = document.getElementById('quickInstallments').value;
+  
+  // Show loading
+  document.getElementById('quickPaymentForm').classList.add('hidden');
+  document.getElementById('quickPaymentLoading').classList.remove('hidden');
+  document.getElementById('quickPaymentError').classList.add('hidden');
+  
+  try {
+    const response = await fetch(`/pagamentos/pedido/${currentOrderId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: 'installments=' + installments
+    });
+    
+    const data = await response.json();
+    document.getElementById('quickPaymentLoading').classList.add('hidden');
+    
+    if (data.success) {
+      document.getElementById('quickGeneratedLink').value = data.checkout_url;
+      document.getElementById('quickOpenLinkBtn').href = data.checkout_url;
+      document.getElementById('quickPaymentResult').classList.remove('hidden');
+      lucide.createIcons();
+    } else {
+      const errorMsg = data.error || 'Erro ao gerar link';
+      document.getElementById('quickErrorMessage').textContent = errorMsg;
+      document.getElementById('quickPaymentError').classList.remove('hidden');
+      
+      // Mostra hint de configurações se for erro de API key
+      const hint = document.getElementById('quickErrorHint');
+      if (errorMsg.toLowerCase().includes('configuração') || errorMsg.toLowerCase().includes('chave') || errorMsg.toLowerCase().includes('inválida')) {
+        hint.classList.remove('hidden');
+      } else {
+        hint.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+  } catch (error) {
+    document.getElementById('quickPaymentLoading').classList.add('hidden');
+    document.getElementById('quickErrorMessage').textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
+    document.getElementById('quickPaymentError').classList.remove('hidden');
+    document.getElementById('quickErrorHint').classList.add('hidden');
+    lucide.createIcons();
+  }
+}
+
+function retryQuickPaymentLink() {
+  // Volta para o form inicial
+  document.getElementById('quickPaymentError').classList.add('hidden');
+  document.getElementById('quickPaymentForm').classList.remove('hidden');
+}
+
+function copyQuickLink() {
+  const input = document.getElementById('quickGeneratedLink');
+  input.select();
+  document.execCommand('copy');
+  
+  // Feedback visual melhorado
+  const btn = event.target.closest('button');
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Copiado!';
+  btn.classList.add('bg-emerald-100', 'text-emerald-700');
+  lucide.createIcons();
+  
+  setTimeout(() => {
+    btn.innerHTML = originalHTML;
+    btn.classList.remove('bg-emerald-100', 'text-emerald-700');
+    lucide.createIcons();
+  }, 2000);
+}
+
+// Close on overlay click
+document.getElementById('quickPaymentModal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeQuickPaymentModal();
+});
 </script>
+
+<!-- Modal Quick Payment Link -->
+<div id="quickPaymentModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl w-full">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="credit-card" class="w-7 h-7 text-emerald-600"></i>
+      </div>
+      <h3 class="text-lg font-bold text-slate-800">Gerar Link de Pagamento</h3>
+      <p class="text-slate-500 mt-1"><span id="quickPaymentOrderCode"></span> - <span id="quickPaymentValue"></span></p>
+    </div>
+    
+    <!-- Form inicial -->
+    <div id="quickPaymentForm">
+      <div class="mb-4">
+        <label class="form-label">Parcelas</label>
+        <select id="quickInstallments" class="form-select">
+          <option value="1">1x (à vista)</option>
+          <option value="2">até 2x</option>
+          <option value="3">até 3x</option>
+        </select>
+      </div>
+      
+      <div class="bg-slate-50 p-3 rounded-xl mb-4 text-sm text-slate-600">
+        <p><i data-lucide="clock" class="w-4 h-4 inline text-amber-500"></i> Link expira em <strong>12 horas</strong></p>
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="closeQuickPaymentModal()" class="flex-1 btn btn-secondary">Cancelar</button>
+        <button onclick="generateQuickPaymentLink()" class="flex-1 btn btn-primary">
+          <i data-lucide="link" class="w-4 h-4"></i> Gerar
+        </button>
+      </div>
+    </div>
+    
+    <!-- Resultado -->
+    <div id="quickPaymentResult" class="hidden">
+      <div class="bg-emerald-50 p-4 rounded-xl mb-4">
+        <p class="text-emerald-700 font-medium mb-2"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> Link criado!</p>
+        <input type="text" id="quickGeneratedLink" readonly class="form-input text-sm" />
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="copyQuickLink()" class="flex-1 btn btn-secondary">
+          <i data-lucide="copy" class="w-4 h-4"></i> Copiar
+        </button>
+        <a id="quickOpenLinkBtn" href="#" target="_blank" class="flex-1 btn btn-primary">
+          <i data-lucide="external-link" class="w-4 h-4"></i> Abrir
+        </a>
+      </div>
+      
+      <button onclick="closeQuickPaymentModal()" class="w-full btn btn-secondary mt-3">Fechar</button>
+    </div>
+    
+    <!-- Loading -->
+    <div id="quickPaymentLoading" class="hidden text-center py-8">
+      <div class="animate-spin w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p class="text-slate-600">Gerando link...</p>
+    </div>
+    
+    <!-- Erro -->
+    <div id="quickPaymentError" class="hidden">
+      <div class="bg-red-50 p-4 rounded-xl mb-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>
+          </div>
+          <div>
+            <p class="font-medium text-red-800">Não foi possível gerar o link</p>
+            <p id="quickErrorMessage" class="text-sm text-red-600 mt-1"></p>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="retryQuickPaymentLink()" class="flex-1 btn btn-secondary">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i> Tentar Novamente
+        </button>
+        <button onclick="closeQuickPaymentModal()" class="flex-1 btn btn-primary">Fechar</button>
+      </div>
+      <p id="quickErrorHint" class="text-xs text-slate-500 text-center mt-3 hidden">
+        <a href="{% url 'settings' %}" class="text-indigo-600 hover:underline">Ir para Configurações</a>
+      </p>
+    </div>
+  </div>
+</div>
 {% endblock %}

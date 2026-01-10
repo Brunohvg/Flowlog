@@ -113,6 +113,23 @@ class WhatsAppNotificationService:
         )
         return self._send(order.customer.phone_normalized, self._format_message(template, order), 'payment_received', order)
 
+    def send_payment_link(self, order, payment_link):
+        """Envia link de pagamento para o cliente."""
+        template = getattr(self.settings, 'msg_payment_link', None) or (
+            "Olá {nome}! 💳\n\n"
+            "Segue o link de pagamento do pedido *{codigo}*:\n\n"
+            "💰 Valor: R$ {valor}\n"
+            "🔗 {link_pagamento}\n\n"
+            "O link expira em 12 horas.\n\n"
+            "_{loja}_"
+        )
+        return self._send(
+            order.customer.phone_normalized, 
+            self._format_message(template, order, link_pagamento=payment_link.checkout_url), 
+            'payment_link', 
+            order
+        )
+
     def send_payment_refunded(self, order):
         template = getattr(self.settings, 'msg_payment_refunded', None) or (
             "Olá {nome}!\n\nO valor de R$ {valor} do pedido *{codigo}* foi estornado.\n\n_{loja}_"

@@ -39,10 +39,10 @@
     }
 
     /* Sidebar */
-    .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #94a3b8; border-radius: 10px; margin: 2px 12px; transition: all 0.2s; font-size: 14px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #94a3b8; border-radius: 10px; margin: 1px 12px; transition: all 0.2s; font-size: 14px; }
     .nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
     .nav-link.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
-    .nav-link i { width: 20px; height: 20px; }
+    .nav-link i { width: 18px; height: 18px; }
 
     /* Cards */
     .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
@@ -155,20 +155,20 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar flex flex-col">
 
-      <div class="p-5 border-b border-white/10">
+      <div class="px-5 py-4 border-b border-white/10">
         <a href="{% url 'dashboard' %}" class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center">
+          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center">
             <i data-lucide="package" class="w-5 h-5 text-white"></i>
           </div>
           <div>
-            <div class="text-white font-bold text-lg">Flowlog</div>
-            <div class="text-slate-400 text-xs">Gestão de Pedidos</div>
+            <div class="text-white font-bold text-base">Flowlog</div>
+            <div class="text-slate-400 text-[11px]">Gestão de Pedidos</div>
           </div>
         </a>
       </div>
 
-      <nav class="flex-1 py-4 overflow-y-auto">
-        <div class="px-4 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Menu</div>
+      <nav class="flex-1 py-3">
+        <div class="px-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Menu</div>
 
         <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
           <i data-lucide="layout-dashboard"></i> Dashboard
@@ -183,32 +183,32 @@
           <i data-lucide="users"></i> Clientes
         </a>
 
-        <div class="px-4 mt-6 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Análises</div>
+        <div class="px-4 mt-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Análises</div>
         <a href="{% url 'reports' %}" class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
           <i data-lucide="bar-chart-3"></i> Relatórios
         </a>
+        <a href="{% url 'payment_link_list' %}" class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}">
+          <i data-lucide="credit-card"></i> Pagamentos
+        </a>
 
-        <div class="px-4 mt-6 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
+        <div class="px-4 mt-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
         <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
           <i data-lucide="settings"></i> Configurações
         </a>
-        <a href="{% url 'profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-          <i data-lucide="user-circle"></i> Meu Perfil
-        </a>
       </nav>
 
-      <div class="p-4 border-t border-white/10">
-        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+      <div class="p-3 border-t border-white/10">
+        <div class="flex items-center gap-2 p-2 rounded-xl bg-white/5">
+          <div class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {{ request.user.first_name|slice:":1"|default:request.user.email|slice:":1"|upper }}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-white text-sm font-medium truncate">{{ request.user.get_full_name|default:request.user.email }}</div>
-            <div class="text-slate-400 text-xs truncate">{{ request.tenant.name }}</div>
+            <div class="text-white text-sm font-medium truncate">{{ request.user.get_full_name|default:request.user.email|truncatechars:15 }}</div>
+            <div class="text-slate-400 text-[11px] truncate">{{ request.tenant.name }}</div>
           </div>
           <form method="post" action="{% url 'logout' %}" class="m-0">
             {% csrf_token %}
-            <button type="submit" class="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title="Sair">
+            <button type="submit" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title="Sair">
               <i data-lucide="log-out" class="w-4 h-4"></i>
             </button>
           </form>
