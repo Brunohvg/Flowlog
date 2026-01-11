@@ -112,54 +112,86 @@ def parse_brazilian_decimal(value: str) -> Decimal:
 def _send_whatsapp_with_snapshot(order, method: str):
     """
     Envia notificação usando SNAPSHOT (dados congelados).
-    Imune a race condition - não importa se o status mudar depois.
+    
+    ============== RESILIÊNCIA TOTAL ==============
+    O sistema NUNCA falha por causa de WhatsApp:
+    
+    - Sem CELERY_BROKER_URL → ignora silenciosamente
+    - Redis offline → ignora (loga warning)
+    - Order sem customer → ignora
+    - Qualquer erro → ignora (loga warning)
+    
+    O pedido SEMPRE é salvo, independente do WhatsApp.
+    ===============================================
     """
     from django.conf import settings
     
+    # 1. Celery configurado?
     broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
+        return  # Sem Celery = ignora silenciosamente
+    
+    # 2. Order válido?
+    if not order or not getattr(order, 'customer', None):
+        return  # Sem customer = ignora silenciosamente
+    
+    # 3. Cria snapshot (protegido)
+    try:
+        snapshot = create_order_snapshot(order)
+        snapshot_json = json.dumps(snapshot)
+    except Exception as e:
+        logger.warning("[WhatsApp] Falha ao criar snapshot order=%s: %s", getattr(order, 'id', '?'), e)
         return
     
-    # Cria snapshot AGORA (dados congelados)
-    snapshot = create_order_snapshot(order)
-    snapshot_json = json.dumps(snapshot)
-    
-    try:
-        db_transaction.on_commit(
-            lambda: send_whatsapp_notification.apply_async(
+    # 4. Função segura para executar após commit
+    def _safe_send():
+        try:
+            send_whatsapp_notification.apply_async(
                 args=[snapshot_json, method],
                 expires=300,
                 ignore_result=True,
             )
-        )
+        except Exception as e:
+            # Redis offline, Celery down, etc = apenas loga, NUNCA trava
+            logger.warning("[WhatsApp] Falha ao enviar order=%s method=%s: %s", order.id, method, e)
+    
+    # 5. Agenda após commit
+    try:
+        db_transaction.on_commit(_safe_send)
     except Exception as e:
-        logger.error("Falha ao agendar WhatsApp [order=%s]: %s", order.id, str(e), exc_info=True)
+        logger.warning("[WhatsApp] Falha ao agendar on_commit order=%s: %s", order.id, e)
 
 
 def _send_whatsapp(task, order_id: str):
     """
-    LEGADO: Envia task para Celery (mantido para compatibilidade).
-    Usar _send_whatsapp_with_snapshot para novos códigos.
+    LEGADO: Envia task para Celery.
+    Mesma proteção de resiliência.
     """
     from django.conf import settings
     
     broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
-        return
+        return  # Sem Celery = ignora silenciosamente
+    
+    def _safe_send():
+        try:
+            task.apply_async(
+                args=[order_id], 
+                expires=300,
+                ignore_result=True,
+            )
+        except Exception as e:
+            logger.warning("[WhatsApp] Falha ao enviar legado order=%s: %s", order_id, e)
     
     try:
-        task.apply_async(
-            args=[order_id], 
-            expires=300,
-            ignore_result=True,
-        )
+        db_transaction.on_commit(_safe_send)
     except Exception as e:
-        logger.error("Falha ao agendar task WhatsApp [order=%s]: %s", order_id, str(e), exc_info=True)
+        logger.warning("[WhatsApp] Falha ao agendar on_commit legado order=%s: %s", order_id, e)
 
 
 def _schedule_whatsapp(task, order_id: str):
-    """LEGADO: Mantido para compatibilidade."""
-    db_transaction.on_commit(partial(_send_whatsapp, task, order_id))
+    """LEGADO: Alias para _send_whatsapp."""
+    _send_whatsapp(task, order_id)
 
 
 class OrderService:

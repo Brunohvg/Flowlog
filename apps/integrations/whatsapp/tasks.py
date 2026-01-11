@@ -66,34 +66,59 @@ TASK_CONFIG = {
 def _process_with_snapshot(snapshot: dict, method: str):
     """
     Processa envio usando snapshot (dados congelados).
-    Não sofre race condition pois usa dados do momento do evento.
+    
+    RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
     from apps.tenants.models import Tenant
     
-    tenant = Tenant.objects.select_related("settings").get(id=snapshot["tenant_id"])
-    service = WhatsAppNotificationService(tenant)
+    try:
+        tenant = Tenant.objects.select_related("settings").get(id=snapshot["tenant_id"])
+    except Tenant.DoesNotExist:
+        logger.warning("[WhatsApp] Tenant não encontrado: %s", snapshot.get("tenant_id"))
+        return {"success": False, "error": "Tenant not found"}
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao buscar tenant: %s", e)
+        return {"success": False, "error": str(e)}
     
-    func = getattr(service, method, None)
-    if func:
-        result = func(snapshot)
-        time.sleep(0.5)
-        return result
-    return {"success": False, "error": f"Method {method} not found"}
+    try:
+        service = WhatsAppNotificationService(tenant)
+        func = getattr(service, method, None)
+        if func:
+            result = func(snapshot)
+            time.sleep(0.5)
+            return result
+        return {"success": False, "error": f"Method {method} not found"}
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao processar snapshot method=%s: %s", method, e)
+        return {"success": False, "error": str(e)}
 
 
 def _process_legacy(self, order_id: str, method: str):
     """
-    Modo legado - lê do banco (mantido para compatibilidade).
-    Usado apenas quando snapshot não está disponível.
+    Modo legado - lê do banco.
+    
+    RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
-    order = _get_order(order_id)
-    service = WhatsAppNotificationService(order.tenant)
-    func = getattr(service, method, None)
-    if func:
-        result = func(order)
-        time.sleep(0.5)
-        return result
-    return {"success": False}
+    try:
+        order = _get_order(order_id)
+    except OrderNotFoundError:
+        logger.warning("[WhatsApp] Order não encontrado: %s", order_id)
+        return {"success": False, "error": "Order not found"}
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
+        return {"success": False, "error": str(e)}
+    
+    try:
+        service = WhatsAppNotificationService(order.tenant)
+        func = getattr(service, method, None)
+        if func:
+            result = func(order)
+            time.sleep(0.5)
+            return result
+        return {"success": False, "error": f"Method {method} not found"}
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao processar legacy method=%s: %s", method, e)
+        return {"success": False, "error": str(e)}
 
 
 # ==============================================================================
@@ -180,29 +205,50 @@ def send_order_returned_whatsapp(self, order_id):
 
 @shared_task(**TASK_CONFIG)
 def send_payment_link_whatsapp(self, order_id, payment_link_id):
-    """Envia link de pagamento via WhatsApp."""
+    """
+    Envia link de pagamento via WhatsApp.
+    
+    RESILIÊNCIA: Captura todos os erros.
+    """
     from apps.payments.models import PaymentLink
     
-    order = _get_order(order_id)
+    try:
+        order = _get_order(order_id)
+    except OrderNotFoundError:
+        logger.warning("[WhatsApp] Order não encontrado para payment_link: %s", order_id)
+        return {"success": False, "error": "Order not found"}
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
+        return {"success": False, "error": str(e)}
     
     try:
         payment_link = PaymentLink.objects.get(id=payment_link_id)
     except PaymentLink.DoesNotExist:
+        logger.warning("[WhatsApp] PaymentLink não encontrado: %s", payment_link_id)
         return {"success": False, "error": "PaymentLink not found"}
     
-    service = WhatsAppNotificationService(order.tenant)
-    result = service.send_payment_link(order, payment_link)
-    time.sleep(0.5)
-    return result
+    try:
+        service = WhatsAppNotificationService(order.tenant)
+        result = service.send_payment_link(order, payment_link)
+        time.sleep(0.5)
+        return result
+    except Exception as e:
+        logger.warning("[WhatsApp] Erro ao enviar payment_link: %s", e)
+        return {"success": False, "error": str(e)}
 
 
 @shared_task(bind=True)
 def expire_pending_pickups(self):
+    """
+    Job agendado: Expira pedidos de retirada não retirados.
+    
+    Usa SNAPSHOT para garantir consistência dos dados.
+    """
     from apps.orders.models import Order, DeliveryStatus, DeliveryType
     from apps.orders.services import OrderStatusService
     from django.utils import timezone
     
-    orders = Order.objects.filter(
+    orders = Order.objects.select_related("customer", "tenant").filter(
         delivery_type=DeliveryType.PICKUP,
         delivery_status=DeliveryStatus.READY_FOR_PICKUP,
         expires_at__lt=timezone.now(),
@@ -210,13 +256,32 @@ def expire_pending_pickups(self):
     
     service = OrderStatusService()
     count = 0
+    errors = 0
     
     for order in orders:
         try:
+            # Cria snapshot ANTES de alterar o status
+            snapshot = create_order_snapshot(order)
+            snapshot_json = json.dumps(snapshot)
+            
+            # Expira o pedido
             service.expire_pickup_order(order=order)
-            transaction.on_commit(partial(send_order_expired_whatsapp.delay, str(order.id)))
+            
+            # Função segura para enviar notificação
+            def _safe_send(sj=snapshot_json):
+                try:
+                    send_whatsapp_notification.apply_async(
+                        args=[sj, "send_order_expired"],
+                        expires=300,
+                        ignore_result=True,
+                    )
+                except Exception as e:
+                    logger.warning("[WhatsApp] Falha ao enviar expiração: %s", e)
+            
+            transaction.on_commit(_safe_send)
             count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[WhatsApp] Erro ao expirar order=%s: %s", order.id, e)
+            errors += 1
     
-    return {"expired": count}
+    return {"expired": count, "errors": errors}

@@ -248,102 +248,91 @@
   <!-- Tab: WhatsApp -->
   <div id="tab-whatsapp" class="tab-content hidden">
     
-    <!-- Banner para página de configuração -->
-    <div class="card p-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white mb-6">
-      <div class="flex items-center justify-between">
+    <!-- Header com status visual -->
+    <div class="card p-6 mb-6 {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}bg-gradient-to-r from-emerald-500 to-teal-500{% elif tenant_settings.is_whatsapp_configured %}bg-gradient-to-r from-amber-500 to-orange-500{% else %}bg-gradient-to-r from-slate-500 to-slate-600{% endif %} text-white">
+      <div class="flex items-center justify-between flex-wrap gap-4">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+            {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+            <i data-lucide="check-circle" class="w-7 h-7"></i>
+            {% elif tenant_settings.is_whatsapp_configured %}
+            <i data-lucide="clock" class="w-7 h-7"></i>
+            {% else %}
             <i data-lucide="smartphone" class="w-7 h-7"></i>
+            {% endif %}
           </div>
           <div>
-            <h3 class="text-xl font-bold">Conectar WhatsApp</h3>
-            <p class="text-emerald-100">Configure e escaneie o QR Code em uma página dedicada</p>
-          </div>
-        </div>
-        <a href="{% url 'whatsapp_setup' %}" class="px-6 py-3 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors">
-          <i data-lucide="qr-code" class="w-5 h-5 inline-block mr-2"></i>
-          Configurar WhatsApp
-        </a>
-      </div>
-    </div>
-    
-    <!-- Status da Conexão - CORRIGIDO -->
-    <div class="card p-6 mb-6">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
-        </div>
-        <div class="flex-1">
-          <h3 class="font-bold text-slate-800">Status da Conexão</h3>
-          <p class="text-sm text-slate-500">Visão geral da integração WhatsApp</p>
-        </div>
-
-        <!-- Status Badge - CORRIGIDO: Usa lógica consistente -->
-        <div>
-          {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-              <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-              Conectado
-            </span>
-          {% elif tenant_settings.is_whatsapp_configured %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
-              <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-              Aguardando QR Code
-            </span>
-          {% else %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
-              <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
-              Não configurado
-            </span>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Info Box - CORRIGIDO: Consistente com o badge -->
-      {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
-      <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-        <div class="flex items-center gap-3">
-          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
-          <div>
-            <p class="font-medium text-emerald-800">WhatsApp conectado e funcionando</p>
-            {% if tenant_settings.whatsapp_number %}
-            <p class="text-sm text-emerald-600">{{ tenant_settings.whatsapp_number }}</p>
+            {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+            <h3 class="text-xl font-bold">WhatsApp Conectado</h3>
+            <p class="text-emerald-100">
+              {% if tenant_settings.whatsapp_number %}+{{ tenant_settings.whatsapp_number }}{% else %}Funcionando perfeitamente{% endif %}
+            </p>
+            {% elif tenant_settings.is_whatsapp_configured %}
+            <h3 class="text-xl font-bold">Aguardando Conexão</h3>
+            <p class="text-amber-100">Escaneie o QR Code para conectar</p>
+            {% else %}
+            <h3 class="text-xl font-bold">WhatsApp não configurado</h3>
+            <p class="text-slate-300">Configure para enviar notificações automáticas</p>
             {% endif %}
           </div>
         </div>
+        <a href="{% url 'whatsapp_setup' %}" class="px-6 py-3 bg-white {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}text-emerald-600{% elif tenant_settings.is_whatsapp_configured %}text-amber-600{% else %}text-slate-600{% endif %} rounded-xl font-bold hover:bg-opacity-90 transition-colors flex items-center gap-2">
+          {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          Gerenciar
+          {% elif tenant_settings.is_whatsapp_configured %}
+          <i data-lucide="qr-code" class="w-5 h-5"></i>
+          Escanear QR Code
+          {% else %}
+          <i data-lucide="plus" class="w-5 h-5"></i>
+          Configurar Agora
+          {% endif %}
+        </a>
       </div>
-      {% elif tenant_settings.is_whatsapp_configured %}
-      <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-        <div class="flex items-start gap-3">
-          <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"></i>
-          <div class="text-sm text-amber-700">
-            <p class="font-semibold mb-1">Instância criada, aguardando conexão</p>
-            <p>Clique em "Configurar WhatsApp" para escanear o QR Code.</p>
-          </div>
-        </div>
-      </div>
-      {% else %}
-      <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-        <div class="flex items-start gap-3">
-          <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"></i>
-          <div class="text-sm text-blue-700">
-            <p class="font-semibold mb-1">WhatsApp não configurado</p>
-            <p>Clique no botão acima para criar uma instância e conectar seu WhatsApp.</p>
-          </div>
-        </div>
-      </div>
-      {% endif %}
     </div>
-    
-    <!-- Enviar Mensagem de Teste -->
+
+    {% if not tenant_settings.is_whatsapp_configured %}
+    <!-- Guia de configuração para novos usuários -->
+    <div class="card p-6 mb-6">
+      <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i data-lucide="book-open" class="w-5 h-5 text-indigo-500"></i>
+        Como funciona?
+      </h3>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="p-4 bg-slate-50 rounded-xl text-center">
+          <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <span class="text-indigo-600 font-bold text-lg">1</span>
+          </div>
+          <h4 class="font-semibold text-slate-800 mb-1">Configure</h4>
+          <p class="text-sm text-slate-600">Clique em "Configurar Agora" e escolha um nome</p>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl text-center">
+          <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <span class="text-indigo-600 font-bold text-lg">2</span>
+          </div>
+          <h4 class="font-semibold text-slate-800 mb-1">Conecte</h4>
+          <p class="text-sm text-slate-600">Escaneie o QR Code com seu WhatsApp</p>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl text-center">
+          <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <span class="text-indigo-600 font-bold text-lg">3</span>
+          </div>
+          <h4 class="font-semibold text-slate-800 mb-1">Pronto!</h4>
+          <p class="text-sm text-slate-600">Mensagens enviadas automaticamente</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}
+    <!-- Enviar Mensagem de Teste - Só aparece quando conectado -->
     <div class="card p-6 mb-6">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
           <i data-lucide="send" class="w-5 h-5 text-blue-600"></i>
         </div>
         <div>
-          <h3 class="font-bold text-slate-800">Enviar Mensagem de Teste</h3>
+          <h3 class="font-bold text-slate-800">Testar Envio</h3>
           <p class="text-sm text-slate-500">Verifique se a integração está funcionando</p>
         </div>
       </div>
@@ -368,32 +357,35 @@
           <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
             <i data-lucide="bell" class="w-5 h-5 text-purple-600"></i>
           </div>
-          <div>
-            <h3 class="font-bold text-slate-800">Controle de Notificações</h3>
-            <p class="text-sm text-slate-500">Escolha quais mensagens enviar automaticamente</p>
+          <div class="flex-1">
+            <h3 class="font-bold text-slate-800">Notificações Automáticas</h3>
+            <p class="text-sm text-slate-500">Escolha quais mensagens enviar aos clientes</p>
           </div>
+          {% if not tenant_settings.is_whatsapp_configured %}
+          <span class="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">Configure o WhatsApp primeiro</span>
+          {% endif %}
         </div>
 
-        <!-- Master Switch -->
-        <div class="p-4 bg-slate-50 rounded-xl mb-6">
+        <!-- Master Switch com destaque -->
+        <div class="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl mb-6">
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                <i data-lucide="power" class="w-5 h-5 text-emerald-600"></i>
+              <div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
+                <i data-lucide="power" class="w-5 h-5 text-white"></i>
               </div>
               <div>
-                <p class="font-semibold text-slate-800">Ativar WhatsApp</p>
-                <p class="text-sm text-slate-500">Liga/desliga todas as notificações</p>
+                <p class="font-semibold text-slate-800">Ativar Notificações WhatsApp</p>
+                <p class="text-sm text-slate-500">Liga/desliga todas as notificações de uma vez</p>
               </div>
             </div>
             <div class="relative">
-              <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %}>
-              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+              <input type="checkbox" name="whatsapp_enabled" class="sr-only peer" {% if tenant_settings.whatsapp_enabled %}checked{% endif %} {% if not tenant_settings.is_whatsapp_configured %}disabled{% endif %}>
+              <div class="w-14 h-7 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500 peer-disabled:opacity-50"></div>
             </div>
           </label>
         </div>
 
-        <!-- Notificações por Categoria -->
+        <!-- Notificações por Categoria com ícones coloridos -->
         <div class="space-y-6">
           
           <!-- Pedido -->

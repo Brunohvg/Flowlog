@@ -103,33 +103,52 @@ class WhatsAppNotificationService:
             return template
 
     def _send(self, phone, message, notification_type, order=None):
-        """Envia mensagem com logging completo."""
+        """
+        Envia mensagem com logging completo.
+        
+        RESILIÊNCIA: Nunca lança exceção - sempre retorna dict.
+        """
         correlation_id = str(uuid.uuid4())[:12]
         
-        # Cria log inicial
-        log = NotificationLog.objects.create(
-            correlation_id=correlation_id,
-            tenant=self.tenant,
-            order=order,
-            notification_type=notification_type,
-            status=NotificationLog.Status.PENDING,
-            recipient_phone=phone[-4:] if phone else "????",
-            recipient_name=order.customer.name if order and hasattr(order, 'customer') else "",
-            message_preview=message[:200] if message else "",
-        )
+        # Validação básica
+        if not phone:
+            logger.warning("[WhatsApp] Telefone vazio, ignorando envio")
+            return {"success": False, "error": "phone_empty"}
         
+        # Cria log inicial (protegido)
+        log = None
+        try:
+            log = NotificationLog.objects.create(
+                correlation_id=correlation_id,
+                tenant=self.tenant,
+                order=order,
+                notification_type=notification_type,
+                status=NotificationLog.Status.PENDING,
+                recipient_phone=phone[-4:] if phone else "????",
+                recipient_name=order.customer.name if order and hasattr(order, 'customer') and order.customer else "",
+                message_preview=message[:200] if message else "",
+            )
+        except Exception as e:
+            logger.warning("[WhatsApp] Falha ao criar log: %s", e)
+            # Continua sem log - melhor enviar sem log do que não enviar
+        
+        # Verifica se pode enviar
         if not self._can_send(notification_type):
-            log.mark_blocked("Notificação desabilitada ou WhatsApp não configurado")
-            return {"success": False, "blocked": True, "log_id": str(log.id)}
+            if log:
+                log.mark_blocked("Notificação desabilitada ou WhatsApp não configurado")
+            return {"success": False, "blocked": True, "log_id": str(log.id) if log else None}
         
+        # Envia mensagem
         try:
             result = self.client.send_text_message(phone=phone, message=message)
-            log.mark_sent(api_response=result if isinstance(result, dict) else {"status": "sent"})
-            return {"success": True, "log_id": str(log.id)}
+            if log:
+                log.mark_sent(api_response=result if isinstance(result, dict) else {"status": "sent"})
+            return {"success": True, "log_id": str(log.id) if log else None}
         except Exception as e:
-            logger.error("WhatsApp error [%s]: %s", correlation_id, str(e))
-            log.mark_failed(error_message=str(e))
-            return {"success": False, "error": str(e), "log_id": str(log.id)}
+            logger.error("[WhatsApp] Erro envio [%s]: %s", correlation_id, str(e))
+            if log:
+                log.mark_failed(error_message=str(e))
+            return {"success": False, "error": str(e), "log_id": str(log.id) if log else None}
 
     # === PEDIDO ===
 
