@@ -17,7 +17,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="paymentlink",
             name="pagarme_checkout_id",
-            field=models.CharField(blank=True, db_index=True, max_length=100),
+            field=models.CharField(
+                blank=True, null=True, db_index=True, max_length=100
+            ),
         ),
         migrations.AlterField(
             model_name="paymentlink",
