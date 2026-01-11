@@ -40,11 +40,14 @@ django==5.2.9
     #   flowlog (pyproject.toml)
     #   django-celery-results
     #   django-cors-headers
+    #   django-filter
     #   djangorestframework
     #   drf-spectacular
 django-celery-results==2.6.0
     # via flowlog (pyproject.toml)
 django-cors-headers==4.9.0
+    # via flowlog (pyproject.toml)
+django-filter==25.2
     # via flowlog (pyproject.toml)
 djangorestframework==3.16.1
     # via
