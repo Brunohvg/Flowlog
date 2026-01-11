@@ -381,6 +381,7 @@ def settings(request):
             tenant_settings.notify_order_confirmed = request.POST.get("notify_order_confirmed") == "on"
             tenant_settings.notify_payment_link = request.POST.get("notify_payment_link") == "on"
             tenant_settings.notify_payment_received = request.POST.get("notify_payment_received") == "on"
+            tenant_settings.notify_payment_failed = request.POST.get("notify_payment_failed") == "on"
             tenant_settings.notify_payment_refunded = request.POST.get("notify_payment_refunded") == "on"
             tenant_settings.notify_order_shipped = request.POST.get("notify_order_shipped") == "on"
             tenant_settings.notify_order_delivered = request.POST.get("notify_order_delivered") == "on"
@@ -395,7 +396,8 @@ def settings(request):
 
         elif action == "save_messages":
             message_fields = [
-                "msg_order_created", "msg_order_confirmed", "msg_payment_link", "msg_payment_received", "msg_payment_refunded",
+                "msg_order_created", "msg_order_confirmed", "msg_payment_link", "msg_payment_received", 
+                "msg_payment_failed", "msg_payment_refunded",
                 "msg_order_shipped", "msg_order_delivered", "msg_delivery_failed", "msg_order_ready_for_pickup",
                 "msg_order_picked_up", "msg_order_expired", "msg_order_cancelled", "msg_order_returned",
             ]

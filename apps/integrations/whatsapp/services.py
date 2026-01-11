@@ -200,6 +200,17 @@ class WhatsAppNotificationService:
         )
         return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'payment_refunded', data["order_obj"])
 
+    def send_payment_failed(self, order_or_snapshot):
+        """Notifica cliente que o pagamento falhou."""
+        data = self._extract_data(order_or_snapshot)
+        template = getattr(self.settings, 'msg_payment_failed', None) or (
+            "Olá {nome}! ⚠️\n\n"
+            "O pagamento do pedido *{codigo}* não foi aprovado.\n\n"
+            "Por favor, tente novamente ou entre em contato.\n\n"
+            "_{loja}_"
+        )
+        return self._send(data["customer_phone"], self._format_message_from_data(template, data), 'payment_failed', data["order_obj"])
+
     # === ENTREGA ===
 
     def send_order_shipped(self, order_or_snapshot):

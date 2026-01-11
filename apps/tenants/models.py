@@ -95,6 +95,7 @@ class TenantSettings(BaseModel):
     notify_order_confirmed = models.BooleanField("Notificar: Pedido Confirmado", default=False)
     notify_payment_link = models.BooleanField("Notificar: Link de Pagamento", default=True)
     notify_payment_received = models.BooleanField("Notificar: Pagamento Recebido", default=True)
+    notify_payment_failed = models.BooleanField("Notificar: Pagamento Falhou", default=True)
     notify_payment_refunded = models.BooleanField("Notificar: Pagamento Estornado", default=True)
     notify_order_shipped = models.BooleanField("Notificar: Pedido Enviado", default=True)
     notify_order_delivered = models.BooleanField("Notificar: Pedido Entregue", default=True)
@@ -167,6 +168,18 @@ class TenantSettings(BaseModel):
             "Olá {nome}!\n\n"
             "O valor de R$ {valor} referente ao pedido *{codigo}* foi estornado.\n\n"
             "Em caso de dúvidas, entre em contato.\n"
+            "_{loja}_"
+        ),
+    )
+
+    msg_payment_failed = models.TextField(
+        "Mensagem: Pagamento Falhou",
+        blank=True,
+        help_text="Placeholders: {nome}, {codigo}, {valor}, {loja}",
+        default=(
+            "Olá {nome}! ⚠️\n\n"
+            "O pagamento do pedido *{codigo}* não foi aprovado.\n\n"
+            "Por favor, tente novamente ou entre em contato.\n\n"
             "_{loja}_"
         ),
     )
@@ -325,6 +338,7 @@ class TenantSettings(BaseModel):
             'order_confirmed': 'notify_order_confirmed',
             'payment_link': 'notify_payment_link',
             'payment_received': 'notify_payment_received',
+            'payment_failed': 'notify_payment_failed',
             'payment_refunded': 'notify_payment_refunded',
             'order_shipped': 'notify_order_shipped',
             'order_delivered': 'notify_order_delivered',

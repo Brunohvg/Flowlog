@@ -159,6 +159,11 @@ def send_payment_received_whatsapp(self, order_id):
 
 
 @shared_task(**TASK_CONFIG)
+def send_payment_failed_whatsapp(self, order_id):
+    return _process_legacy(self, order_id, "send_payment_failed")
+
+
+@shared_task(**TASK_CONFIG)
 def send_payment_refunded_whatsapp(self, order_id):
     return _process_legacy(self, order_id, "send_payment_refunded")
 

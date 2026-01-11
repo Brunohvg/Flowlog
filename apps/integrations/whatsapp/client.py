@@ -1,8 +1,11 @@
 """
 Evolution API Client - Flowlog.
+Com logging de requisições para diagnóstico.
 """
 
+import time
 import logging
+import uuid
 from urllib.parse import urljoin
 import requests
 from requests.exceptions import RequestException
@@ -17,6 +20,36 @@ class EvolutionAPIError(Exception):
         self.response = response
 
 
+def _log_api_request(*, correlation_id: str, method: str, endpoint: str, instance_name: str = None,
+                     request_body: dict = None, status_code: int = 0, response_body: dict = None,
+                     response_time_ms: int = 0, error_message: str = ""):
+    """
+    Salva log de requisição API de forma segura.
+    Nunca falha - apenas loga warning se der erro.
+    """
+    try:
+        from apps.integrations.models import APIRequestLog
+        
+        # Limpa dados sensíveis do request
+        safe_request = None
+        if request_body:
+            safe_request = {k: v for k, v in request_body.items() if k not in ['apikey', 'token', 'password']}
+        
+        APIRequestLog.objects.create(
+            correlation_id=correlation_id,
+            method=method,
+            endpoint=endpoint[:500],  # Limita tamanho
+            instance_name=instance_name,
+            request_body=safe_request,
+            status_code=status_code,
+            response_body=response_body,
+            response_time_ms=response_time_ms,
+            error_message=error_message[:1000] if error_message else "",
+        )
+    except Exception as e:
+        logger.warning("[APIRequestLog] Falha ao salvar log: %s", e)
+
+
 class EvolutionClient:
     DEFAULT_TIMEOUT = 15
     
@@ -29,16 +62,50 @@ class EvolutionClient:
     def _request(self, method: str, endpoint: str, data: dict = None, timeout: int = None) -> dict:
         url = urljoin(self.base_url, endpoint)
         timeout = timeout or self.DEFAULT_TIMEOUT
+        correlation_id = str(uuid.uuid4())[:12]
+        start_time = time.time()
+        
         try:
             response = requests.request(method=method, url=url, json=data, headers=self.headers, timeout=timeout)
+            response_time_ms = int((time.time() - start_time) * 1000)
+            
             try:
                 result = response.json()
             except ValueError:
                 result = {"raw": response.text}
+            
+            # Log da requisição (sucesso ou erro da API)
+            _log_api_request(
+                correlation_id=correlation_id,
+                method=method,
+                endpoint=endpoint,
+                instance_name=self.instance,
+                request_body=data,
+                status_code=response.status_code,
+                response_body=result if response.status_code < 400 else None,
+                response_time_ms=response_time_ms,
+                error_message=str(result) if response.status_code >= 400 else "",
+            )
+            
             if response.status_code >= 400:
                 raise EvolutionAPIError(f"API Error: {result.get('message', result)}", response.status_code, result)
             return result
+            
         except RequestException as e:
+            response_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Log do erro de conexão
+            _log_api_request(
+                correlation_id=correlation_id,
+                method=method,
+                endpoint=endpoint,
+                instance_name=self.instance,
+                request_body=data,
+                status_code=0,
+                response_time_ms=response_time_ms,
+                error_message=f"Connection error: {str(e)}",
+            )
+            
             raise EvolutionAPIError(f"Connection error: {str(e)}")
     
     def create_instance(self, instance_name: str, webhook_url: str = None) -> dict:

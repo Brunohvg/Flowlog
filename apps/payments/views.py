@@ -329,6 +329,9 @@ def pagarme_webhook(request):
             payment_link.mark_as_failed(webhook_data=data)
             logger.info("PaymentLink %s marcado como FALHOU", payment_link.id)
             
+            # Envia WhatsApp de pagamento falho
+            _send_payment_failed_whatsapp(payment_link)
+            
         elif event_type in ["paymentlink.canceled", "order.canceled"]:
             payment_link.status = PaymentLink.Status.CANCELED
             payment_link.webhook_data = data
@@ -383,3 +386,36 @@ def _send_payment_confirmation_whatsapp(payment_link):
         )
     except Exception as e:
         logger.error("Falha ao agendar WhatsApp confirmação pagamento: %s", str(e))
+
+
+def _send_payment_failed_whatsapp(payment_link):
+    """
+    Envia WhatsApp quando pagamento falha.
+    """
+    if not payment_link.order:
+        return
+    
+    # Verifica se notificação está habilitada
+    tenant_settings = getattr(payment_link.tenant, "settings", None)
+    if not tenant_settings or not tenant_settings.whatsapp_enabled:
+        return
+    if not getattr(tenant_settings, 'notify_payment_failed', True):
+        return
+    
+    from django.conf import settings as django_settings
+    
+    # Se não tem broker configurado, não faz nada
+    broker_url = getattr(django_settings, 'CELERY_BROKER_URL', '')
+    if not broker_url:
+        return
+    
+    # Tenta enviar via Celery
+    try:
+        from apps.integrations.whatsapp.tasks import send_payment_failed_whatsapp
+        send_payment_failed_whatsapp.apply_async(
+            args=[str(payment_link.order.id)],
+            expires=300,
+            ignore_result=True,
+        )
+    except Exception as e:
+        logger.error("Falha ao agendar WhatsApp pagamento falhou: %s", str(e))

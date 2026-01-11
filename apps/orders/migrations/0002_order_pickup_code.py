@@ -1,6 +1,4 @@
 # Generated manually - Flowlog v9
-# Adiciona campo pickup_code ao modelo Order
-
 from django.db import migrations, models
 
 
