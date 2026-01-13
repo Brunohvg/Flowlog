@@ -1,5 +1,6 @@
 """
 Views do app payments - Links de Pagamento
+VERSÃO CORRIGIDA: Inclui busca pelo campo 'code' no Webhook e logs detalhados.
 """
 
 import json
@@ -33,14 +34,14 @@ def _send_payment_link_whatsapp(payment_link):
     """
     if not payment_link.order:
         return
-    
+
     from django.conf import settings as django_settings
-    
+
     # Se não tem broker configurado, não faz nada
     broker_url = getattr(django_settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
         return
-    
+
     # Tenta enviar via Celery
     try:
         from apps.integrations.whatsapp.tasks import send_payment_link_whatsapp
@@ -63,12 +64,12 @@ def payment_link_list(request):
     links = PaymentLink.objects.filter(
         tenant=request.tenant
     ).select_related("order", "created_by").order_by("-created_at")
-    
+
     # Filtros
     status_filter = request.GET.get("status", "")
     if status_filter:
         links = links.filter(status=status_filter)
-    
+
     context = {
         "links": links[:100],  # Limita a 100
         "status_filter": status_filter,
@@ -85,12 +86,12 @@ def payment_link_list(request):
 @require_POST
 def create_link_for_order(request, order_id):
     """Cria link de pagamento para um pedido (AJAX)"""
-    
+
     order = get_object_or_404(
         Order.objects.for_tenant(request.tenant),
         id=order_id
     )
-    
+
     # Verifica se Pagar.me está configurado
     settings = getattr(request.tenant, "settings", None)
     if not settings or not settings.pagarme_enabled or not settings.pagarme_api_key:
@@ -98,7 +99,7 @@ def create_link_for_order(request, order_id):
             "success": False,
             "error": "Pagar.me não está configurado. Vá em Configurações → Pagar.me"
         }, status=400)
-    
+
     # Pega parcelas do POST
     try:
         installments = int(request.POST.get("installments", 1))
@@ -106,7 +107,7 @@ def create_link_for_order(request, order_id):
             installments = 1
     except (ValueError, TypeError):
         installments = 1
-    
+
     try:
         # Cria o link
         payment_link = create_payment_link_for_order(
@@ -114,10 +115,10 @@ def create_link_for_order(request, order_id):
             installments=installments,
             created_by=request.user,
         )
-        
+
         # Envia WhatsApp com o link (se configurado)
         _send_payment_link_whatsapp(payment_link)
-        
+
         return JsonResponse({
             "success": True,
             "link_id": str(payment_link.id),
@@ -125,7 +126,7 @@ def create_link_for_order(request, order_id):
             "amount": str(payment_link.amount),
             "installments": payment_link.installments,
         })
-        
+
     except PagarmeError as e:
         logger.error("Erro ao criar link Pagar.me: %s", str(e))
         return JsonResponse({
@@ -147,13 +148,13 @@ def create_link_for_order(request, order_id):
 @login_required
 def create_standalone_link(request):
     """Página para criar link avulso"""
-    
+
     # Verifica se Pagar.me está configurado
     settings = getattr(request.tenant, "settings", None)
     if not settings or not settings.pagarme_enabled or not settings.pagarme_api_key:
         messages.error(request, "Pagar.me não está configurado. Vá em Configurações → Pagar.me")
         return redirect("payment_link_list")
-    
+
     if request.method == "POST":
         # Pega dados do form
         description = request.POST.get("description", "").strip()
@@ -161,21 +162,21 @@ def create_standalone_link(request):
         customer_name = request.POST.get("customer_name", "").strip()
         customer_phone = request.POST.get("customer_phone", "").strip()
         customer_email = request.POST.get("customer_email", "").strip()
-        
+
         try:
             installments = int(request.POST.get("installments", 1))
             if installments < 1 or installments > settings.pagarme_max_installments:
                 installments = 1
         except (ValueError, TypeError):
             installments = 1
-        
+
         # Validações
         errors = []
         if not description:
             errors.append("Descrição é obrigatória")
         if not customer_name:
             errors.append("Nome do cliente é obrigatório")
-        
+
         try:
             amount = Decimal(amount_str)
             if amount <= 0:
@@ -183,7 +184,7 @@ def create_standalone_link(request):
         except (InvalidOperation, ValueError):
             errors.append("Valor inválido")
             amount = None
-        
+
         if errors:
             for error in errors:
                 messages.error(request, error)
@@ -191,7 +192,7 @@ def create_standalone_link(request):
                 "form_data": request.POST,
                 "max_installments": settings.pagarme_max_installments,
             })
-        
+
         try:
             # Cria o link
             payment_link = create_standalone_payment_link(
@@ -204,16 +205,16 @@ def create_standalone_link(request):
                 installments=installments,
                 created_by=request.user,
             )
-            
+
             messages.success(request, f"Link criado com sucesso!")
             return redirect("payment_link_detail", link_id=payment_link.id)
-            
+
         except PagarmeError as e:
             messages.error(request, f"Erro Pagar.me: {str(e)}")
         except Exception as e:
             logger.exception("Erro ao criar link avulso")
             messages.error(request, "Erro interno. Tente novamente.")
-    
+
     return render(request, "payments/create_standalone.html", {
         "max_installments": settings.pagarme_max_installments,
     })
@@ -226,17 +227,17 @@ def create_standalone_link(request):
 @login_required
 def payment_link_detail(request, link_id):
     """Detalhes de um link de pagamento"""
-    
+
     link = get_object_or_404(
         PaymentLink.objects.filter(tenant=request.tenant),
         id=link_id
     )
-    
+
     return render(request, "payments/payment_link_detail.html", {"link": link})
 
 
 # ============================================================
-# WEBHOOK PAGAR.ME
+# WEBHOOK PAGAR.ME (CORRIGIDO)
 # ============================================================
 
 @csrf_exempt
@@ -244,108 +245,98 @@ def payment_link_detail(request, link_id):
 def pagarme_webhook(request):
     """
     Recebe webhooks do Pagar.me
-    
-    Eventos tratados (Payment Links):
-    - paymentlink.paid: Link pago
-    - paymentlink.canceled: Link cancelado
-    - order.paid: Pedido do link pago
-    - order.canceled: Pedido cancelado
-    - charge.paid: Cobrança paga
-    - charge.payment_failed: Pagamento falhou
-    - charge.refunded: Estorno
+
+    CORREÇÃO APLICADA:
+    - Adicionado suporte ao campo 'code' (onde o Pagar.me manda o ID do link em order.paid)
+    - Adicionado log detalhado para debug.
     """
-    
+
     try:
         # Parse do body
         body = request.body.decode("utf-8")
         data = json.loads(body)
-        
+
         event_type = data.get("type", "")
         event_data = data.get("data", {})
-        
+
         logger.info("Webhook Pagar.me recebido: %s", event_type)
-        logger.debug("Webhook data: %s", body[:500])
-        
-        # Identifica o ID do payment link ou order
-        link_id = None
-        order_id = None
+
+        # Identifica os IDs
+        link_id = event_data.get("id")      # Pode ser or_... ou pl_...
+        order_code = event_data.get("code") # ONDE ESTÁ O SEGREDO (pl_...)
+
         charge_id = None
-        
-        # Para eventos de paymentlink
-        if event_type.startswith("paymentlink"):
-            link_id = event_data.get("id")
-        # Para eventos de order (criados a partir do paymentlink)
-        elif event_type.startswith("order"):
-            order_id = event_data.get("id")
-            # Também pode ter referência ao payment_link
-            if "payment_link" in event_data:
-                link_id = event_data.get("payment_link", {}).get("id")
-        # Para eventos de charge
+        charges = event_data.get("charges", [])
+        if charges:
+            charge_id = charges[0].get("id")
         elif event_type.startswith("charge"):
-            charge_id = event_data.get("id")
-            # Busca order_id da charge
-            if "order" in event_data:
-                order_id = event_data.get("order", {}).get("id")
-        
+             charge_id = event_data.get("id")
+
         # Busca o PaymentLink por diferentes campos
         payment_link = None
-        
-        # Primeiro tenta pelo ID do payment link (pl_xxx)
+
+        # 1. Tenta pelo ID direto (caso seja um evento de link)
         if link_id:
-            payment_link = PaymentLink.objects.filter(
-                pagarme_order_id=link_id
-            ).first()
-        
-        # Se não encontrou, tenta pelo order_id
-        if not payment_link and order_id:
-            payment_link = PaymentLink.objects.filter(
-                pagarme_order_id=order_id
-            ).first()
-        
-        # Se ainda não encontrou, tenta pelo charge_id
+            payment_link = PaymentLink.objects.filter(pagarme_order_id=link_id).first()
+
+        # 2. A CORREÇÃO: Tenta pelo CODE (essencial para order.paid)
+        if not payment_link and order_code:
+            payment_link = PaymentLink.objects.filter(pagarme_order_id=order_code).first()
+
+        # 3. Tenta pelo Charge ID (último recurso)
         if not payment_link and charge_id:
-            payment_link = PaymentLink.objects.filter(
-                pagarme_charge_id=charge_id
-            ).first()
-        
+            payment_link = PaymentLink.objects.filter(pagarme_charge_id=charge_id).first()
+
+        # 4. Tenta pelo payment_link nested (estrutura antiga ou específica)
+        if not payment_link and "payment_link" in event_data:
+            nested_id = event_data.get("payment_link", {}).get("id")
+            if nested_id:
+                payment_link = PaymentLink.objects.filter(pagarme_order_id=nested_id).first()
+
         if not payment_link:
+            # LOG IMPORTANTE: Se aparecer "code=" aqui, sabemos que a versão nova subiu
             logger.warning(
-                "PaymentLink não encontrado para webhook: link_id=%s, order_id=%s, charge_id=%s", 
-                link_id, order_id, charge_id
+                "PaymentLink não encontrado para webhook: link_id=%s, code=%s, charge_id=%s",
+                link_id, order_code, charge_id
             )
-            # Retorna 200 para não reenviar o webhook
             return HttpResponse("OK", status=200)
-        
-        # Processa evento
+
+        # Atualiza Charge ID se disponível e ainda não salvo
+        if charge_id and not payment_link.pagarme_charge_id:
+            payment_link.pagarme_charge_id = charge_id
+            payment_link.save(update_fields=['pagarme_charge_id'])
+
+        # --- Processamento do Status ---
+
         if event_type in ["paymentlink.paid", "order.paid", "charge.paid"]:
             if payment_link.status != PaymentLink.Status.PAID:
                 payment_link.mark_as_paid(webhook_data=data)
                 logger.info("PaymentLink %s marcado como PAGO", payment_link.id)
-                
-                # Envia WhatsApp se configurado
+
+                # Envia WhatsApp de confirmação
                 _send_payment_confirmation_whatsapp(payment_link)
-            
+            else:
+                 logger.info("PaymentLink %s já estava pago. Ignorando.", payment_link.id)
+
         elif event_type in ["charge.payment_failed"]:
             payment_link.mark_as_failed(webhook_data=data)
             logger.info("PaymentLink %s marcado como FALHOU", payment_link.id)
-            
-            # Envia WhatsApp de pagamento falho
             _send_payment_failed_whatsapp(payment_link)
-            
+
         elif event_type in ["paymentlink.canceled", "order.canceled"]:
             payment_link.status = PaymentLink.Status.CANCELED
             payment_link.webhook_data = data
             payment_link.save()
             logger.info("PaymentLink %s marcado como CANCELADO", payment_link.id)
-            
+
         elif event_type in ["charge.refunded"]:
             payment_link.status = PaymentLink.Status.REFUNDED
             payment_link.webhook_data = data
             payment_link.save()
             logger.info("PaymentLink %s marcado como ESTORNADO", payment_link.id)
-        
+
         return HttpResponse("OK", status=200)
-        
+
     except json.JSONDecodeError:
         logger.error("Webhook Pagar.me: JSON inválido")
         return HttpResponse("Invalid JSON", status=400)
@@ -357,26 +348,23 @@ def pagarme_webhook(request):
 def _send_payment_confirmation_whatsapp(payment_link):
     """
     Envia WhatsApp de confirmação de pagamento.
-    Mesma lógica do orders/services.py.
     """
     if not payment_link.order:
         return
-    
+
     # Verifica se notificação está habilitada
     tenant_settings = getattr(payment_link.tenant, "settings", None)
     if not tenant_settings or not tenant_settings.whatsapp_enabled:
         return
     if not tenant_settings.notify_payment_received:
         return
-    
+
     from django.conf import settings as django_settings
-    
-    # Se não tem broker configurado, não faz nada
+
     broker_url = getattr(django_settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
         return
-    
-    # Tenta enviar via Celery
+
     try:
         from apps.integrations.whatsapp.tasks import send_payment_received_whatsapp
         send_payment_received_whatsapp.apply_async(
@@ -394,22 +382,19 @@ def _send_payment_failed_whatsapp(payment_link):
     """
     if not payment_link.order:
         return
-    
-    # Verifica se notificação está habilitada
+
     tenant_settings = getattr(payment_link.tenant, "settings", None)
     if not tenant_settings or not tenant_settings.whatsapp_enabled:
         return
     if not getattr(tenant_settings, 'notify_payment_failed', True):
         return
-    
+
     from django.conf import settings as django_settings
-    
-    # Se não tem broker configurado, não faz nada
+
     broker_url = getattr(django_settings, 'CELERY_BROKER_URL', '')
     if not broker_url:
         return
-    
-    # Tenta enviar via Celery
+
     try:
         from apps.integrations.whatsapp.tasks import send_payment_failed_whatsapp
         send_payment_failed_whatsapp.apply_async(

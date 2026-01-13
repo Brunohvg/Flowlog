@@ -3,10 +3,9 @@ Tasks Celery para WhatsApp.
 Usa padrão SNAPSHOT para evitar race condition.
 """
 
-import time
 import json
 import logging
-from functools import partial
+import time
 
 from celery import shared_task
 from django.apps import apps
@@ -25,7 +24,9 @@ def _get_order(order_id: str):
     """Busca order do banco (usado apenas quando necessário)."""
     Order = apps.get_model("orders", "Order")
     try:
-        return Order.objects.select_related("customer", "tenant", "tenant__settings").get(id=order_id)
+        return Order.objects.select_related(
+            "customer", "tenant", "tenant__settings"
+        ).get(id=order_id)
     except Order.DoesNotExist:
         raise OrderNotFoundError(f"Order {order_id} not found")
 
@@ -59,27 +60,29 @@ TASK_CONFIG = {
     "retry_jitter": True,
     "acks_late": True,
     "reject_on_worker_lost": True,
-    "rate_limit": "10/m",
+    # "rate_limit": "10/m",
 }
 
 
 def _process_with_snapshot(snapshot: dict, method: str):
     """
     Processa envio usando snapshot (dados congelados).
-    
+
     RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
     from apps.tenants.models import Tenant
-    
+
     try:
         tenant = Tenant.objects.select_related("settings").get(id=snapshot["tenant_id"])
     except Tenant.DoesNotExist:
-        logger.warning("[WhatsApp] Tenant não encontrado: %s", snapshot.get("tenant_id"))
+        logger.warning(
+            "[WhatsApp] Tenant não encontrado: %s", snapshot.get("tenant_id")
+        )
         return {"success": False, "error": "Tenant not found"}
     except Exception as e:
         logger.warning("[WhatsApp] Erro ao buscar tenant: %s", e)
         return {"success": False, "error": str(e)}
-    
+
     try:
         service = WhatsAppNotificationService(tenant)
         func = getattr(service, method, None)
@@ -96,7 +99,7 @@ def _process_with_snapshot(snapshot: dict, method: str):
 def _process_legacy(self, order_id: str, method: str):
     """
     Modo legado - lê do banco.
-    
+
     RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
     try:
@@ -107,7 +110,7 @@ def _process_legacy(self, order_id: str, method: str):
     except Exception as e:
         logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
         return {"success": False, "error": str(e)}
-    
+
     try:
         service = WhatsAppNotificationService(order.tenant)
         func = getattr(service, method, None)
@@ -124,6 +127,7 @@ def _process_legacy(self, order_id: str, method: str):
 # ==============================================================================
 # TASKS COM SNAPSHOT (novas)
 # ==============================================================================
+
 
 @shared_task(**TASK_CONFIG)
 def send_whatsapp_notification(self, snapshot_json: str, method: str):
@@ -142,6 +146,7 @@ def send_whatsapp_notification(self, snapshot_json: str, method: str):
 # ==============================================================================
 # TASKS LEGADAS (mantidas para compatibilidade com jobs em fila)
 # ==============================================================================
+
 
 @shared_task(**TASK_CONFIG)
 def send_order_created_whatsapp(self, order_id):
@@ -212,26 +217,28 @@ def send_order_returned_whatsapp(self, order_id):
 def send_payment_link_whatsapp(self, order_id, payment_link_id):
     """
     Envia link de pagamento via WhatsApp.
-    
+
     RESILIÊNCIA: Captura todos os erros.
     """
     from apps.payments.models import PaymentLink
-    
+
     try:
         order = _get_order(order_id)
     except OrderNotFoundError:
-        logger.warning("[WhatsApp] Order não encontrado para payment_link: %s", order_id)
+        logger.warning(
+            "[WhatsApp] Order não encontrado para payment_link: %s", order_id
+        )
         return {"success": False, "error": "Order not found"}
     except Exception as e:
         logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
         return {"success": False, "error": str(e)}
-    
+
     try:
         payment_link = PaymentLink.objects.get(id=payment_link_id)
     except PaymentLink.DoesNotExist:
         logger.warning("[WhatsApp] PaymentLink não encontrado: %s", payment_link_id)
         return {"success": False, "error": "PaymentLink not found"}
-    
+
     try:
         service = WhatsAppNotificationService(order.tenant)
         result = service.send_payment_link(order, payment_link)
@@ -246,32 +253,33 @@ def send_payment_link_whatsapp(self, order_id, payment_link_id):
 def expire_pending_pickups(self):
     """
     Job agendado: Expira pedidos de retirada não retirados.
-    
+
     Usa SNAPSHOT para garantir consistência dos dados.
     """
-    from apps.orders.models import Order, DeliveryStatus, DeliveryType
-    from apps.orders.services import OrderStatusService
     from django.utils import timezone
-    
+
+    from apps.orders.models import DeliveryStatus, DeliveryType, Order
+    from apps.orders.services import OrderStatusService
+
     orders = Order.objects.select_related("customer", "tenant").filter(
         delivery_type=DeliveryType.PICKUP,
         delivery_status=DeliveryStatus.READY_FOR_PICKUP,
         expires_at__lt=timezone.now(),
     )
-    
+
     service = OrderStatusService()
     count = 0
     errors = 0
-    
+
     for order in orders:
         try:
             # Cria snapshot ANTES de alterar o status
             snapshot = create_order_snapshot(order)
             snapshot_json = json.dumps(snapshot)
-            
+
             # Expira o pedido
             service.expire_pickup_order(order=order)
-            
+
             # Função segura para enviar notificação
             def _safe_send(sj=snapshot_json):
                 try:
@@ -282,11 +290,11 @@ def expire_pending_pickups(self):
                     )
                 except Exception as e:
                     logger.warning("[WhatsApp] Falha ao enviar expiração: %s", e)
-            
+
             transaction.on_commit(_safe_send)
             count += 1
         except Exception as e:
             logger.warning("[WhatsApp] Erro ao expirar order=%s: %s", order.id, e)
             errors += 1
-    
+
     return {"expired": count, "errors": errors}
