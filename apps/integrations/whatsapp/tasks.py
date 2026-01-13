@@ -1,6 +1,6 @@
 """
 Tasks Celery para WhatsApp.
-Usa padrão SNAPSHOT para evitar race condition.
+CORRIGIDO: Configurado para usar a fila 'whatsapp' correta.
 """
 
 import json
@@ -51,6 +51,7 @@ def create_order_snapshot(order) -> dict:
     }
 
 
+# --- CORREÇÃO AQUI: Adicionado 'queue': 'whatsapp' ---
 TASK_CONFIG = {
     "bind": True,
     "autoretry_for": (Exception, OrderNotFoundError),
@@ -60,14 +61,13 @@ TASK_CONFIG = {
     "retry_jitter": True,
     "acks_late": True,
     "reject_on_worker_lost": True,
-    # "rate_limit": "10/m",
+    "queue": "whatsapp",  # <--- OBRIGATÓRIO: Força a tarefa ir para a fila que o Worker escuta
 }
 
 
 def _process_with_snapshot(snapshot: dict, method: str):
     """
     Processa envio usando snapshot (dados congelados).
-
     RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
     from apps.tenants.models import Tenant
@@ -99,7 +99,6 @@ def _process_with_snapshot(snapshot: dict, method: str):
 def _process_legacy(self, order_id: str, method: str):
     """
     Modo legado - lê do banco.
-
     RESILIÊNCIA: Captura todos os erros, nunca trava.
     """
     try:
@@ -217,7 +216,6 @@ def send_order_returned_whatsapp(self, order_id):
 def send_payment_link_whatsapp(self, order_id, payment_link_id):
     """
     Envia link de pagamento via WhatsApp.
-
     RESILIÊNCIA: Captura todos os erros.
     """
     from apps.payments.models import PaymentLink
@@ -249,11 +247,11 @@ def send_payment_link_whatsapp(self, order_id, payment_link_id):
         return {"success": False, "error": str(e)}
 
 
-@shared_task(bind=True)
+# Adicionado queue='whatsapp' explicitamente aqui também
+@shared_task(bind=True, queue="whatsapp")
 def expire_pending_pickups(self):
     """
     Job agendado: Expira pedidos de retirada não retirados.
-
     Usa SNAPSHOT para garantir consistência dos dados.
     """
     from django.utils import timezone
@@ -287,6 +285,7 @@ def expire_pending_pickups(self):
                         args=[sj, "send_order_expired"],
                         expires=300,
                         ignore_result=True,
+                        queue="whatsapp",  # Reforço de segurança
                     )
                 except Exception as e:
                     logger.warning("[WhatsApp] Falha ao enviar expiração: %s", e)
