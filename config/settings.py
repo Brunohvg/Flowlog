@@ -141,7 +141,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # ==============================================================================
-# CELERY (optional - won't break if not configured)
+# CELERY
 # ==============================================================================
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="")
@@ -149,10 +149,14 @@ CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="")
 if CELERY_BROKER_URL:
     from kombu import Queue
     
+    # [CORREÇÃO] Habilita UTC explícito para alinhar Django <-> Celery
+    CELERY_ENABLE_UTC = True
+    CELERY_TIMEZONE = TIME_ZONE  # Mantém "America/Sao_Paulo" para agendamentos
+    
     CELERY_ACCEPT_CONTENT = ["json"]
     CELERY_TASK_SERIALIZER = "json"
     CELERY_RESULT_SERIALIZER = "json"
-    CELERY_TIMEZONE = TIME_ZONE
+    
     CELERY_TASK_ACKS_LATE = True
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
     
