@@ -82,7 +82,7 @@
 
   <!-- Tab: Integrações -->
   <div id="tab-integrations" class="tab-content hidden">
-    
+
     <!-- Header -->
     <div class="mb-6">
       <h3 class="text-lg font-bold text-slate-800">Integrações</h3>
@@ -91,7 +91,7 @@
 
     <!-- Grid de Integrações -->
     <div class="grid md:grid-cols-2 gap-4 mb-6">
-      
+
       <!-- Card: Pagar.me -->
       <div class="card p-5 border-2 {% if tenant_settings.pagarme_enabled and tenant_settings.pagarme_api_key %}border-emerald-200 bg-emerald-50/50{% else %}border-slate-200{% endif %} hover:shadow-md transition-all cursor-pointer" onclick="document.getElementById('pagarme-config').classList.toggle('hidden')">
         <div class="flex items-start justify-between">
@@ -137,6 +137,40 @@
           </div>
         </div>
       </div>
+
+
+
+      <!-- Card: Correios -->
+      <div class="card p-5 border-2
+        {% if tenant_settings.correios_enabled and tenant_settings.correios_user %}
+          border-emerald-200 bg-emerald-50/50
+        {% else %}
+          border-slate-200
+        {% endif %}
+        hover:shadow-md transition-all cursor-pointer"
+        onclick="document.getElementById('correios-config').classList.toggle('hidden')">
+
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="truck" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-800">Correios</h4>
+              <p class="text-sm text-slate-500">Rastreio automático</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if tenant_settings.correios_enabled and tenant_settings.correios_user %}
+              <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">Ativo</span>
+            {% else %}
+              <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded-full">Desativado</span>
+            {% endif %}
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Card: Em breve -->
       <div class="card p-5 border-2 border-dashed border-slate-200 bg-slate-50/50">
@@ -185,8 +219,8 @@
           <!-- API Key -->
           <div class="mb-4">
             <label class="form-label">Secret Key</label>
-            <input type="password" name="pagarme_api_key" 
-                   value="{{ tenant_settings.pagarme_api_key }}" 
+            <input type="password" name="pagarme_api_key"
+                   value="{{ tenant_settings.pagarme_api_key }}"
                    class="form-input font-mono"
                    placeholder="sk_live_xxxxxxxxxxxxxxxx">
             <p class="text-xs text-slate-500 mt-1">
@@ -235,7 +269,7 @@
                 <li>Status atualizado automaticamente via webhook</li>
               </ul>
               <p class="mt-3 text-xs">
-                <strong>Webhook URL:</strong> 
+                <strong>Webhook URL:</strong>
                 <code class="bg-white px-2 py-0.5 rounded">{{ request.scheme }}://{{ request.get_host }}/pagamentos/webhook/pagarme/</code>
               </p>
             </div>
@@ -243,11 +277,72 @@
         </div>
       </form>
     </div>
+
+    <!-- Config Correios (expandível) -->
+     <div id="correios-config" class="hidden">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_correios">
+
+          <div class="card p-6 mb-6">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="settings" class="w-5 h-5 text-blue-600"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-800">Configurar Correios</h3>
+                <p class="text-sm text-slate-500">Credenciais de rastreio</p>
+              </div>
+            </div>
+
+            <!-- Toggle -->
+            <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl mb-4">
+              <div>
+                <p class="font-medium text-slate-800">Ativar Correios</p>
+                <p class="text-sm text-slate-500">Habilita rastreio automático</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="correios_enabled" value="1"
+                      class="sr-only peer"
+                      {% if tenant_settings.correios_enabled %}checked{% endif %}>
+                <div class="w-11 h-6 bg-slate-300 rounded-full peer
+                  peer-checked:bg-emerald-500
+                  after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                  after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                  peer-checked:after:translate-x-full"></div>
+              </label>
+            </div>
+
+            <!-- Credenciais -->
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">Usuário</label>
+                <input type="text" name="correios_user"
+                      value="{{ tenant_settings.correios_user }}"
+                      class="form-input">
+              </div>
+              <div>
+                <label class="form-label">Senha</label>
+                <input type="password" name="correios_password"
+                      value="{{ tenant_settings.correios_password }}"
+                      class="form-input">
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="check" class="w-4 h-4"></i> Salvar
+              </button>
+            </div>
+          </div>
+        </form>
+    </div>
+
   </div>
 
   <!-- Tab: WhatsApp -->
   <div id="tab-whatsapp" class="tab-content hidden">
-    
+
     <!-- Header com status visual -->
     <div class="card p-6 mb-6 {% if tenant_settings.is_whatsapp_configured and tenant_settings.whatsapp_connected %}bg-gradient-to-r from-emerald-500 to-teal-500{% elif tenant_settings.is_whatsapp_configured %}bg-gradient-to-r from-amber-500 to-orange-500{% else %}bg-gradient-to-r from-slate-500 to-slate-600{% endif %} text-white">
       <div class="flex items-center justify-between flex-wrap gap-4">
@@ -336,7 +431,7 @@
           <p class="text-sm text-slate-500">Verifique se a integração está funcionando</p>
         </div>
       </div>
-      
+
       <div class="flex gap-3">
         <input type="tel" id="test-phone" class="form-input flex-1" placeholder="11999999999">
         <button type="button" onclick="sendTestMessage()" class="btn btn-primary">
@@ -387,7 +482,7 @@
 
         <!-- Notificações por Categoria com ícones coloridos -->
         <div class="space-y-6">
-          
+
           <!-- Pedido -->
           <div>
             <h4 class="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -672,23 +767,23 @@
       document.getElementById('tab-' + tab).classList.remove('hidden');
     });
   });
-  
+
   // Enviar mensagem de teste
   async function sendTestMessage() {
     const phone = document.getElementById('test-phone').value.trim();
     const result = document.getElementById('test-result');
-    
+
     if (!phone) {
       result.textContent = 'Informe o número';
       result.className = 'text-sm mt-2 text-red-600';
       result.classList.remove('hidden');
       return;
     }
-    
+
     result.textContent = 'Enviando...';
     result.className = 'text-sm mt-2 text-slate-600';
     result.classList.remove('hidden');
-    
+
     try {
       const response = await fetch('{% url "whatsapp_test_message" %}', {
         method: 'POST',
@@ -698,9 +793,9 @@
         },
         body: 'phone=' + encodeURIComponent(phone)
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         result.textContent = '✓ Mensagem enviada!';
         result.className = 'text-sm mt-2 text-emerald-600';
