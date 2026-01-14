@@ -15,15 +15,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me")
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-# Em produção (DEBUG=False), ALLOWED_HOSTS deve ser explícito
-# Em desenvolvimento (DEBUG=True), aceita localhost
+# Lógica de Hosts Permitidos
 _allowed_hosts = config("ALLOWED_HOSTS", default="", cast=Csv())
 if DEBUG:
     ALLOWED_HOSTS = _allowed_hosts if _allowed_hosts else ["localhost", "127.0.0.1"]
 else:
-    # Em produção, não aceita "*" nem vazio
     if not _allowed_hosts or "*" in _allowed_hosts:
-        ALLOWED_HOSTS = ["localhost"]  # Fallback seguro
+        ALLOWED_HOSTS = ["localhost"]
     else:
         ALLOWED_HOSTS = _allowed_hosts
 
@@ -41,11 +39,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party
     "django_celery_results",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
     "corsheaders",
+    # Local Apps
     "apps.core",
     "apps.tenants",
     "apps.accounts",
@@ -142,30 +142,34 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # ==============================================================================
-# CELERY
+# CELERY (CORRIGIDO)
 # ==============================================================================
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="")
 
 if CELERY_BROKER_URL:
-    from kombu import Queue
+    # Importante: Importar Exchange para definir as rotas explicitamente
+    from kombu import Exchange, Queue
 
-    # [CORREÇÃO] Habilita UTC explícito para alinhar Django <-> Celery
     CELERY_ENABLE_UTC = True
-    CELERY_TIMEZONE = TIME_ZONE  # Mantém "America/Sao_Paulo" para agendamentos
+    CELERY_TIMEZONE = TIME_ZONE
 
     CELERY_ACCEPT_CONTENT = ["json"]
     CELERY_TASK_SERIALIZER = "json"
     CELERY_RESULT_SERIALIZER = "json"
 
+    # Ack Late previne perda de task se o worker cair no meio do processo
     CELERY_TASK_ACKS_LATE = True
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
+    # DEFINIÇÃO EXPLÍCITA DAS FILAS
+    # Isso garante que o worker "whatsapp" escute a chave "whatsapp" e não "celery"
     CELERY_TASK_QUEUES = (
-        Queue("default"),
-        Queue("whatsapp"),
+        Queue("default", Exchange("default"), routing_key="default"),
+        Queue("whatsapp", Exchange("whatsapp"), routing_key="whatsapp"),
     )
 
+    # Roteamento das Tasks
     CELERY_TASK_ROUTES = {
         "apps.integrations.whatsapp.tasks.*": {"queue": "whatsapp"},
     }
@@ -178,7 +182,7 @@ EVOLUTION_API_URL = config("EVOLUTION_API_URL", default="")
 EVOLUTION_API_KEY = config("EVOLUTION_API_KEY", default="")
 
 # ==============================================================================
-# LOGGING - STDOUT ONLY (Docker friendly)
+# LOGGING
 # ==============================================================================
 LOGGING = {
     "version": 1,
@@ -207,12 +211,12 @@ LOGGING = {
         },
         "celery": {
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": "INFO",  # Alterado para INFO para debug das tasks
             "propagate": False,
         },
         "apps": {
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": "INFO",  # Alterado para INFO para ver seus logs de negócio
             "propagate": False,
         },
     },
@@ -238,7 +242,7 @@ REST_FRAMEWORK = {
 }
 
 # ==============================================================================
-# DRF SPECTACULAR (Swagger/OpenAPI)
+# DRF SPECTACULAR
 # ==============================================================================
 SPECTACULAR_SETTINGS = {
     "TITLE": "Flowlog API",
