@@ -2,22 +2,23 @@
 Models do app payments - Integração Pagar.me
 """
 
+from datetime import timedelta
+
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
 
 from apps.core.models import BaseModel
 
 
 class PaymentLink(BaseModel):
     """Link de pagamento Pagar.me"""
-    
+
     tenant = models.ForeignKey(
         "tenants.Tenant",
         on_delete=models.CASCADE,
         related_name="payment_links",
     )
-    
+
     # Vínculo opcional com pedido
     order = models.ForeignKey(
         "orders.Order",
@@ -26,26 +27,24 @@ class PaymentLink(BaseModel):
         blank=True,
         related_name="payment_links",
     )
-    
+
     # Dados do Pagar.me
     pagarme_order_id = models.CharField(
         "ID do Pedido Pagar.me",
         max_length=100,
         blank=True,
-        help_text="Order ID retornado pela API"
+        help_text="Order ID retornado pela API",
     )
     pagarme_charge_id = models.CharField(
         "ID da Cobrança",
         max_length=100,
         blank=True,
-        help_text="Charge ID para rastreamento"
+        help_text="Charge ID para rastreamento",
     )
     checkout_url = models.URLField(
-        "URL do Checkout",
-        blank=True,
-        help_text="Link para pagamento"
+        "URL do Checkout", blank=True, help_text="Link para pagamento"
     )
-    
+
     # Dados do pagamento
     amount = models.DecimalField(
         "Valor",
@@ -53,20 +52,41 @@ class PaymentLink(BaseModel):
         decimal_places=2,
     )
     installments = models.PositiveIntegerField(
-        "Parcelas",
-        default=1,
-        help_text="1 a 3 parcelas"
+        "Parcelas", default=1, help_text="1 a 3 parcelas"
     )
     description = models.CharField(
         "Descrição",
         max_length=200,
     )
-    
-    # Cliente
+
+    # ======================================================================
+    # DADOS DO CLIENTE (Quem deve pagar - Preenchido na criação)
+    # ======================================================================
     customer_name = models.CharField("Nome do Cliente", max_length=200)
     customer_phone = models.CharField("Telefone", max_length=20, blank=True)
     customer_email = models.EmailField("E-mail", blank=True)
-    
+
+    # ======================================================================
+    # DADOS DO PAGADOR (Quem realmente pagou - Preenchido via Webhook)
+    # ======================================================================
+    payer_name = models.CharField("Nome do Pagador", max_length=200, blank=True)
+    payer_document = models.CharField("CPF/CNPJ do Pagador", max_length=20, blank=True)
+    payer_email = models.EmailField("E-mail do Pagador", blank=True)
+    payer_phone = models.CharField("Telefone do Pagador", max_length=20, blank=True)
+
+    # Endereço do Pagador (Novo)
+    payer_address_zip = models.CharField("CEP do Pagador", max_length=10, blank=True)
+    payer_address_street = models.CharField(
+        "Rua do Pagador", max_length=200, blank=True
+    )
+    payer_address_number = models.CharField("Número", max_length=20, blank=True)
+    payer_address_complement = models.CharField(
+        "Complemento", max_length=100, blank=True
+    )
+    payer_address_neighborhood = models.CharField("Bairro", max_length=100, blank=True)
+    payer_address_city = models.CharField("Cidade", max_length=100, blank=True)
+    payer_address_state = models.CharField("UF", max_length=2, blank=True)
+
     # Status
     class Status(models.TextChoices):
         PENDING = "pending", "Aguardando Pagamento"
@@ -75,14 +95,14 @@ class PaymentLink(BaseModel):
         CANCELED = "canceled", "Cancelado"
         EXPIRED = "expired", "Expirado"
         REFUNDED = "refunded", "Estornado"
-    
+
     status = models.CharField(
         "Status",
         max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
     )
-    
+
     # Timestamps
     expires_at = models.DateTimeField(
         "Expira em",
@@ -94,14 +114,14 @@ class PaymentLink(BaseModel):
         null=True,
         blank=True,
     )
-    
+
     # Dados do webhook (JSON completo para debug)
     webhook_data = models.JSONField(
         "Dados do Webhook",
         default=dict,
         blank=True,
     )
-    
+
     # Quem criou
     created_by = models.ForeignKey(
         "accounts.User",
@@ -150,16 +170,64 @@ class PaymentLink(BaseModel):
         return int(self.amount * 100)
 
     def mark_as_paid(self, webhook_data=None):
-        """Marca como pago e atualiza pedido vinculado"""
+        """Marca como pago e extrai todos dados do pagador do JSON."""
         self.status = self.Status.PAID
         self.paid_at = timezone.now()
+
         if webhook_data:
             self.webhook_data = webhook_data
+
+            # Lógica de extração segura
+            try:
+                data = webhook_data.get("data", {})
+                customer = data.get("customer", {})
+
+                if customer:
+                    self.payer_name = customer.get("name", "")[:200]
+                    self.payer_email = customer.get("email", "")
+                    self.payer_document = customer.get("document", "")[:20]
+
+                    # Extração de telefone
+                    phones = customer.get("phones", {})
+                    mobile = phones.get("mobile_phone")
+                    if mobile:
+                        country = mobile.get("country_code", "")
+                        area = mobile.get("area_code", "")
+                        number = mobile.get("number", "")
+                        self.payer_phone = f"{country}{area}{number}"[:20]
+                    else:
+                        home = phones.get("home_phone")
+                        if home:
+                            country = home.get("country_code", "")
+                            area = home.get("area_code", "")
+                            number = home.get("number", "")
+                            self.payer_phone = f"{country}{area}{number}"[:20]
+
+                    # Extração de Endereço (NOVO)
+                    address = customer.get("address", {})
+                    if address:
+                        self.payer_address_zip = address.get("zip_code", "")[:10]
+                        self.payer_address_street = address.get("street", "")[:200]
+                        self.payer_address_number = address.get("number", "")[:20]
+                        self.payer_address_complement = address.get("complement", "")[
+                            :100
+                        ]
+                        self.payer_address_neighborhood = address.get(
+                            "neighborhood", ""
+                        )[:100]
+                        self.payer_address_city = address.get("city", "")[:100]
+                        self.payer_address_state = address.get("state", "")[:2]
+
+            except Exception:
+                # Se falhar a extração, não impede de marcar como pago
+                pass
+
         self.save()
-        
+
         # Atualiza pedido vinculado
         if self.order:
             from apps.orders.models import PaymentStatus
+
             self.order.payment_status = PaymentStatus.PAID
             self.order.save(update_fields=["payment_status", "updated_at"])
 

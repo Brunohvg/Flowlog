@@ -2,12 +2,18 @@ version: "3.8"
 
 services:
   migrate:
-    image: brunobh51/flowlog:v1.4
+    image: brunobh51/flowlog:v1.8.1
     command: >
       sh -c "python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
-      python manage.py shell -c \"from django.contrib.auth import get_user_model; import os; User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL'); p=os.getenv('DJANGO_SUPERUSER_PASSWORD'); (e and p and not User.objects.filter(email=e).exists()) and User.objects.create_superuser(email=e, password=p) or print('superuser ok')\""
+      python manage.py shell -c \"from django.contrib.auth import get_user_model; import os;
+      User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL');
+      p=os.getenv('DJANGO_SUPERUSER_PASSWORD');
+      (e and p and not User.objects.filter(email=e).exists())
+      and User.objects.create_superuser(email=e, password=p)
+      or print('superuser ok')\""
     environment:
+      TZ: America/Sao_Paulo
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       USE_SQLITE: ${USE_SQLITE}
@@ -31,11 +37,22 @@ services:
       replicas: 1
       restart_policy:
         condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
 
   flowlog:
-    image: brunobh51/flowlog:v1.4
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -
+    image: brunobh51/flowlog:v1.8.1
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 2
+      --timeout 60
+      --access-logfile -
+      --error-logfile -
     environment:
+      TZ: America/Sao_Paulo
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       USE_SQLITE: ${USE_SQLITE}
@@ -70,11 +87,17 @@ services:
         - traefik.http.routers.flowlog.entrypoints=websecure
         - traefik.http.routers.flowlog.tls.certresolver=le
         - traefik.http.services.flowlog.loadbalancer.server.port=8000
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
 
   worker:
-    image: brunobh51/flowlog:v1.4
+    image: brunobh51/flowlog:v1.8.1
+    # Adicionado ignore-result para economizar Redis (Opcional, mas recomendado)
     command: celery -A config worker -l info -Q default,whatsapp --concurrency=2
     environment:
+      TZ: America/Sao_Paulo
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       USE_SQLITE: ${USE_SQLITE}
@@ -94,31 +117,43 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 512M
+          cpus: "1"
+          memory: 1024M
 
   beat:
-    image: brunobh51/flowlog:v1.4
-    command: celery -A config beat -l info --schedule=/tmp/celerybeat-schedule
-    environment:
-      SECRET_KEY: ${SECRET_KEY}
-      DEBUG: ${DEBUG}
-      USE_SQLITE: ${USE_SQLITE}
-      SITE_URL: ${SITE_URL}
-      DB_HOST: ${DB_HOST}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_PORT: ${DB_PORT}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-    networks:
-      - app_network
-    deploy:
-      replicas: 1
-
+      image: brunobh51/flowlog:v1.8.1
+      # ADICIONADO: user root para ter permissão de escrever em /data
+      user: root
+      command: celery -A config beat -l info --schedule=/data/celerybeat-schedule
+      environment:
+        TZ: America/Sao_Paulo
+        SECRET_KEY: ${SECRET_KEY}
+        DEBUG: ${DEBUG}
+        USE_SQLITE: ${USE_SQLITE}
+        SITE_URL: ${SITE_URL}
+        DB_HOST: ${DB_HOST}
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_PORT: ${DB_PORT}
+        CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+        CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      volumes:
+        - celerybeat_data:/data
+      networks:
+        - app_network
+      deploy:
+        replicas: 1
+        resources:
+          limits:
+            cpus: "0.5"
+            memory: 512M
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    # CORREÇÃO: Política de memória allkeys-lru e limite ajustado para 256mb
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      TZ: America/Sao_Paulo
     volumes:
       - redis_data:/data
     networks:
@@ -127,12 +162,14 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 256M
+          cpus: "0.5"
+          memory: 512M
 
 volumes:
   static_volume:
   media_volume:
   redis_data:
+  celerybeat_data:
 
 networks:
   traefik_public:

@@ -12,11 +12,10 @@
         </a>
     </div>
 
-    <!-- Status Card -->
     <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-slate-800">{{ link.description }}</h2>
-            
+
             {% if link.status == 'pending' %}
             <span class="badge bg-amber-100 text-amber-800 text-sm px-3 py-1">Aguardando Pagamento</span>
             {% elif link.status == 'paid' %}
@@ -33,7 +32,7 @@
         <div class="text-4xl font-bold text-slate-800 mb-2">
             R$ {{ link.amount|floatformat:2 }}
         </div>
-        
+
         {% if link.installments > 1 %}
         <div class="text-slate-500">
             até {{ link.installments }}x
@@ -41,28 +40,27 @@
         {% endif %}
     </div>
 
-    <!-- Link de Pagamento -->
     {% if link.checkout_url %}
     <div class="card p-6">
         <h3 class="font-bold text-slate-800 mb-4">Link de Pagamento</h3>
-        
-        <div class="bg-slate-50 p-4 rounded-xl mb-4">
-            <code class="text-sm text-slate-700 break-all">{{ link.checkout_url }}</code>
+
+        <div class="flex items-center bg-slate-50 p-4 rounded-xl mb-4 group relative">
+            <code class="text-sm text-slate-700 break-all flex-1 mr-2">{{ link.checkout_url }}</code>
+            <button onclick="copyValue('{{ link.checkout_url }}')" class="p-2 text-slate-400 hover:text-emerald-600 transition-colors" title="Copiar Link">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
         </div>
-        
+
         {% if link.status == 'pending' and not link.is_expired %}
         <div class="flex gap-3">
-            <button onclick="copyLink()" class="btn btn-secondary flex-1">
-                <i data-lucide="copy" class="w-4 h-4"></i> Copiar Link
-            </button>
             <a href="{{ link.checkout_url }}" target="_blank" class="btn btn-primary flex-1">
                 <i data-lucide="external-link" class="w-4 h-4"></i> Abrir Checkout
             </a>
         </div>
         {% endif %}
-        
+
         {% if link.is_expired %}
-        <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+        <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mt-4">
             <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
             Este link expirou em {{ link.expires_at|date:"d/m/Y H:i" }}
         </div>
@@ -75,23 +73,107 @@
     </div>
     {% endif %}
 
-    <!-- Cliente -->
+    {% if link.status == 'paid' and link.payer_name %}
+    <div class="card p-6 border-l-4 border-emerald-500">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                <i data-lucide="credit-card" class="w-5 h-5 text-emerald-600"></i>
+                Dados do Pagador (Pagar.me)
+            </h3>
+            <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Confirmado</span>
+        </div>
+
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div class="bg-slate-50 p-3 rounded-lg group relative hover:bg-slate-100 transition-colors">
+                    <span class="text-slate-500 text-xs uppercase tracking-wider block mb-1">Nome</span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-slate-800 truncate">{{ link.payer_name }}</span>
+                        <button onclick="copyValue('{{ link.payer_name }}')" class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-600 transition-all" title="Copiar">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-lg group relative hover:bg-slate-100 transition-colors">
+                    <span class="text-slate-500 text-xs uppercase tracking-wider block mb-1">Documento</span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-slate-800">{{ link.payer_document|default:"-" }}</span>
+                        {% if link.payer_document %}
+                        <button onclick="copyValue('{{ link.payer_document }}')" class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-600 transition-all" title="Copiar">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-lg group relative hover:bg-slate-100 transition-colors md:col-span-2">
+                    <span class="text-slate-500 text-xs uppercase tracking-wider block mb-1">Email</span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-slate-800 truncate">{{ link.payer_email|default:"-" }}</span>
+                        {% if link.payer_email %}
+                        <button onclick="copyValue('{{ link.payer_email }}')" class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-600 transition-all" title="Copiar">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-lg group relative hover:bg-slate-100 transition-colors">
+                    <span class="text-slate-500 text-xs uppercase tracking-wider block mb-1">Telefone</span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-slate-800">{{ link.payer_phone|default:"-" }}</span>
+                        {% if link.payer_phone %}
+                        <button onclick="copyValue('{{ link.payer_phone }}')" class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-600 transition-all" title="Copiar">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if link.payer_address_street %}
+            <div class="bg-slate-50 p-3 rounded-lg group relative hover:bg-slate-100 transition-colors mt-2">
+                <span class="text-slate-500 text-xs uppercase tracking-wider block mb-1">Endereço de Cobrança</span>
+                <div class="flex justify-between items-start">
+                    <div class="text-slate-800 text-sm leading-relaxed">
+                        {{ link.payer_address_street }}, {{ link.payer_address_number }}
+                        {% if link.payer_address_complement %} - {{ link.payer_address_complement }}{% endif %}
+                        <br>
+                        {{ link.payer_address_neighborhood }} - {{ link.payer_address_city }}/{{ link.payer_address_state }}
+                        <br>
+                        CEP: {{ link.payer_address_zip }}
+                    </div>
+                    <button onclick="copyValue('{{ link.payer_address_street }}, {{ link.payer_address_number }} - {{ link.payer_address_neighborhood }} - {{ link.payer_address_city }}/{{ link.payer_address_state }} - CEP: {{ link.payer_address_zip }}')" class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-600 transition-all" title="Copiar Endereço Completo">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card p-6">
-        <h3 class="font-bold text-slate-800 mb-4">Cliente</h3>
-        
+        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i data-lucide="user" class="w-5 h-5 text-slate-500"></i>
+            Cliente do Pedido
+        </h3>
+
         <div class="space-y-3">
-            <div class="flex justify-between">
+            <div class="flex justify-between border-b border-slate-100 pb-2">
                 <span class="text-slate-500">Nome</span>
                 <span class="font-medium text-slate-800">{{ link.customer_name }}</span>
             </div>
             {% if link.customer_phone %}
-            <div class="flex justify-between">
+            <div class="flex justify-between border-b border-slate-100 pb-2">
                 <span class="text-slate-500">Telefone</span>
                 <span class="font-medium text-slate-800">{{ link.customer_phone }}</span>
             </div>
             {% endif %}
             {% if link.customer_email %}
-            <div class="flex justify-between">
+            <div class="flex justify-between border-b border-slate-100 pb-2">
                 <span class="text-slate-500">E-mail</span>
                 <span class="font-medium text-slate-800">{{ link.customer_email }}</span>
             </div>
@@ -99,12 +181,11 @@
         </div>
     </div>
 
-    <!-- Pedido Vinculado -->
     {% if link.order %}
     <div class="card p-6">
         <h3 class="font-bold text-slate-800 mb-4">Pedido Vinculado</h3>
-        
-        <a href="{% url 'order_detail' link.order.id %}" class="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+
+        <a href="{% url 'order_detail' link.order.id %}" class="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors border border-slate-100">
             <div>
                 <div class="font-bold text-slate-800">{{ link.order.code }}</div>
                 <div class="text-sm text-slate-500">{{ link.order.customer.name }}</div>
@@ -114,10 +195,9 @@
     </div>
     {% endif %}
 
-    <!-- Informações Técnicas -->
     <div class="card p-6">
         <h3 class="font-bold text-slate-800 mb-4">Informações</h3>
-        
+
         <div class="space-y-3 text-sm">
             <div class="flex justify-between">
                 <span class="text-slate-500">Criado em</span>
@@ -149,9 +229,21 @@
 
 {% block scripts %}
 <script>
-function copyLink() {
-    navigator.clipboard.writeText('{{ link.checkout_url }}').then(() => {
-        alert('Link copiado!');
+// Função genérica e visual para copiar
+function copyValue(text) {
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        // Cria um toast temporário
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50 animate-fade-in';
+        toast.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline mr-2 text-emerald-400"></i> Copiado!';
+        document.body.appendChild(toast);
+        lucide.createIcons(); // Atualiza ícone no toast
+
+        setTimeout(() => {
+            toast.remove();
+        }, 2000);
     });
 }
 </script>

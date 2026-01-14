@@ -4,6 +4,7 @@ Production-ready for Docker Swarm.
 """
 
 from pathlib import Path
+
 from decouple import Csv, config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -148,23 +149,23 @@ CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="")
 
 if CELERY_BROKER_URL:
     from kombu import Queue
-    
+
     # [CORREÇÃO] Habilita UTC explícito para alinhar Django <-> Celery
     CELERY_ENABLE_UTC = True
     CELERY_TIMEZONE = TIME_ZONE  # Mantém "America/Sao_Paulo" para agendamentos
-    
+
     CELERY_ACCEPT_CONTENT = ["json"]
     CELERY_TASK_SERIALIZER = "json"
     CELERY_RESULT_SERIALIZER = "json"
-    
+
     CELERY_TASK_ACKS_LATE = True
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-    
+
     CELERY_TASK_QUEUES = (
         Queue("default"),
         Queue("whatsapp"),
     )
-    
+
     CELERY_TASK_ROUTES = {
         "apps.integrations.whatsapp.tasks.*": {"queue": "whatsapp"},
     }

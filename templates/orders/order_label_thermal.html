@@ -7,7 +7,7 @@
         @page { size: 80mm auto; margin: 2mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
         body { background: #f5f5f5; }
-        
+
         /* Controles - não imprime */
         .no-print {
             background: #1e293b; color: white; padding: 10px 15px;
@@ -15,17 +15,17 @@
             font-family: Arial, sans-serif;
         }
         .no-print h1 { font-size: 14px; font-weight: bold; }
-        .btn { 
-            padding: 6px 12px; font-size: 12px; font-weight: bold; 
-            border-radius: 4px; border: none; cursor: pointer; 
+        .btn {
+            padding: 6px 12px; font-size: 12px; font-weight: bold;
+            border-radius: 4px; border: none; cursor: pointer;
             margin-left: 5px; text-decoration: none; display: inline-block;
         }
         .btn-print { background: #6366f1; color: #fff; }
         .btn-back { background: #475569; color: #fff; }
-        
+
         /* Container */
         .wrapper { padding: 10px; display: flex; justify-content: center; }
-        
+
         /* Etiqueta Térmica */
         .label {
             width: 76mm;
@@ -33,7 +33,7 @@
             border: 1px solid #000;
             padding: 3mm;
         }
-        
+
         /* Header */
         .header {
             text-align: center;
@@ -42,12 +42,12 @@
         }
         .code { font-size: 22px; font-weight: bold; }
         .type { font-size: 10px; font-weight: bold; margin-top: 1mm; }
-        
+
         /* Seções */
         .section { padding: 2mm 0; border-bottom: 1px dashed #999; }
         .label-text { font-size: 8px; font-weight: bold; color: #666; }
         .value-text { font-size: 12px; font-weight: bold; }
-        
+
         /* Endereço */
         .address {
             padding: 2mm;
@@ -55,7 +55,7 @@
             border: 2px solid #000;
         }
         .address-text { font-size: 11px; font-weight: bold; line-height: 1.3; }
-        
+
         /* Observações */
         .obs {
             padding: 2mm;
@@ -64,7 +64,7 @@
             border-left: 3px solid #000;
         }
         .obs-text { font-size: 10px; font-weight: bold; }
-        
+
         /* Código Retirada */
         .pickup {
             text-align: center;
@@ -74,7 +74,7 @@
             margin: 2mm 0;
         }
         .pickup-code { font-size: 28px; font-weight: bold; letter-spacing: 3px; }
-        
+
         /* Footer */
         .footer {
             display: flex;
@@ -86,7 +86,7 @@
         }
         .date { font-size: 8px; color: #666; }
         .value { font-size: 16px; font-weight: bold; }
-        
+
         /* Motoboy */
         .motoboy {
             font-size: 9px;
@@ -94,7 +94,7 @@
             border-top: 1px dashed #999;
             margin-top: 1mm;
         }
-        
+
         @media print {
             body { background: #fff; }
             .no-print { display: none !important; }
@@ -117,20 +117,20 @@
 <!-- Etiqueta -->
 <div class="wrapper">
     <div class="label">
-        
+
         <!-- Header -->
         <div class="header">
             <div class="code">{{ order.code }}</div>
             <div class="type">{{ order.get_delivery_type_display|upper }}</div>
         </div>
-        
+
         <!-- Cliente -->
         <div class="section">
             <div class="label-text">CLIENTE</div>
             <div class="value-text">{{ order.customer.name }}</div>
             <div style="font-size:10px;">{{ order.customer.phone }}</div>
         </div>
-        
+
         <!-- Endereço -->
         {% if order.delivery_type != 'pickup' and order.delivery_address %}
         <div class="address">
@@ -138,7 +138,7 @@
             <div class="address-text">{{ order.delivery_address }}</div>
         </div>
         {% endif %}
-        
+
         <!-- Código Retirada -->
         {% if order.delivery_type == 'pickup' and order.pickup_code %}
         <div class="pickup">
@@ -146,7 +146,7 @@
             <div class="pickup-code">{{ order.pickup_code }}</div>
         </div>
         {% endif %}
-        
+
         <!-- Observações -->
         {% if order.notes %}
         <div class="obs">
@@ -154,7 +154,7 @@
             <div class="obs-text">{{ order.notes }}</div>
         </div>
         {% endif %}
-        
+
         <!-- Motoboy -->
         {% if order.delivery_type == 'motoboy' and order.motoboy_fee %}
         <div class="motoboy">
@@ -162,13 +162,13 @@
             {% if order.motoboy_paid %}✓ PAGO{% else %}⚠ NÃO PAGO{% endif %}
         </div>
         {% endif %}
-        
+
         <!-- Footer -->
         <div class="footer">
             <span class="date">{{ order.created_at|date:"d/m/Y H:i" }}</span>
             <span class="value">R$ {{ order.total_value|floatformat:2 }}</span>
         </div>
-        
+
     </div>
 </div>
 

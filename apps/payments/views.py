@@ -12,17 +12,18 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.db import transaction  # <--- IMPORTANTE: Necessário para on_commit
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from apps.orders.models import Order
 from apps.payments.models import PaymentLink
 from apps.payments.services import (
+    PagarmeError,
     create_payment_link_for_order,
     create_standalone_payment_link,
-    PagarmeError,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # HELPERS
 # ============================================================
+
 
 def _extract_pagarme_link_code(event_type: str, data: dict) -> str | None:
     """
@@ -62,6 +64,7 @@ def _send_payment_link_whatsapp(payment_link):
 
     try:
         from apps.integrations.whatsapp.tasks import send_payment_link_whatsapp
+
         send_payment_link_whatsapp.apply_async(
             args=[str(payment_link.order.id), str(payment_link.id)],
             expires=300,
@@ -83,11 +86,13 @@ def _send_payment_confirmation_whatsapp(payment_link):
         return
 
     from django.conf import settings as django_settings
+
     if not getattr(django_settings, "CELERY_BROKER_URL", ""):
         return
 
     try:
         from apps.integrations.whatsapp.tasks import send_payment_received_whatsapp
+
         send_payment_received_whatsapp.apply_async(
             args=[str(payment_link.order.id)],
             expires=300,
@@ -109,11 +114,13 @@ def _send_payment_failed_whatsapp(payment_link):
         return
 
     from django.conf import settings as django_settings
+
     if not getattr(django_settings, "CELERY_BROKER_URL", ""):
         return
 
     try:
         from apps.integrations.whatsapp.tasks import send_payment_failed_whatsapp
+
         send_payment_failed_whatsapp.apply_async(
             args=[str(payment_link.order.id)],
             expires=300,
@@ -127,11 +134,11 @@ def _send_payment_failed_whatsapp(payment_link):
 # LISTA DE LINKS
 # ============================================================
 
+
 @login_required
 def payment_link_list(request):
     links = (
-        PaymentLink.objects
-        .filter(tenant=request.tenant)
+        PaymentLink.objects.filter(tenant=request.tenant)
         .select_related("order", "created_by")
         .order_by("-created_at")
     )
@@ -140,16 +147,21 @@ def payment_link_list(request):
     if status_filter:
         links = links.filter(status=status_filter)
 
-    return render(request, "payments/payment_link_list.html", {
-        "links": links[:100],
-        "status_filter": status_filter,
-        "status_choices": PaymentLink.Status.choices,
-    })
+    return render(
+        request,
+        "payments/payment_link_list.html",
+        {
+            "links": links[:100],
+            "status_filter": status_filter,
+            "status_choices": PaymentLink.Status.choices,
+        },
+    )
 
 
 # ============================================================
 # CRIAR LINK PARA PEDIDO (AJAX)
 # ============================================================
+
 
 @login_required
 @require_POST
@@ -161,10 +173,9 @@ def create_link_for_order(request, order_id):
 
     settings = getattr(request.tenant, "settings", None)
     if not settings or not settings.pagarme_enabled or not settings.pagarme_api_key:
-        return JsonResponse({
-            "success": False,
-            "error": "Pagar.me não está configurado."
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": "Pagar.me não está configurado."}, status=400
+        )
 
     try:
         installments = int(request.POST.get("installments", 1))
@@ -180,30 +191,32 @@ def create_link_for_order(request, order_id):
             created_by=request.user,
         )
 
-        _send_payment_link_whatsapp(payment_link)
+        # CORREÇÃO CRÍTICA DE RACE CONDITION:
+        # Usa on_commit para garantir que o link foi salvo no banco antes de o Celery tentar acessá-lo.
+        transaction.on_commit(lambda: _send_payment_link_whatsapp(payment_link))
 
-        return JsonResponse({
-            "success": True,
-            "link_id": str(payment_link.id),
-            "checkout_url": payment_link.checkout_url,
-            "amount": str(payment_link.amount),
-            "installments": payment_link.installments,
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "link_id": str(payment_link.id),
+                "checkout_url": payment_link.checkout_url,
+                "amount": str(payment_link.amount),
+                "installments": payment_link.installments,
+            }
+        )
 
     except PagarmeError as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 
     except Exception:
         logger.exception("Erro inesperado ao criar link")
-        return JsonResponse({
-            "success": False,
-            "error": "Erro interno."
-        }, status=500)
+        return JsonResponse({"success": False, "error": "Erro interno."}, status=500)
 
 
 # ============================================================
 # CRIAR LINK AVULSO
 # ============================================================
+
 
 @login_required
 def create_standalone_link(request):
@@ -243,10 +256,14 @@ def create_standalone_link(request):
         if errors:
             for error in errors:
                 messages.error(request, error)
-            return render(request, "payments/create_standalone.html", {
-                "form_data": request.POST,
-                "max_installments": settings.pagarme_max_installments,
-            })
+            return render(
+                request,
+                "payments/create_standalone.html",
+                {
+                    "form_data": request.POST,
+                    "max_installments": settings.pagarme_max_installments,
+                },
+            )
 
         try:
             payment_link = create_standalone_payment_link(
@@ -269,14 +286,19 @@ def create_standalone_link(request):
             logger.exception("Erro ao criar link avulso")
             messages.error(request, "Erro interno.")
 
-    return render(request, "payments/create_standalone.html", {
-        "max_installments": settings.pagarme_max_installments,
-    })
+    return render(
+        request,
+        "payments/create_standalone.html",
+        {
+            "max_installments": settings.pagarme_max_installments,
+        },
+    )
 
 
 # ============================================================
 # DETALHES DO LINK
 # ============================================================
+
 
 @login_required
 def payment_link_detail(request, link_id):
@@ -290,6 +312,7 @@ def payment_link_detail(request, link_id):
 # ============================================================
 # WEBHOOK PAGAR.ME
 # ============================================================
+
 
 @csrf_exempt
 @require_POST
@@ -315,7 +338,9 @@ def pagarme_webhook(request):
         if not payment_link:
             logger.warning(
                 "PaymentLink não encontrado: pl=%s ch=%s or=%s",
-                pagarme_link_code, charge_id, order_id
+                pagarme_link_code,
+                charge_id,
+                order_id,
             )
             return HttpResponse("OK", status=200)
 
@@ -329,8 +354,12 @@ def pagarme_webhook(request):
 
         if event_type in ("charge.paid", "order.paid", "paymentlink.paid"):
             if payment_link.status != PaymentLink.Status.PAID:
+                # Chama método do model que salva os dados do Payer
                 payment_link.mark_as_paid(webhook_data=payload)
-                _send_payment_confirmation_whatsapp(payment_link)
+                # Notificação com delay seguro
+                transaction.on_commit(
+                    lambda: _send_payment_confirmation_whatsapp(payment_link)
+                )
 
         elif event_type == "payment-link.expired":
             if payment_link.status == PaymentLink.Status.PENDING:
@@ -340,7 +369,7 @@ def pagarme_webhook(request):
 
         elif event_type == "charge.payment_failed":
             payment_link.mark_as_failed(webhook_data=payload)
-            _send_payment_failed_whatsapp(payment_link)
+            transaction.on_commit(lambda: _send_payment_failed_whatsapp(payment_link))
 
         elif event_type in ("paymentlink.canceled", "order.canceled"):
             payment_link.status = PaymentLink.Status.CANCELED

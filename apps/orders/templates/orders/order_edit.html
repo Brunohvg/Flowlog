@@ -8,104 +8,114 @@
 {% block content %}
 
 <div class="max-w-2xl mx-auto">
-  
+
   <div class="mb-6">
-    <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary btn-sm">
-      <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar
+    <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary btn-sm group">
+      <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i> Voltar
     </a>
   </div>
-  
+
   <form method="post" class="space-y-6">
     {% csrf_token %}
-    
-    <!-- Cliente (read-only) -->
-    <div class="card p-6">
+
+    <div class="card p-6 border border-slate-200">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
           <i data-lucide="user" class="w-5 h-5 text-blue-600"></i>
         </div>
         <h3 class="font-bold text-slate-800">Cliente</h3>
       </div>
-      
-      <div class="p-4 bg-slate-50 rounded-xl">
+
+      <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
         <p class="font-semibold text-slate-800">{{ order.customer.name }}</p>
-        <p class="text-slate-500">{{ order.customer.phone }}</p>
+        <p class="text-slate-500 text-sm">{{ order.customer.phone }}</p>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Para alterar o cliente, cancele este pedido e crie um novo.</p>
+      <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+        <i data-lucide="info" class="w-3 h-3"></i>
+        Para alterar o cliente, cancele este pedido e crie um novo.
+      </p>
     </div>
-    
-    <!-- Valor e Prioridade -->
+
     <div class="card p-6">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
           <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
         </div>
-        <h3 class="font-bold text-slate-800">Valor</h3>
+        <h3 class="font-bold text-slate-800">Financeiro</h3>
       </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label class="form-label">Valor Total (R$) *</label>
-          <input type="text" name="total_value" value="{{ order.total_value|currency }}" required class="form-input" id="value-input">
+          <input type="text" name="total_value" value="{{ order.total_value|floatformat:2 }}" required class="form-input text-lg font-bold text-slate-700" id="value-input">
         </div>
-        
-        <div class="flex items-center">
-          <label class="flex items-center gap-3 cursor-pointer">
+
+        <div class="flex items-center pt-6">
+          <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-transparent hover:bg-slate-50 transition-colors w-full">
             <input type="checkbox" name="is_priority" {% if order.is_priority %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500">
             <div>
               <p class="font-semibold text-slate-800">Pedido Prioritário</p>
-              <p class="text-xs text-slate-500">Destaque na lista</p>
+              <p class="text-xs text-slate-500">Destaca este pedido na lista</p>
             </div>
           </label>
         </div>
       </div>
     </div>
-    
-    <!-- Endereço -->
+
     {% if order.delivery_type != 'pickup' %}
     <div class="card p-6">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-          <i data-lucide="map-pin" class="w-5 h-5 text-indigo-600"></i>
+          <i data-lucide="truck" class="w-5 h-5 text-indigo-600"></i>
         </div>
-        <h3 class="font-bold text-slate-800">Endereço de Entrega</h3>
+        <h3 class="font-bold text-slate-800">Logística</h3>
       </div>
-      
-      <textarea name="delivery_address" rows="4" class="form-textarea" placeholder="Endereço completo...">{{ order.delivery_address }}</textarea>
+
+      <div class="space-y-4">
+          <div>
+            <label class="form-label">Endereço de Entrega</label>
+            <textarea name="delivery_address" rows="3" class="form-textarea" placeholder="Rua, Número, Bairro, Cidade/UF - CEP">{{ order.delivery_address }}</textarea>
+          </div>
+
+          {% if order.is_correios or order.delivery_status == 'shipped' %}
+          <div>
+            <label class="form-label">Código de Rastreio</label>
+            <input type="text" name="tracking_code" value="{{ order.tracking_code|default:'' }}" class="form-input uppercase font-mono" placeholder="AA123456789BR">
+            <p class="text-xs text-slate-400 mt-1">Opcional. Será enviado ao cliente.</p>
+          </div>
+          {% endif %}
+      </div>
     </div>
     {% endif %}
-    
-    <!-- Motoboy (só aparece para entregas motoboy) -->
+
     {% if order.delivery_type == 'motoboy' %}
-    <div class="card p-6">
+    <div class="card p-6 border border-blue-100">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
           <i data-lucide="bike" class="w-5 h-5 text-blue-600"></i>
         </div>
-        <h3 class="font-bold text-slate-800">Dados do Motoboy</h3>
+        <h3 class="font-bold text-slate-800">Motoboy</h3>
       </div>
-      
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="form-label">Valor Motoboy (R$)</label>
+          <label class="form-label">Taxa de Entrega (R$)</label>
           <input type="text" name="motoboy_fee" value="{% if order.motoboy_fee %}{{ order.motoboy_fee|floatformat:2 }}{% endif %}" class="form-input" id="motoboy-fee-input" placeholder="0,00">
-          <p class="text-xs text-slate-400 mt-1">Taxa paga ao motoboy pela entrega</p>
         </div>
-        
-        <div class="flex items-center">
-          <label class="flex items-center gap-3 cursor-pointer">
+
+        <div class="flex items-center pt-6">
+          <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-slate-100 hover:bg-slate-50 w-full transition-colors {% if order.motoboy_paid %}bg-emerald-50 border-emerald-100{% endif %}">
             <input type="checkbox" name="motoboy_paid" {% if order.motoboy_paid %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
             <div>
-              <p class="font-semibold text-slate-800">Motoboy já foi pago</p>
-              <p class="text-xs text-slate-500">Marque quando efetuar o pagamento</p>
+              <p class="font-semibold text-slate-800">Motoboy Pago</p>
+              <p class="text-xs text-slate-500">Marque se já acertou a taxa</p>
             </div>
           </label>
         </div>
       </div>
     </div>
     {% endif %}
-    
-    <!-- Observações -->
+
     <div class="card p-6">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
@@ -113,59 +123,51 @@
         </div>
         <h3 class="font-bold text-slate-800">Observações</h3>
       </div>
-      
+
       <div class="space-y-4">
         <div>
-          <label class="form-label">Observações do Pedido</label>
-          <textarea name="notes" rows="3" class="form-textarea" placeholder="Observações visíveis na etiqueta...">{{ order.notes }}</textarea>
-          <p class="text-xs text-slate-400 mt-1">Visível na etiqueta e para o cliente</p>
+          <label class="form-label">Observações Públicas</label>
+          <textarea name="notes" rows="3" class="form-textarea bg-yellow-50/30 border-yellow-100 focus:border-yellow-300 focus:ring-yellow-200" placeholder="Visível na etiqueta...">{{ order.notes }}</textarea>
+          <p class="text-xs text-slate-400 mt-1">Impresso na etiqueta e visível para o cliente.</p>
         </div>
-        
+
         <div>
-          <label class="form-label">Notas Internas</label>
-          <textarea name="internal_notes" rows="2" class="form-textarea" placeholder="Notas apenas para a equipe...">{{ order.internal_notes }}</textarea>
-          <p class="text-xs text-slate-400 mt-1">Visível apenas para vendedores</p>
+          <label class="form-label flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Notas Internas</label>
+          <textarea name="internal_notes" rows="2" class="form-textarea bg-slate-50 text-sm" placeholder="Apenas para a equipe...">{{ order.internal_notes }}</textarea>
         </div>
       </div>
     </div>
-    
-    <!-- Ações -->
-    <div class="flex gap-3">
-      <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary">Cancelar</a>
-      <button type="submit" class="btn btn-primary flex-1">
-        <i data-lucide="check" class="w-4 h-4"></i> Salvar Alterações
+
+    <div class="flex gap-3 pt-4 pb-8">
+      <a href="{% url 'order_detail' order.id %}" class="btn btn-secondary px-6">Cancelar</a>
+      <button type="submit" class="btn btn-primary flex-1 shadow-lg shadow-indigo-200">
+        <i data-lucide="save" class="w-4 h-4"></i> Salvar Alterações
       </button>
     </div>
   </form>
-  
+
 </div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Máscara valor
-  document.getElementById('value-input').addEventListener('input', function(e) {
-    let v = e.target.value.replace(/\D/g, '');
-    if (v.length > 0) {
-      v = (parseInt(v) / 100).toFixed(2);
-      v = v.replace('.', ',');
-      v = v.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-    e.target.value = v;
-  });
-  
-  // Máscara valor motoboy (se existir)
-  const motoboyInput = document.getElementById('motoboy-fee-input');
-  if (motoboyInput) {
-    motoboyInput.addEventListener('input', function(e) {
-      let v = e.target.value.replace(/\D/g, '');
-      if (v.length > 0) {
-        v = (parseInt(v) / 100).toFixed(2);
-        v = v.replace('.', ',');
-      }
-      e.target.value = v;
+  // Máscara valor (Melhorada para não bugar edição)
+  function maskMoney(input) {
+    input.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value === '') return;
+
+      value = (parseInt(value) / 100).toFixed(2);
+      value = value.replace('.', ',');
+      value = value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      e.target.value = value;
     });
   }
+
+  maskMoney(document.getElementById('value-input'));
+
+  const motoboyInput = document.getElementById('motoboy-fee-input');
+  if (motoboyInput) maskMoney(motoboyInput);
 </script>
 {% endblock %}

@@ -184,7 +184,7 @@
                 </h3>
                 <div class="space-y-3 relative z-10">
                     {% for alert in alerts %}
-                    <a href="{% if '/pagamentos' in alert.link or 'http' in alert.link %}{{ alert.link }}{% else %}{% url 'order_list' %}{{ alert.link }}{% endif %}" 
+                    <a href="{% if '/pagamentos' in alert.link or 'http' in alert.link %}{{ alert.link }}{% else %}{% url 'order_list' %}{{ alert.link }}{% endif %}"
                        class="block p-3 rounded-xl transition-colors border
                               {% if alert.level == 'critical' %}bg-red-50 hover:bg-red-100 border-red-100
                               {% elif alert.level == 'warning' %}bg-amber-50 hover:bg-amber-100 border-amber-100
@@ -197,7 +197,7 @@
                                {% elif alert.level == 'info' %}text-blue-600
                                {% else %}text-slate-600{% endif %}"></i>
                             <div>
-                                <p class="text-sm font-bold 
+                                <p class="text-sm font-bold
                                    {% if alert.level == 'critical' %}text-red-800
                                    {% elif alert.level == 'warning' %}text-amber-800
                                    {% elif alert.level == 'info' %}text-blue-800

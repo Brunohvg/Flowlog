@@ -1,6 +1,11 @@
 """
-Tasks Celery para WhatsApp.
-CORRIGIDO: Configurado para usar a fila 'whatsapp' correta.
+Tasks Celery para WhatsApp - Flowlog.
+Gerencia o envio assíncrono de notificações com alta resiliência.
+
+Arquitetura:
+1. Snapshot: Dados são 'congelados' no momento do evento para evitar Race Conditions.
+2. Serialização: Uso de DjangoJSONEncoder para suportar Decimal e Datas.
+3. Filas: Processamento isolado na fila 'whatsapp'.
 """
 
 import json
@@ -9,11 +14,29 @@ import time
 
 from celery import shared_task
 from django.apps import apps
+from django.core.serializers.json import (
+    DjangoJSONEncoder,  # Essencial para serializar Decimal/Date
+)
 from django.db import transaction
 
 from apps.integrations.whatsapp.services import WhatsAppNotificationService
 
 logger = logging.getLogger(__name__)
+
+# Configuração robusta para Tasks de Mensageria
+TASK_CONFIG = {
+    "bind": True,
+    "autoretry_for": (
+        Exception,
+    ),  # Retenta automaticamente em caso de exceções não tratadas
+    "retry_kwargs": {"max_retries": 5, "countdown": 10},  # Backoff: 10s, 20s...
+    "retry_backoff": True,
+    "retry_backoff_max": 120,
+    "retry_jitter": True,
+    "acks_late": True,  # Garante que a task só é removida da fila se sucesso
+    "reject_on_worker_lost": True,
+    "queue": "whatsapp",  # Fila dedicada
+}
 
 
 class OrderNotFoundError(Exception):
@@ -21,7 +44,10 @@ class OrderNotFoundError(Exception):
 
 
 def _get_order(order_id: str):
-    """Busca order do banco (usado apenas quando necessário)."""
+    """
+    Helper para buscar pedido no banco.
+    Usado apenas em tasks legadas ou específicas (como PaymentLink).
+    """
     Order = apps.get_model("orders", "Order")
     try:
         return Order.objects.select_related(
@@ -33,117 +59,118 @@ def _get_order(order_id: str):
 
 def create_order_snapshot(order) -> dict:
     """
-    Cria snapshot dos dados do pedido para envio via Celery.
-    Evita race condition - dados são "congelados" no momento do evento.
+    Cria um dicionário (snapshot) com os dados do pedido.
+
+    Objetivo: Congelar o estado do pedido no momento do evento.
+    Isso evita inconsistências se o pedido for alterado enquanto a task aguarda na fila.
     """
     return {
         "order_id": str(order.id),
         "code": order.code,
+        # Mantemos str() para total_value por segurança dupla,
+        # embora o DjangoJSONEncoder lidaria com Decimal se necessário.
         "total_value": str(order.total_value),
         "customer_name": order.customer.name if order.customer else "",
         "customer_phone": order.customer.phone_normalized if order.customer else "",
         "tenant_id": str(order.tenant_id),
         "tracking_code": order.tracking_code or "",
         "pickup_code": order.pickup_code or "",
-        "delivery_attempts": order.delivery_attempts,
-        "cancel_reason": order.cancel_reason or "",
-        "return_reason": order.return_reason or "",
+        "delivery_attempts": getattr(order, "delivery_attempts", 0),
+        "cancel_reason": getattr(order, "cancel_reason", "") or "",
+        "return_reason": getattr(order, "return_reason", "") or "",
     }
-
-
-# --- CORREÇÃO AQUI: Adicionado 'queue': 'whatsapp' ---
-TASK_CONFIG = {
-    "bind": True,
-    "autoretry_for": (Exception, OrderNotFoundError),
-    "retry_kwargs": {"max_retries": 5, "countdown": 10},
-    "retry_backoff": True,
-    "retry_backoff_max": 120,
-    "retry_jitter": True,
-    "acks_late": True,
-    "reject_on_worker_lost": True,
-    "queue": "whatsapp",  # <--- OBRIGATÓRIO: Força a tarefa ir para a fila que o Worker escuta
-}
 
 
 def _process_with_snapshot(snapshot: dict, method: str):
     """
-    Processa envio usando snapshot (dados congelados).
-    RESILIÊNCIA: Captura todos os erros, nunca trava.
+    Núcleo de processamento via Snapshot.
+    Recebe dados puros (dict), instancia o serviço e dispara o envio.
     """
     from apps.tenants.models import Tenant
 
+    # 1. Busca configurações do Tenant
     try:
         tenant = Tenant.objects.select_related("settings").get(id=snapshot["tenant_id"])
     except Tenant.DoesNotExist:
-        logger.warning(
-            "[WhatsApp] Tenant não encontrado: %s", snapshot.get("tenant_id")
+        logger.error(
+            "[WhatsApp] Tenant ID %s não encontrado no snapshot",
+            snapshot.get("tenant_id"),
         )
         return {"success": False, "error": "Tenant not found"}
     except Exception as e:
-        logger.warning("[WhatsApp] Erro ao buscar tenant: %s", e)
-        return {"success": False, "error": str(e)}
+        logger.error("[WhatsApp] Erro ao buscar tenant: %s", e)
+        raise e  # Levanta erro para o Celery tentar novamente
 
+    # 2. Executa envio
     try:
         service = WhatsAppNotificationService(tenant)
         func = getattr(service, method, None)
-        if func:
-            result = func(snapshot)
-            time.sleep(0.5)
-            return result
-        return {"success": False, "error": f"Method {method} not found"}
+
+        if not func:
+            logger.error("[WhatsApp] Método '%s' não existe no serviço", method)
+            return {"success": False, "error": f"Method {method} not found"}
+
+        # O serviço sabe lidar com dict (snapshot) graças ao _extract_data implementado
+        result = func(snapshot)
+
+        # Pequeno delay para aliviar rate-limits em disparos em massa
+        time.sleep(0.1)
+        return result
+
     except Exception as e:
-        logger.warning("[WhatsApp] Erro ao processar snapshot method=%s: %s", method, e)
-        return {"success": False, "error": str(e)}
+        logger.exception(
+            "[WhatsApp] Erro crítico ao processar snapshot method=%s", method
+        )
+        raise e
 
 
 def _process_legacy(self, order_id: str, method: str):
     """
-    Modo legado - lê do banco.
-    RESILIÊNCIA: Captura todos os erros, nunca trava.
+    Processamento legado (baseado em ID).
+    Mantido para compatibilidade com tasks antigas que ainda possam estar na fila.
     """
     try:
         order = _get_order(order_id)
-    except OrderNotFoundError:
-        logger.warning("[WhatsApp] Order não encontrado: %s", order_id)
-        return {"success": False, "error": "Order not found"}
-    except Exception as e:
-        logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
-        return {"success": False, "error": str(e)}
-
-    try:
         service = WhatsAppNotificationService(order.tenant)
         func = getattr(service, method, None)
+
         if func:
-            result = func(order)
-            time.sleep(0.5)
-            return result
+            return func(order)
+
         return {"success": False, "error": f"Method {method} not found"}
+
+    except OrderNotFoundError:
+        logger.warning("[WhatsApp] Order %s não encontrado (Legacy)", order_id)
+        return {"success": False, "error": "Order not found"}
     except Exception as e:
-        logger.warning("[WhatsApp] Erro ao processar legacy method=%s: %s", method, e)
-        return {"success": False, "error": str(e)}
+        logger.exception("[WhatsApp] Falha legacy order=%s method=%s", order_id, method)
+        raise e
 
 
 # ==============================================================================
-# TASKS COM SNAPSHOT (novas)
+# TASKS PRINCIPAIS (Snapshot - Recomendadas)
 # ==============================================================================
 
 
 @shared_task(**TASK_CONFIG)
 def send_whatsapp_notification(self, snapshot_json: str, method: str):
     """
-    Task genérica que recebe snapshot JSON.
-    Imune a race condition.
+    Task Única e Principal.
+    Recebe JSON serializado, decodifica e processa.
     """
     try:
         snapshot = json.loads(snapshot_json)
         return _process_with_snapshot(snapshot, method)
     except json.JSONDecodeError as e:
-        logger.error("Snapshot JSON inválido: %s", str(e))
-        return {"success": False, "error": "Invalid snapshot"}
+        logger.error("[WhatsApp] JSON inválido recebido: %s", e)
+        return {"success": False, "error": "Invalid JSON"}
+    except Exception as e:
+        logger.exception("[WhatsApp] Falha na task send_whatsapp_notification")
+        raise e
 
 
 # ==============================================================================
-# TASKS LEGADAS (mantidas para compatibilidade com jobs em fila)
+# TASKS LEGADAS (Compatibilidade)
 # ==============================================================================
 
 
@@ -215,50 +242,42 @@ def send_order_returned_whatsapp(self, order_id):
 @shared_task(**TASK_CONFIG)
 def send_payment_link_whatsapp(self, order_id, payment_link_id):
     """
-    Envia link de pagamento via WhatsApp.
-    RESILIÊNCIA: Captura todos os erros.
+    Envia link de pagamento (Task Específica que requer busca no banco).
     """
     from apps.payments.models import PaymentLink
 
     try:
         order = _get_order(order_id)
-    except OrderNotFoundError:
-        logger.warning(
-            "[WhatsApp] Order não encontrado para payment_link: %s", order_id
-        )
-        return {"success": False, "error": "Order not found"}
-    except Exception as e:
-        logger.warning("[WhatsApp] Erro ao buscar order: %s", e)
-        return {"success": False, "error": str(e)}
-
-    try:
         payment_link = PaymentLink.objects.get(id=payment_link_id)
-    except PaymentLink.DoesNotExist:
-        logger.warning("[WhatsApp] PaymentLink não encontrado: %s", payment_link_id)
-        return {"success": False, "error": "PaymentLink not found"}
 
-    try:
         service = WhatsAppNotificationService(order.tenant)
-        result = service.send_payment_link(order, payment_link)
-        time.sleep(0.5)
-        return result
-    except Exception as e:
-        logger.warning("[WhatsApp] Erro ao enviar payment_link: %s", e)
+        return service.send_payment_link(order, payment_link)
+
+    except (OrderNotFoundError, PaymentLink.DoesNotExist) as e:
+        logger.warning("[WhatsApp] Recurso não encontrado (PaymentLink): %s", e)
         return {"success": False, "error": str(e)}
+    except Exception as e:
+        logger.exception("[WhatsApp] Erro ao enviar link de pagamento")
+        raise e
 
 
-# Adicionado queue='whatsapp' explicitamente aqui também
+# ==============================================================================
+# JOBS AGENDADOS (Celery Beat)
+# ==============================================================================
+
+
 @shared_task(bind=True, queue="whatsapp")
 def expire_pending_pickups(self):
     """
-    Job agendado: Expira pedidos de retirada não retirados.
-    Usa SNAPSHOT para garantir consistência dos dados.
+    Job periódico: Verifica e expira pedidos de retirada vencidos.
+    Usa SNAPSHOT + DjangoJSONEncoder para consistência absoluta.
     """
     from django.utils import timezone
 
     from apps.orders.models import DeliveryStatus, DeliveryType, Order
     from apps.orders.services import OrderStatusService
 
+    # Busca pedidos prontos para retirada que já venceram
     orders = Order.objects.select_related("customer", "tenant").filter(
         delivery_type=DeliveryType.PICKUP,
         delivery_status=DeliveryStatus.READY_FOR_PICKUP,
@@ -271,29 +290,31 @@ def expire_pending_pickups(self):
 
     for order in orders:
         try:
-            # Cria snapshot ANTES de alterar o status
+            # 1. Cria snapshot (congela dados antes da expiração)
             snapshot = create_order_snapshot(order)
-            snapshot_json = json.dumps(snapshot)
 
-            # Expira o pedido
+            # 2. Serializa com Encoder Seguro (evita erro com Decimal/Date)
+            snapshot_json = json.dumps(snapshot, cls=DjangoJSONEncoder)
+
+            # 3. Executa a expiração no banco
             service.expire_pickup_order(order=order)
 
-            # Função segura para enviar notificação
-            def _safe_send(sj=snapshot_json):
-                try:
-                    send_whatsapp_notification.apply_async(
-                        args=[sj, "send_order_expired"],
-                        expires=300,
-                        ignore_result=True,
-                        queue="whatsapp",  # Reforço de segurança
-                    )
-                except Exception as e:
-                    logger.warning("[WhatsApp] Falha ao enviar expiração: %s", e)
+            # 4. Define envio seguro (só executa após commit do banco)
+            def _safe_send(_json=snapshot_json):
+                send_whatsapp_notification.apply_async(
+                    args=[_json, "send_order_expired"],
+                    expires=300,
+                    ignore_result=True,
+                    queue="whatsapp",
+                )
 
             transaction.on_commit(_safe_send)
             count += 1
-        except Exception as e:
-            logger.warning("[WhatsApp] Erro ao expirar order=%s: %s", order.id, e)
+
+        except Exception:
+            logger.exception(
+                "[WhatsApp] Erro ao processar expiração automática order=%s", order.id
+            )
             errors += 1
 
     return {"expired": count, "errors": errors}

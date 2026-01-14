@@ -19,10 +19,10 @@
         <p class="text-sm text-purple-600">Digite o código de 4 dígitos do cliente</p>
       </div>
     </div>
-    
+
     <div class="flex-1 flex items-center gap-3">
-      <input 
-        type="text" 
+      <input
+        type="text"
         id="pickup-code-input"
         maxlength="4"
         inputmode="numeric"
@@ -35,7 +35,7 @@
         <i data-lucide="check" class="w-4 h-4"></i> Validar
       </button>
     </div>
-    
+
     <!-- Resultado da Validação -->
     <div id="pickup-result" class="hidden"></div>
   </div>
@@ -44,18 +44,18 @@
 <!-- Filtros -->
 <div class="card p-4 mb-6">
   <form method="get" class="flex flex-col lg:flex-row lg:items-center gap-3">
-    
+
     <div class="flex-1 relative">
       <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
-      <input 
-        type="text" 
-        name="q" 
+      <input
+        type="text"
+        name="q"
         value="{{ request.GET.q }}"
-        placeholder="Buscar por código, cliente ou código de retirada..." 
+        placeholder="Buscar por código, cliente ou código de retirada..."
         class="form-input pl-12"
       >
     </div>
-    
+
     <div class="flex flex-wrap gap-3">
       <select name="status" class="form-select w-full sm:w-40">
         <option value="">Todos status</option>
@@ -65,7 +65,7 @@
         <option value="delivered" {% if request.GET.status == 'delivered' %}selected{% endif %}>✅ Entregues</option>
         <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>❌ Cancelados</option>
       </select>
-      
+
       <select name="type" class="form-select w-full sm:w-40">
         <option value="">Todos tipos</option>
         <option value="motoboy" {% if request.GET.type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
@@ -73,22 +73,22 @@
         <option value="pac" {% if request.GET.type == 'pac' %}selected{% endif %}>📦 PAC</option>
         <option value="pickup" {% if request.GET.type == 'pickup' %}selected{% endif %}>🏬 Retirada</option>
       </select>
-      
+
       <button type="submit" class="btn btn-primary btn-sm">
         <i data-lucide="filter" class="w-4 h-4"></i> Filtrar
       </button>
-      
+
       {% if request.GET.q or request.GET.status or request.GET.type %}
       <a href="{% url 'order_list' %}" class="btn btn-secondary btn-sm">
         <i data-lucide="x" class="w-4 h-4"></i> Limpar
       </a>
       {% endif %}
     </div>
-    
+
     <a href="{% url 'order_create' %}" class="btn btn-primary">
       <i data-lucide="plus" class="w-4 h-4"></i> Novo Pedido
     </a>
-    
+
   </form>
 </div>
 
@@ -119,14 +119,14 @@
             <a href="{% url 'order_detail' order.id %}" class="font-mono text-sm font-semibold text-indigo-600 hover:text-indigo-700">{{ order.code }}</a>
             <p class="text-xs text-slate-400 mt-0.5">{{ order.created_at|date:"d/m/Y H:i" }}</p>
           </td>
-          
+
           <td>
             <p class="font-medium text-slate-700">{{ order.customer.name }}</p>
             <a href="https://wa.me/55{{ order.customer.phone_normalized }}" target="_blank" class="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-1 mt-0.5">
               <i data-lucide="message-circle" class="w-3 h-3"></i> {{ order.customer.phone }}
             </a>
           </td>
-          
+
           <td>
             <span class="font-semibold text-slate-800">R$ {{ order.total_value|currency }}</span>
             {% if order.order_status == 'cancelled' or order.order_status == 'returned' %}
@@ -137,7 +137,7 @@
             <span class="badge bg-emerald-100 text-emerald-700 ml-1">Pago</span>
             {% endif %}
           </td>
-          
+
           <td>
             {% if order.delivery_type == 'pickup' %}
               <span class="badge bg-amber-100 text-amber-700"><i data-lucide="store" class="w-3 h-3"></i> Retirada</span>
@@ -152,7 +152,7 @@
               <span class="badge bg-emerald-100 text-emerald-700"><i data-lucide="package" class="w-3 h-3"></i> PAC</span>
             {% endif %}
           </td>
-          
+
           <td>
             {% if order.order_status == 'cancelled' %}
               <span class="badge bg-red-100 text-red-700">Cancelado</span>
@@ -168,7 +168,7 @@
               <span class="badge bg-amber-100 text-amber-700">Pendente</span>
             {% endif %}
           </td>
-          
+
           <td>
             {% if order.tracking_code %}
               {% if order.tracking_url %}
@@ -182,11 +182,11 @@
               <span class="text-slate-400">—</span>
             {% endif %}
           </td>
-          
+
           <td>
             <div class="flex items-center justify-end gap-1">
               {% if order.payment_status == 'pending' and order.order_status != 'cancelled' and order.order_status != 'returned' %}
-              <button onclick="openQuickPaymentLink('{{ order.id }}', '{{ order.code }}', '{{ order.total_value }}')" 
+              <button onclick="openQuickPaymentLink('{{ order.id }}', '{{ order.code }}', '{{ order.total_value }}')"
                       class="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600" title="Gerar Link Pagamento">
                 <i data-lucide="credit-card" class="w-4 h-4"></i>
               </button>
@@ -214,7 +214,7 @@
       </tbody>
     </table>
   </div>
-  
+
   <!-- Paginação -->
   {% if page_obj.has_other_pages %}
   <div class="p-4 border-t border-slate-100 flex items-center justify-between">
@@ -225,9 +225,9 @@
         <i data-lucide="chevron-left" class="w-4 h-4"></i>
       </a>
       {% endif %}
-      
+
       <span class="px-3 py-2 text-sm text-slate-600">Página {{ page_obj.number }}</span>
-      
+
       {% if page_obj.has_next %}
       <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}" class="p-2 hover:bg-slate-100 rounded-lg">
         <i data-lucide="chevron-right" class="w-4 h-4"></i>
@@ -249,7 +249,7 @@ const resultDiv = document.getElementById('pickup-result');
 pickupInput.addEventListener('input', (e) => {
   e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
   resultDiv.classList.add('hidden');
-  
+
   if (e.target.value.length === 4) {
     validatePickupCode();
   }
@@ -257,19 +257,19 @@ pickupInput.addEventListener('input', (e) => {
 
 async function validatePickupCode() {
   const code = pickupInput.value;
-  
+
   if (code.length !== 4) {
     showResult('warning', 'Digite um código de 4 dígitos');
     return;
   }
-  
+
   // Loading
   document.getElementById('validate-btn').innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>';
-  
+
   try {
     const response = await fetch(`{% url 'validate_pickup_code' %}?code=${code}`);
     const data = await response.json();
-    
+
     if (data.found) {
       showResult('success', `
         <div class="flex items-center gap-4">
@@ -290,11 +290,11 @@ async function validatePickupCode() {
     } else {
       showResult('error', data.message || 'Código não encontrado');
     }
-    
+
   } catch (error) {
     showResult('error', 'Erro de conexão');
   }
-  
+
   document.getElementById('validate-btn').innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Validar';
   lucide.createIcons();
 }
@@ -305,7 +305,7 @@ function showResult(type, content) {
     error: 'bg-red-100 border-red-300 text-red-800',
     warning: 'bg-amber-100 border-amber-300 text-amber-800'
   };
-  
+
   resultDiv.innerHTML = `<div class="p-3 rounded-xl border ${colors[type]}">${content}</div>`;
   resultDiv.classList.remove('hidden');
 }
@@ -319,14 +319,14 @@ async function markPickedUp(orderId) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       showResult('success', `<div class="flex items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> ${data.message}</div>`);
       pickupInput.value = '';
       lucide.createIcons();
-      
+
       // Recarrega após 1.5s
       setTimeout(() => location.reload(), 1500);
     } else {
@@ -348,7 +348,7 @@ function openQuickPaymentLink(orderId, orderCode, totalValue) {
   document.getElementById('quickPaymentValue').textContent = 'R$ ' + parseFloat(totalValue).toFixed(2).replace('.', ',');
   document.getElementById('quickPaymentModal').classList.remove('hidden');
   document.getElementById('quickPaymentModal').classList.add('flex');
-  
+
   // Reset state
   document.getElementById('quickPaymentForm').classList.remove('hidden');
   document.getElementById('quickPaymentResult').classList.add('hidden');
@@ -363,12 +363,12 @@ function closeQuickPaymentModal() {
 
 async function generateQuickPaymentLink() {
   const installments = document.getElementById('quickInstallments').value;
-  
+
   // Show loading
   document.getElementById('quickPaymentForm').classList.add('hidden');
   document.getElementById('quickPaymentLoading').classList.remove('hidden');
   document.getElementById('quickPaymentError').classList.add('hidden');
-  
+
   try {
     const response = await fetch(`/pagamentos/pedido/${currentOrderId}/`, {
       method: 'POST',
@@ -378,10 +378,10 @@ async function generateQuickPaymentLink() {
       },
       body: 'installments=' + installments
     });
-    
+
     const data = await response.json();
     document.getElementById('quickPaymentLoading').classList.add('hidden');
-    
+
     if (data.success) {
       document.getElementById('quickGeneratedLink').value = data.checkout_url;
       document.getElementById('quickOpenLinkBtn').href = data.checkout_url;
@@ -391,7 +391,7 @@ async function generateQuickPaymentLink() {
       const errorMsg = data.error || 'Erro ao gerar link';
       document.getElementById('quickErrorMessage').textContent = errorMsg;
       document.getElementById('quickPaymentError').classList.remove('hidden');
-      
+
       // Mostra hint de configurações se for erro de API key
       const hint = document.getElementById('quickErrorHint');
       if (errorMsg.toLowerCase().includes('configuração') || errorMsg.toLowerCase().includes('chave') || errorMsg.toLowerCase().includes('inválida')) {
@@ -420,14 +420,14 @@ function copyQuickLink() {
   const input = document.getElementById('quickGeneratedLink');
   input.select();
   document.execCommand('copy');
-  
+
   // Feedback visual melhorado
   const btn = event.target.closest('button');
   const originalHTML = btn.innerHTML;
   btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Copiado!';
   btn.classList.add('bg-emerald-100', 'text-emerald-700');
   lucide.createIcons();
-  
+
   setTimeout(() => {
     btn.innerHTML = originalHTML;
     btn.classList.remove('bg-emerald-100', 'text-emerald-700');
@@ -451,7 +451,7 @@ document.getElementById('quickPaymentModal')?.addEventListener('click', function
       <h3 class="text-lg font-bold text-slate-800">Gerar Link de Pagamento</h3>
       <p class="text-slate-500 mt-1"><span id="quickPaymentOrderCode"></span> - <span id="quickPaymentValue"></span></p>
     </div>
-    
+
     <!-- Form inicial -->
     <div id="quickPaymentForm">
       <div class="mb-4">
@@ -462,11 +462,11 @@ document.getElementById('quickPaymentModal')?.addEventListener('click', function
           <option value="3">até 3x</option>
         </select>
       </div>
-      
+
       <div class="bg-slate-50 p-3 rounded-xl mb-4 text-sm text-slate-600">
         <p><i data-lucide="clock" class="w-4 h-4 inline text-amber-500"></i> Link expira em <strong>12 horas</strong></p>
       </div>
-      
+
       <div class="flex gap-3">
         <button onclick="closeQuickPaymentModal()" class="flex-1 btn btn-secondary">Cancelar</button>
         <button onclick="generateQuickPaymentLink()" class="flex-1 btn btn-primary">
@@ -474,14 +474,14 @@ document.getElementById('quickPaymentModal')?.addEventListener('click', function
         </button>
       </div>
     </div>
-    
+
     <!-- Resultado -->
     <div id="quickPaymentResult" class="hidden">
       <div class="bg-emerald-50 p-4 rounded-xl mb-4">
         <p class="text-emerald-700 font-medium mb-2"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> Link criado!</p>
         <input type="text" id="quickGeneratedLink" readonly class="form-input text-sm" />
       </div>
-      
+
       <div class="flex gap-3">
         <button onclick="copyQuickLink()" class="flex-1 btn btn-secondary">
           <i data-lucide="copy" class="w-4 h-4"></i> Copiar
@@ -490,16 +490,16 @@ document.getElementById('quickPaymentModal')?.addEventListener('click', function
           <i data-lucide="external-link" class="w-4 h-4"></i> Abrir
         </a>
       </div>
-      
+
       <button onclick="closeQuickPaymentModal()" class="w-full btn btn-secondary mt-3">Fechar</button>
     </div>
-    
+
     <!-- Loading -->
     <div id="quickPaymentLoading" class="hidden text-center py-8">
       <div class="animate-spin w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
       <p class="text-slate-600">Gerando link...</p>
     </div>
-    
+
     <!-- Erro -->
     <div id="quickPaymentError" class="hidden">
       <div class="bg-red-50 p-4 rounded-xl mb-4">

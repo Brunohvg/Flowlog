@@ -21,6 +21,7 @@ class PaymentLinkAdmin(admin.ModelAdmin):
         "amount_formatted",
         "status_display",
         "customer_name",
+        "payer_name",  # Adicionado: Nome de quem realmente pagou
         "get_order_link",  # Link clicável para o pedido
         "created_at_formatted",
     )
@@ -34,10 +35,11 @@ class PaymentLinkAdmin(admin.ModelAdmin):
         "customer_name",
         "customer_email",
         "customer_phone",
+        "payer_name",  # Adicionado busca pelo pagador
+        "payer_document",  # Adicionado busca por CPF do pagador
         "pagarme_order_id",
         "pagarme_charge_id",
-        # Busca pelo ID do pedido relacionado (se houver campo code no Order, use order__code)
-        "order__id",
+        "order__code",  # Corrigido: Busca pelo código do pedido
     )
 
     readonly_fields = (
@@ -60,7 +62,28 @@ class PaymentLinkAdmin(admin.ModelAdmin):
             "Informações Básicas",
             {"fields": ("tenant", "description", "amount", "installments", "status")},
         ),
-        ("Cliente", {"fields": ("customer_name", "customer_email", "customer_phone")}),
+        (
+            "Cliente (Destinatário)",
+            {"fields": ("customer_name", "customer_email", "customer_phone")},
+        ),
+        (
+            "Pagador (Quem pagou)",  # Nova seção
+            {
+                "fields": (
+                    "payer_name",
+                    "payer_document",
+                    "payer_email",
+                    "payer_phone",
+                    "payer_address_street",
+                    "payer_address_number",
+                    "payer_address_neighborhood",
+                    "payer_address_city",
+                    "payer_address_state",
+                    "payer_address_zip",
+                ),
+                "classes": ("collapse",),  # Esconde se estiver vazio/não pago
+            },
+        ),
         (
             "Integração Pagar.me",
             {
@@ -77,7 +100,7 @@ class PaymentLinkAdmin(admin.ModelAdmin):
         (
             "Dados Técnicos",
             {
-                "classes": ("collapse",),  # Esconde por padrão para não poluir
+                "classes": ("collapse",),
                 "fields": ("formatted_webhook_data",),
             },
         ),
@@ -137,7 +160,7 @@ class PaymentLinkAdmin(admin.ModelAdmin):
             json_str = json.dumps(obj.webhook_data, indent=2, ensure_ascii=False)
             # Usa tag <pre> para manter a formatação
             return format_html(
-                '<pre style="font-size: 12px; background-color: #f5f5f5; padding: 10px; border-radius: 4px;">{}</pre>',
+                '<pre style="font-size: 12px; background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{}</pre>',
                 json_str,
             )
         except Exception:
@@ -167,4 +190,6 @@ class PaymentLinkAdmin(admin.ModelAdmin):
         return obj.is_expired
 
     is_expired_display.boolean = True
-    is_expired_display.short_description = "Expirado?"  
+    is_expired_display.short_description = "Expirado?"
+
+    # --- FIM DOS MÉTODOS PERSONALIZADOS ---
