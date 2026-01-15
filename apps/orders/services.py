@@ -276,6 +276,8 @@ class OrderStatusService:
         if order.tenant_id != actor.tenant_id:
             raise ValueError("Usuário não pertence ao tenant.")
         order = Order.objects.select_for_update().get(id=order.id)
+        if order.order_status in [OrderStatus.CANCELLED, OrderStatus.RETURNED]:
+            raise ValueError("Não é permitido pagar um pedido cancelado ou devolvido.")
         if order.payment_status == PaymentStatus.PAID:
             return order
         order.payment_status = PaymentStatus.PAID
@@ -321,8 +323,9 @@ class OrderStatusService:
         elif tracking_code:
             order.tracking_code = tracking_code.strip().upper()
 
-        order.delivery_status = DeliveryStatus.SHIPPED
-        order.shipped_at = timezone.now()
+        if order.delivery_status != DeliveryStatus.SHIPPED:
+            order.delivery_status = DeliveryStatus.SHIPPED
+            order.shipped_at = timezone.now()
         if order.order_status == OrderStatus.PENDING:
             order.order_status = OrderStatus.CONFIRMED
         order.save(
