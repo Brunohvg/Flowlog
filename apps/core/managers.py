@@ -7,5 +7,5 @@ class TenantManager(models.Manager):
     def get_queryset(self):
         return TenantQuerySet(self.model, using=self._db)
 
-    def for_tenant(self, tenant):
+    def for_tenant(self, tenant=None):
         return self.get_queryset().for_tenant(tenant)

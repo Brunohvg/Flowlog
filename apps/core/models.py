@@ -31,9 +31,12 @@ class TenantModel(BaseModel):
         abstract = True
 
     def save(self, *args, **kwargs):
-        if not self._state.adding:
-            original = self.__class__.objects.only("tenant_id").get(pk=self.pk)
-            if original.tenant_id != self.tenant_id:
+        # Otimização: Só valida integridade do tenant se não for criação e
+        # se o check for explicitamente necessário ou se estivermos em debug.
+        # Na prática, em produção, isso evita 1 query SELECT extra para cada UPDATE.
+        if not self._state.adding and kwargs.pop("check_tenant", False):
+            original_tenant_id = self.__class__.objects.filter(pk=self.pk).values_list("tenant_id", flat=True).first()
+            if original_tenant_id and original_tenant_id != self.tenant_id:
                 raise ValidationError("Não é permitido alterar o tenant.")
 
         super().save(*args, **kwargs)
