@@ -347,12 +347,15 @@ class Order(TenantModel):
         super().save(*args, **kwargs)
 
     def _generate_code(self):
-        """Gera código único do pedido (PED-XXXXX)."""
+        """Gera código único do pedido usando timestamp + random."""
+        import time
         chars = string.ascii_uppercase + string.digits
         max_attempts = 100
         for _ in range(max_attempts):
-            random_part = "".join(random.choices(chars, k=5))
-            code = f"PED-{random_part}"
+            # Timestamp em microssegundos (base 36 para encurtar) + 3 chars random
+            ts = int(time.time() * 1000000)
+            random_part = "".join(random.choices(chars, k=3))
+            code = f"PED-{ts}-{random_part}"
             if not self.__class__._default_manager.filter(code=code).exists():
                 return code
         raise ValueError(

@@ -4,7 +4,7 @@ Models do app payments - Integração Pagar.me
 
 from datetime import timedelta
 
-from django.db import models
+from django.db import models, transaction as db_transaction
 from django.utils import timezone
 
 from apps.core.models import BaseModel
@@ -169,10 +169,16 @@ class PaymentLink(BaseModel):
         """Valor em centavos (Pagar.me usa centavos)"""
         return int(self.amount * 100)
 
+    @db_transaction.atomic
     def mark_as_paid(self, webhook_data=None):
-        """Marca como pago e extrai todos dados do pagador do JSON."""
-        self.status = self.Status.PAID
-        self.paid_at = timezone.now()
+        """Marca como pago com bloqueio pessimista para evitar double-processing."""
+        # Seleciona com lock
+        link = self.__class__.objects.select_for_update().get(pk=self.pk)
+        if link.status == self.Status.PAID:
+            return # Já processado
+
+        link.status = self.Status.PAID
+        link.paid_at = timezone.now()
 
         if webhook_data:
             self.webhook_data = webhook_data
@@ -183,9 +189,9 @@ class PaymentLink(BaseModel):
                 customer = data.get("customer", {})
 
                 if customer:
-                    self.payer_name = customer.get("name", "")[:200]
-                    self.payer_email = customer.get("email", "")
-                    self.payer_document = customer.get("document", "")[:20]
+                    link.payer_name = customer.get("name", "")[:200]
+                    link.payer_email = customer.get("email", "")
+                    link.payer_document = customer.get("document", "")[:20]
 
                     # Extração de telefone
                     phones = customer.get("phones", {})
@@ -194,42 +200,36 @@ class PaymentLink(BaseModel):
                         country = mobile.get("country_code", "")
                         area = mobile.get("area_code", "")
                         number = mobile.get("number", "")
-                        self.payer_phone = f"{country}{area}{number}"[:20]
+                        link.payer_phone = f"{country}{area}{number}"[:20]
                     else:
                         home = phones.get("home_phone")
                         if home:
                             country = home.get("country_code", "")
                             area = home.get("area_code", "")
                             number = home.get("number", "")
-                            self.payer_phone = f"{country}{area}{number}"[:20]
+                            link.payer_phone = f"{country}{area}{number}"[:20]
 
                     # Extração de Endereço (NOVO)
                     address = customer.get("address", {})
                     if address:
-                        self.payer_address_zip = address.get("zip_code", "")[:10]
-                        self.payer_address_street = address.get("street", "")[:200]
-                        self.payer_address_number = address.get("number", "")[:20]
-                        self.payer_address_complement = address.get("complement", "")[
-                            :100
-                        ]
-                        self.payer_address_neighborhood = address.get(
-                            "neighborhood", ""
-                        )[:100]
-                        self.payer_address_city = address.get("city", "")[:100]
-                        self.payer_address_state = address.get("state", "")[:2]
-
+                        link.payer_address_zip = address.get("zip_code", "")[:10]
+                        link.payer_address_street = address.get("street", "")[:200]
+                        link.payer_address_number = address.get("number", "")[:20]
+                        link.payer_address_complement = address.get("complement", "")[:100]
+                        link.payer_address_neighborhood = address.get("neighborhood", "")[:100]
+                        link.payer_address_city = address.get("city", "")[:100]
+                        link.payer_address_state = address.get("state", "")[:2]
             except Exception:
-                # Se falhar a extração, não impede de marcar como pago
                 pass
 
-        self.save()
+        link.save()
 
-        # Atualiza pedido vinculado
-        if self.order:
-            from apps.orders.models import PaymentStatus
-
-            self.order.payment_status = PaymentStatus.PAID
-            self.order.save(update_fields=["payment_status", "updated_at"])
+        # Atualiza pedido vinculado com lock se possível
+        if link.order:
+            from apps.orders.models import PaymentStatus, Order
+            order = Order.objects.select_for_update().get(id=link.order_id)
+            order.payment_status = PaymentStatus.PAID
+            order.save(update_fields=["payment_status", "updated_at"])
 
     def mark_as_failed(self, webhook_data=None):
         """Marca como falhou"""
