@@ -13,20 +13,20 @@ from django.utils import timezone
 class NotificationLog(models.Model):
     """
     Log de tentativas de envio de notificações WhatsApp.
-    
+
     Registra cada tentativa de envio, permitindo:
     - Diagnóstico de falhas
     - Auditoria de mensagens enviadas
     - Análise de taxa de sucesso
     - Rastreamento de ponta a ponta via correlation_id
     """
-    
+
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pendente'
         SENT = 'sent', 'Enviado'
         FAILED = 'failed', 'Falhou'
         BLOCKED = 'blocked', 'Bloqueado'
-    
+
     class NotificationType(models.TextChoices):
         ORDER_CREATED = 'order_created', 'Pedido Criado'
         ORDER_CONFIRMED = 'order_confirmed', 'Pedido Confirmado'
@@ -40,22 +40,22 @@ class NotificationLog(models.Model):
         EXPIRED = 'expired', 'Expirado'
         CANCELLED = 'cancelled', 'Cancelado'
         RETURNED = 'returned', 'Devolvido'
-    
+
     # Identificação
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     correlation_id = models.CharField(
-        max_length=50, 
+        max_length=50,
         db_index=True,
         help_text="ID de correlação para rastreamento de ponta a ponta"
     )
     celery_task_id = models.CharField(
-        max_length=100, 
-        blank=True, 
+        max_length=100,
+        blank=True,
         null=True,
         db_index=True,
         help_text="ID da task Celery que originou o envio"
     )
-    
+
     # Relacionamentos
     tenant = models.ForeignKey(
         'tenants.Tenant',
@@ -69,7 +69,7 @@ class NotificationLog(models.Model):
         blank=True,
         related_name='notification_logs'
     )
-    
+
     # Dados da notificação
     notification_type = models.CharField(
         max_length=50,
@@ -82,40 +82,40 @@ class NotificationLog(models.Model):
         default=Status.PENDING,
         db_index=True
     )
-    
+
     # Destinatário (mascarado para privacidade)
     recipient_phone = models.CharField(
         max_length=20,
         help_text="Últimos 4 dígitos do telefone"
     )
     recipient_name = models.CharField(max_length=200, blank=True)
-    
+
     # Conteúdo
     message_preview = models.TextField(
         max_length=500,
         blank=True,
         help_text="Preview da mensagem (truncado)"
     )
-    
+
     # Resposta da API
     api_response = models.JSONField(
-        null=True, 
+        null=True,
         blank=True,
         help_text="Resposta completa da Evolution API"
     )
-    
+
     # Erro
-    error_message = models.TextField(blank=True)
-    error_code = models.CharField(max_length=50, blank=True)
-    
+    error_message = models.TextField(blank=True, default="")
+    error_code = models.CharField(max_length=50, blank=True, default="")
+
     # Retry
     retry_count = models.PositiveSmallIntegerField(default=0)
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     sent_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -126,10 +126,10 @@ class NotificationLog(models.Model):
         ]
         verbose_name = 'Log de Notificação'
         verbose_name_plural = 'Logs de Notificações'
-    
+
     def __str__(self):
         return f"{self.notification_type} - {self.status} - {self.correlation_id}"
-    
+
     def mark_sent(self, api_response: dict = None):
         """Marca notificação como enviada."""
         self.status = self.Status.SENT
@@ -137,10 +137,10 @@ class NotificationLog(models.Model):
         if api_response:
             self.api_response = api_response
         self.save(update_fields=['status', 'sent_at', 'api_response', 'updated_at'])
-    
+
     def mark_failed(
-        self, 
-        error_message: str = None, 
+        self,
+        error_message: str = None,
         error_code: str = None,
         api_response: dict = None
     ):
@@ -154,10 +154,10 @@ class NotificationLog(models.Model):
             self.api_response = api_response
         self.retry_count += 1
         self.save(update_fields=[
-            'status', 'error_message', 'error_code', 
+            'status', 'error_message', 'error_code',
             'api_response', 'retry_count', 'updated_at'
         ])
-    
+
     def mark_blocked(self, reason: str = None):
         """Marca notificação como bloqueada."""
         self.status = self.Status.BLOCKED
@@ -169,14 +169,14 @@ class NotificationLog(models.Model):
 class APIRequestLog(models.Model):
     """
     Log de requisições à Evolution API.
-    
+
     Registra todas as chamadas HTTP para:
     - Diagnóstico de problemas de comunicação
     - Análise de performance (tempo de resposta)
     - Auditoria de operações
     - Debug de respostas inesperadas
     """
-    
+
     # Identificação
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     correlation_id = models.CharField(
@@ -184,13 +184,13 @@ class APIRequestLog(models.Model):
         db_index=True,
         help_text="ID de correlação para rastreamento"
     )
-    
+
     # Request
     method = models.CharField(max_length=10)  # GET, POST, PUT, DELETE
     endpoint = models.CharField(max_length=500)
     instance_name = models.CharField(max_length=100, blank=True, null=True)
     request_body = models.JSONField(null=True, blank=True)
-    
+
     # Response
     status_code = models.IntegerField(default=0)
     response_body = models.JSONField(null=True, blank=True)
@@ -198,13 +198,13 @@ class APIRequestLog(models.Model):
         default=0,
         help_text="Tempo de resposta em milissegundos"
     )
-    
+
     # Erro
-    error_message = models.TextField(blank=True)
-    
+    error_message = models.TextField(blank=True, default="")
+
     # Timestamp
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -215,15 +215,15 @@ class APIRequestLog(models.Model):
         ]
         verbose_name = 'Log de Requisição API'
         verbose_name_plural = 'Logs de Requisições API'
-    
+
     def __str__(self):
         return f"{self.method} {self.endpoint} - {self.status_code}"
-    
+
     @property
     def is_success(self) -> bool:
         """Retorna True se a requisição foi bem sucedida."""
         return 200 <= self.status_code < 300
-    
+
     @property
     def is_error(self) -> bool:
         """Retorna True se a requisição falhou."""

@@ -11,6 +11,7 @@ Arquitetura:
 import json
 import logging
 import time
+import requests
 
 from celery import shared_task
 from django.apps import apps
@@ -27,8 +28,8 @@ logger = logging.getLogger(__name__)
 TASK_CONFIG = {
     "bind": True,
     "autoretry_for": (
-        Exception,
-    ),  # Retenta automaticamente em caso de exceções não tratadas
+        requests.exceptions.RequestException,
+    ),  # Retenta apenas em erros de rede/timeout
     "retry_kwargs": {"max_retries": 5, "countdown": 10},  # Backoff: 10s, 20s...
     "retry_backoff": True,
     "retry_backoff_max": 120,
@@ -296,19 +297,8 @@ def expire_pending_pickups(self):
             # 2. Serializa com Encoder Seguro (evita erro com Decimal/Date)
             snapshot_json = json.dumps(snapshot, cls=DjangoJSONEncoder)
 
-            # 3. Executa a expiração no banco
+            # 3. Executa a expiração no banco (o service já dispara o WhatsApp)
             service.expire_pickup_order(order=order)
-
-            # 4. Define envio seguro (só executa após commit do banco)
-            def _safe_send(_json=snapshot_json):
-                send_whatsapp_notification.apply_async(
-                    args=[_json, "send_order_expired"],
-                    expires=300,
-                    ignore_result=True,
-                    queue="whatsapp",
-                )
-
-            transaction.on_commit(_safe_send)
             count += 1
 
         except Exception:

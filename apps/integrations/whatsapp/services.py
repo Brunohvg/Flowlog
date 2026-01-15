@@ -8,6 +8,7 @@ import logging
 import uuid
 from decimal import Decimal
 
+from django.core.cache import cache
 from apps.integrations.models import NotificationLog
 from apps.integrations.whatsapp.client import EvolutionClient
 
@@ -136,10 +137,16 @@ class WhatsAppNotificationService:
         """
         correlation_id = str(uuid.uuid4())[:12]
 
-        # Validação básica
         if not phone:
             logger.warning("[WhatsApp] Telefone vazio, ignorando envio")
             return {"success": False, "error": "phone_empty"}
+
+        # Trava de Idempotência (Mitiga disparos duplicados em 10 min)
+        # Chave: notif:idemp:{tenant}:{order_id}:{type}
+        idemp_key = f"notif:idemp:{self.tenant.id}:{order.id if order else 'standalone'}:{notification_type}"
+        if not cache.add(idemp_key, "locked", timeout=600):
+            logger.warning("[WhatsApp] Idempotência: Notificação duplicada bloqueada para %s", idemp_key)
+            return {"success": False, "error": "duplicate_idempotency"}
 
         log = None
         try:
@@ -156,6 +163,7 @@ class WhatsAppNotificationService:
                     else ""
                 ),
                 message_preview=message[:200] if message else "",
+                error_message="",
             )
         except Exception as e:
             logger.warning("[WhatsApp] Falha ao criar log: %s", e)
@@ -172,7 +180,9 @@ class WhatsAppNotificationService:
 
         # Envia mensagem
         try:
-            result = self.client.send_text_message(phone=phone, message=message)
+            result = self.client.send_text_message(
+                phone=phone, message=message, correlation_id=correlation_id
+            )
             if log:
                 log.mark_sent(
                     api_response=(
