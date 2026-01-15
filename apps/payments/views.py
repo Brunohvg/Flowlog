@@ -17,6 +17,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+import hmac
+import hashlib
 
 from apps.orders.models import Order
 from apps.payments.models import PaymentLink
@@ -29,9 +31,29 @@ from apps.payments.services import (
 logger = logging.getLogger(__name__)
 
 
+# = : HELPERS
 # ============================================================
-# HELPERS
-# ============================================================
+
+
+def _is_valid_pagarme_signature(request, secret):
+    """
+    Verifica se a assinatura do Pagar.me é válida.
+    Suporta sha256 (madrão v5) e sha1 (legado).
+    """
+    signature = request.headers.get("X-PagarMe-Signature")
+    if not signature:
+        return False
+
+    if "=" in signature:
+        algo, sig_hash = signature.split("=", 1)
+    else:
+        # Pagar.me v5 também pode enviar apenas o hash sha1 em algumas configs
+        algo = "sha1"
+        sig_hash = signature
+
+    hash_obj = hashlib.sha256 if algo == "sha256" else hashlib.sha1
+    expected = hmac.new(secret.encode(), request.body, hash_obj).hexdigest()
+    return hmac.compare_digest(expected, sig_hash)
 
 
 def _extract_pagarme_link_code(event_type: str, data: dict) -> str | None:
@@ -343,6 +365,18 @@ def pagarme_webhook(request):
                 order_id,
             )
             return HttpResponse("OK", status=200)
+
+        # =====================
+        # SEGURANÇA: ASSINATURA
+        # =====================
+        settings = getattr(payment_link.tenant, "settings", None)
+        if settings and settings.pagarme_api_key:
+            if not _is_valid_pagarme_signature(request, settings.pagarme_api_key):
+                logger.warning(
+                    "Webhook Pagar.me: Assinatura inválida para Link: %s",
+                    payment_link.id,
+                )
+                return HttpResponse("Forbidden", status=403)
 
         if charge_id and not payment_link.pagarme_charge_id:
             payment_link.pagarme_charge_id = charge_id
