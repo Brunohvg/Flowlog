@@ -22,9 +22,14 @@ RUN SECRET_KEY=build_secret \
     CELERY_RESULT_BACKEND=redis://localhost:6379/1 \
     python manage.py collectstatic --noinput || true
 
-RUN adduser --disabled-password --no-create-home django-user
+RUN adduser --disabled-password --no-create-home django-user && \
+    chown -R django-user:django-user /app
+
 USER django-user
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind=0.0.0.0:8000", "--workers=3", "--access-logfile=-", "--error-logfile=-"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/healthcheck/ || exit 1
+
+CMD ["gunicorn", "config.wsgi:application", "--bind=0.0.0.0:8000", "--workers=2", "--access-logfile=-", "--error-logfile=-"]

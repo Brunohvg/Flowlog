@@ -158,6 +158,16 @@ if CELERY_BROKER_URL:
     CELERY_TASK_SERIALIZER = "json"
     CELERY_RESULT_SERIALIZER = "json"
 
+    # ==============================================================================
+    # CACHES (REDIS)
+    # ==============================================================================
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": CELERY_BROKER_URL,
+        }
+    }
+
     # Ack Late previne perda de task se o worker cair no meio do processo
     CELERY_TASK_ACKS_LATE = True
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
@@ -172,6 +182,25 @@ if CELERY_BROKER_URL:
     # Roteamento das Tasks
     CELERY_TASK_ROUTES = {
         "apps.integrations.whatsapp.tasks.*": {"queue": "whatsapp"},
+    }
+
+    from celery.schedules import crontab
+    CELERY_BEAT_SCHEDULE = {
+        "cleanup-celery-results": {
+            "task": "apps.core.tasks.cleanup_celery_results",
+            "schedule": crontab(hour=3, minute=0),  # Diariamente às 03:00
+            "args": (7,),
+        },
+        "expire-pending-pickups": {
+            "task": "apps.integrations.whatsapp.tasks.expire_pending_pickups",
+            "schedule": crontab(minute="*/30"),  # A cada 30 minutos
+        },
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
     }
 
 # ==============================================================================

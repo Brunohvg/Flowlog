@@ -4,14 +4,7 @@ services:
   migrate:
     image: brunobh51/flowlog:v1.8.1
     command: >
-      sh -c "python manage.py migrate --noinput &&
-      python manage.py collectstatic --noinput &&
-      python manage.py shell -c \"from django.contrib.auth import get_user_model; import os;
-      User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL');
-      p=os.getenv('DJANGO_SUPERUSER_PASSWORD');
-      (e and p and not User.objects.filter(email=e).exists())
-      and User.objects.create_superuser(email=e, password=p)
-      or print('superuser ok')\""
+      sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py shell -c \"from django.contrib.auth import get_user_model; import os; User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL'); p=os.getenv('DJANGO_SUPERUSER_PASSWORD'); (e and p and not User.objects.filter(email=e).exists()) and User.objects.create_superuser(email=e, password=p) or print('superuser ok')\""
     environment:
       TZ: America/Sao_Paulo
       SECRET_KEY: ${SECRET_KEY}
@@ -45,12 +38,7 @@ services:
   flowlog:
     image: brunobh51/flowlog:v1.8.1
     command: >
-      gunicorn config.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 2
-      --timeout 60
-      --access-logfile -
-      --error-logfile -
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60 --access-logfile - --error-logfile -
     environment:
       TZ: America/Sao_Paulo
       SECRET_KEY: ${SECRET_KEY}
@@ -91,6 +79,12 @@ services:
         limits:
           cpus: "1.0"
           memory: 768M
+      healthcheck:
+        test: [ "CMD", "curl", "-f", "http://localhost:8000/healthcheck/" ]
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 20s
 
   worker:
     image: brunobh51/flowlog:v1.8.1
@@ -121,33 +115,30 @@ services:
           memory: 1024M
 
   beat:
-      image: brunobh51/flowlog:v1.8.1
-      # ADICIONADO: user root para ter permissão de escrever em /data
-      user: root
-      command: celery -A config beat -l info --schedule=/data/celerybeat-schedule
-      environment:
-        TZ: America/Sao_Paulo
-        SECRET_KEY: ${SECRET_KEY}
-        DEBUG: ${DEBUG}
-        USE_SQLITE: ${USE_SQLITE}
-        SITE_URL: ${SITE_URL}
-        DB_HOST: ${DB_HOST}
-        DB_NAME: ${DB_NAME}
-        DB_USER: ${DB_USER}
-        DB_PASSWORD: ${DB_PASSWORD}
-        DB_PORT: ${DB_PORT}
-        CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-        CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      volumes:
-        - celerybeat_data:/data
-      networks:
-        - app_network
-      deploy:
-        replicas: 1
-        resources:
-          limits:
-            cpus: "0.5"
-            memory: 512M
+    image: brunobh51/flowlog:v1.8.1
+    command: celery -A config beat -l info --schedule=/tmp/celerybeat-schedule
+    environment:
+      TZ: America/Sao_Paulo
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      USE_SQLITE: ${USE_SQLITE}
+      SITE_URL: ${SITE_URL}
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+    # Volumes removidos para evitar conflito de permissão com django-user
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
   redis:
     image: redis:7-alpine
     # CORREÇÃO: Política de memória allkeys-lru e limite ajustado para 256mb
@@ -170,6 +161,7 @@ volumes:
   media_volume:
   redis_data:
   celerybeat_data:
+
 
 networks:
   traefik_public:
