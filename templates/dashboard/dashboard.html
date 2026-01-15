@@ -215,14 +215,38 @@
             </div>
             {% endif %}
 
-            <div class="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-slate-300">
+            <div class="bg-indigo-900 rounded-2xl p-6 text-white shadow-xl shadow-indigo-100">
                 <h3 class="font-bold text-lg mb-1">Central de Comando</h3>
-                <p class="text-slate-400 text-xs mb-6">Atalhos operacionais</p>
+                <p class="text-indigo-300 text-xs mb-6">Atalhos operacionais</p>
                 <div class="grid grid-cols-2 gap-3">
-                    <a href="{% url 'order_create' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-indigo-600 transition-colors group cursor-pointer border border-white/5"><i data-lucide="plus-circle" class="w-6 h-6 mb-2 text-indigo-300 group-hover:text-white"></i><span class="text-xs font-medium">Vender</span></a>
-                    <a href="{% url 'customer_list' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="users" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Clientes</span></a>
-                    <a href="{% url 'reports' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="bar-chart-2" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Métricas</span></a>
-                    <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-slate-700 transition-colors group cursor-pointer border border-white/5"><i data-lucide="settings" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Ajustes</span></a>
+                    <a href="{% url 'order_create' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors group cursor-pointer border border-white/5"><i data-lucide="plus-circle" class="w-6 h-6 mb-2 text-indigo-300 group-hover:text-white"></i><span class="text-xs font-medium">Vender</span></a>
+                    <a href="{% url 'customer_list' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors group cursor-pointer border border-white/5"><i data-lucide="users" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Clientes</span></a>
+                    <a href="{% url 'reports' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors group cursor-pointer border border-white/5"><i data-lucide="bar-chart-2" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Métricas</span></a>
+                    <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-colors group cursor-pointer border border-white/5"><i data-lucide="settings" class="w-6 h-6 mb-2 text-slate-300 group-hover:text-white"></i><span class="text-xs font-medium">Ajustes</span></a>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="truck" class="w-4 h-4 text-indigo-500"></i> Tipos de Entrega
+                </h3>
+                <div class="space-y-4">
+                    {% for d in stats.delivery_distribution %}
+                    <div>
+                        <div class="flex items-center justify-between text-sm mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="{{ d.icon }}" class="w-4 h-4 text-slate-400"></i>
+                                <span class="text-slate-600 font-medium">{{ d.label }}</span>
+                            </div>
+                            <span class="font-bold text-slate-900">{{ d.count }}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5">
+                            <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ d.pct }}%"></div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-xs text-slate-400 text-center py-2">Sem dados de entrega.</p>
+                    {% endfor %}
                 </div>
             </div>
 

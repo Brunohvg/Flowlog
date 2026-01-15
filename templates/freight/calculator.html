@@ -1,0 +1,293 @@
+{% extends "base/base.html" %}
+
+{% block title %}Calculadora de Frete - Flowlog{% endblock %}
+
+{% block page_title %}Calculadora de Frete{% endblock %}
+{% block page_subtitle %}Consulte valores de frete para Correios e Motoboy{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Aviso se não configurado -->
+  {% if not store_cep %}
+  <div class="card p-6 bg-amber-50 border-amber-200">
+    <div class="flex items-start gap-4">
+      <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+      </div>
+      <div>
+        <h3 class="font-semibold text-amber-800">CEP da Loja não configurado</h3>
+        <p class="text-sm text-amber-700 mt-1">
+          Para usar a calculadora de frete, configure o CEP da sua loja nas
+          <a href="{% url 'settings' %}" class="underline font-medium">Configurações</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Card Principal -->
+  <div class="card">
+    <div class="p-6 border-b border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="truck" class="w-5 h-5 text-indigo-600"></i>
+        </div>
+        <div>
+          <h2 class="font-semibold text-slate-800">Calcular Frete</h2>
+          <p class="text-sm text-slate-500">CEP de origem: {{ store_cep|default:"Não configurado" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-6">
+      <form id="freightForm" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">CEP de Destino</label>
+            <input
+              type="text"
+              id="cepDestino"
+              name="cep_destino"
+              class="form-input"
+              placeholder="00000-000"
+              maxlength="9"
+              {% if not store_cep %}disabled{% endif %}
+            >
+          </div>
+          <div>
+            <label class="form-label">Peso (kg)</label>
+            <input
+              type="text"
+              id="peso"
+              name="peso"
+              class="form-input"
+              placeholder="0.3"
+              value="0.3"
+              {% if not store_cep %}disabled{% endif %}
+            >
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-primary w-full"
+          {% if not store_cep %}disabled{% endif %}
+        >
+          <i data-lucide="calculator" class="w-4 h-4"></i> Calcular
+        </button>
+      </form>
+
+      <!-- Loading -->
+      <div id="loadingState" class="hidden py-12 text-center">
+        <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+        <p class="text-slate-500 mt-4">Calculando frete...</p>
+      </div>
+
+      <!-- Resultados -->
+      <div id="resultsContainer" class="hidden mt-6 space-y-4">
+        <!-- CEP Info -->
+        <div id="cepInfoCard" class="p-4 bg-slate-50 rounded-xl hidden">
+          <div class="flex items-center gap-2 text-slate-600 mb-2">
+            <i data-lucide="map-pin" class="w-4 h-4"></i>
+            <span class="text-sm font-medium">Endereço de destino</span>
+          </div>
+          <p id="cepInfoText" class="text-slate-800"></p>
+        </div>
+
+        <!-- Grid de resultados -->
+        <div id="resultsGrid" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <!-- Resultados serão inseridos aqui via JS -->
+        </div>
+      </div>
+
+      <!-- Erro -->
+      <div id="errorContainer" class="hidden mt-6 p-4 bg-red-50 rounded-xl">
+        <div class="flex items-center gap-3 text-red-700">
+          <i data-lucide="x-circle" class="w-5 h-5"></i>
+          <span id="errorMessage" class="text-sm font-medium"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Card -->
+  <div class="card p-6">
+    <div class="flex items-start gap-4">
+      <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+        <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
+      </div>
+      <div class="text-sm text-slate-600">
+        <p class="font-medium text-slate-800 mb-1">Sobre os valores</p>
+        <ul class="space-y-1">
+          <li>• <strong>Correios:</strong> Valores para pacote padrão (até 300g, 16x11x2cm).</li>
+          <li>• <strong>Motoboy:</strong> Calculado com base na distância ({{ motoboy_price_per_km }}/km, mínimo R$ {{ motoboy_min_price }}).</li>
+          {% if motoboy_max_price %}
+          <li>• <strong>Limite Motoboy:</strong> Máximo R$ {{ motoboy_max_price }}.</li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('freightForm');
+  const cepInput = document.getElementById('cepDestino');
+  const loadingState = document.getElementById('loadingState');
+  const resultsContainer = document.getElementById('resultsContainer');
+  const resultsGrid = document.getElementById('resultsGrid');
+  const errorContainer = document.getElementById('errorContainer');
+  const errorMessage = document.getElementById('errorMessage');
+  const cepInfoCard = document.getElementById('cepInfoCard');
+  const cepInfoText = document.getElementById('cepInfoText');
+
+  // Máscara de CEP
+  cepInput.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 5) {
+      value = value.slice(0, 5) + '-' + value.slice(5, 8);
+    }
+    e.target.value = value;
+  });
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const cep = cepInput.value.replace(/\D/g, '');
+    if (cep.length !== 8) {
+      showError('CEP inválido. Digite 8 dígitos.');
+      return;
+    }
+
+    // Reset UI
+    loadingState.classList.remove('hidden');
+    resultsContainer.classList.add('hidden');
+    errorContainer.classList.add('hidden');
+
+    const pesoInput = document.getElementById('peso');
+
+    try {
+      const response = await fetch('{% url "freight_calculate_api" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          cep_destino: cepInput.value,
+          peso: pesoInput.value
+        })
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        showError(data.error || 'Erro ao calcular frete');
+        return;
+      }
+
+      renderResults(data);
+
+    } catch (err) {
+      showError('Erro de conexão. Tente novamente.');
+      console.error(err);
+    } finally {
+      loadingState.classList.add('hidden');
+    }
+  });
+
+  function showError(msg) {
+    loadingState.classList.add('hidden');
+    resultsContainer.classList.add('hidden');
+    errorContainer.classList.remove('hidden');
+    errorMessage.textContent = msg;
+  }
+
+  function renderResults(data) {
+    resultsGrid.innerHTML = '';
+
+    // CEP Info
+    if (data.cep_info) {
+      cepInfoCard.classList.remove('hidden');
+      cepInfoText.textContent = `${data.cep_info.street || 'Rua não identificada'}, ${data.cep_info.neighborhood} - ${data.cep_info.city}/${data.cep_info.state}`;
+    } else {
+      cepInfoCard.classList.add('hidden');
+    }
+
+    // Correios
+    if (data.correios && data.correios.length > 0) {
+      data.correios.forEach(item => {
+        resultsGrid.innerHTML += createResultCard(
+          item.service,
+          item.price ? `R$ ${parseFloat(item.price).toFixed(2).replace('.', ',')}` : '-',
+          item.error ? item.error : `${item.delivery_days} dias úteis`,
+          item.error ? 'error' : 'success',
+          item.service === 'SEDEX' ? 'zap' : 'package'
+        );
+      });
+    }
+
+    // Mandaê
+    if (data.mandae && data.mandae.length > 0) {
+      data.mandae.forEach(item => {
+        resultsGrid.innerHTML += createResultCard(
+          `Mandaê (${item.service})`,
+          `R$ ${parseFloat(item.price).toFixed(2).replace('.', ',')}`,
+          `${item.delivery_days} dias úteis`,
+          'success',
+          'truck'
+        );
+      });
+    }
+
+    // Motoboy
+    if (data.motoboy) {
+      if (data.motoboy.error) {
+        resultsGrid.innerHTML += createResultCard(
+          'Motoboy',
+          'Indisponível',
+          `${data.motoboy.distance_km} km • ${data.motoboy.error}`,
+          'error',
+          'bike'
+        );
+      } else if (data.motoboy.price) {
+        resultsGrid.innerHTML += createResultCard(
+          'Motoboy',
+          `R$ ${parseFloat(data.motoboy.price).toFixed(2).replace('.', ',')}`,
+          `${data.motoboy.distance_km} km • ${data.motoboy.delivery_time}`,
+          'success',
+          'bike'
+        );
+      }
+    }
+
+    resultsContainer.classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function createResultCard(title, price, subtitle, status, icon) {
+    const bgColor = status === 'error' ? 'bg-red-50' : 'bg-white';
+    const textColor = status === 'error' ? 'text-red-600' : 'text-indigo-600';
+    const priceColor = status === 'error' ? 'text-red-400' : 'text-slate-800';
+
+    return `
+      <div class="card p-4 ${bgColor}">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="${icon}" class="w-5 h-5 ${textColor}"></i>
+          </div>
+          <span class="font-semibold text-slate-800">${title}</span>
+        </div>
+        <div class="text-2xl font-bold ${priceColor}">${price}</div>
+        <div class="text-sm text-slate-500 mt-1">${subtitle}</div>
+      </div>
+    `;
+  }
+});
+</script>
+{% endblock %}

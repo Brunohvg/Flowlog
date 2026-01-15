@@ -1,0 +1,162 @@
+{% extends "base/base.html" %}
+
+{% block title %}Motoboy - Integrações - Flowlog{% endblock %}
+
+{% block page_title %}Motoboy{% endblock %}
+{% block page_subtitle %}Configure o cálculo de frete por distância{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-slate-500">
+    <a href="{% url 'settings' %}" class="hover:text-indigo-600">Configurações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <a href="{% url 'integrations_settings' %}" class="hover:text-indigo-600">Integrações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-slate-800 font-medium">Motoboy</span>
+  </nav>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Header -->
+    <div class="card p-6">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="bike" class="w-6 h-6 text-blue-600"></i>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-800">Cálculo de Frete Motoboy</h3>
+          <p class="text-sm text-slate-500">Frete baseado na distância até o cliente</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Endereço da Loja -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Endereço de Origem</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Ponto de partida para cálculo de distância
+        </p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">CEP da Loja</label>
+          <input
+            type="text"
+            name="store_cep"
+            class="form-input"
+            value="{{ settings.store_cep }}"
+            placeholder="00000-000"
+            maxlength="9"
+          >
+          <p class="text-xs text-slate-500 mt-1">
+            As coordenadas serão calculadas automaticamente
+          </p>
+        </div>
+
+        {% if settings.store_lat and settings.store_lng %}
+        <div class="p-3 bg-emerald-50 rounded-lg">
+          <div class="flex items-center gap-2 text-emerald-700">
+            <i data-lucide="map-pin" class="w-4 h-4"></i>
+            <span class="text-sm font-medium">Coordenadas configuradas</span>
+          </div>
+          <p class="text-xs text-emerald-600 mt-1">
+            Lat: {{ settings.store_lat }}, Lng: {{ settings.store_lng }}
+          </p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Preços -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Tabela de Preços</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Configure o valor do frete por quilômetro
+        </p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="form-label">Preço por Km (R$)</label>
+            <input
+              type="text"
+              name="motoboy_price_per_km"
+              class="form-input"
+              value="{{ settings.motoboy_price_per_km }}"
+              placeholder="2,50"
+            >
+          </div>
+          <div>
+            <label class="form-label">Raio Máximo (km)</label>
+            <input
+              type="text"
+              name="motoboy_max_radius"
+              class="form-input"
+              value="{{ settings.motoboy_max_radius|default:'' }}"
+              placeholder="Ex: 15"
+            >
+            <p class="text-xs text-slate-500 mt-1">
+              Distância máxima atendida. Deixe vazio para sem limite.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="form-label">Valor Mínimo (R$)</label>
+            <input
+              type="text"
+              name="motoboy_min_price"
+              class="form-input"
+              value="{{ settings.motoboy_min_price }}"
+              placeholder="10,00"
+            >
+          </div>
+          <div>
+            <label class="form-label">Valor Máximo (R$)</label>
+            <input
+              type="text"
+              name="motoboy_max_price"
+              class="form-input"
+              value="{{ settings.motoboy_max_price|default:'' }}"
+              placeholder="Sem limite"
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exemplo de cálculo -->
+    <div class="card p-6 bg-slate-50">
+      <h4 class="font-medium text-slate-800 mb-3">Exemplo de Cálculo</h4>
+      <div class="text-sm text-slate-600 space-y-1">
+        <p>• Distância: <strong>8 km</strong></p>
+        <p>• Preço/km: <strong>R$ {{ settings.motoboy_price_per_km }}</strong></p>
+        <p>• Cálculo: 8 km × R$ {{ settings.motoboy_price_per_km }} = <strong>R$ {% widthratio settings.motoboy_price_per_km 1 8 %}</strong></p>
+        {% if settings.motoboy_min_price %}
+        <p class="text-xs text-slate-500">Mínimo aplicado se menor que R$ {{ settings.motoboy_min_price }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="flex items-center justify-between pt-4">
+      <a href="{% url 'integrations_settings' %}" class="btn btn-secondary">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Voltar
+      </a>
+      <button type="submit" class="btn btn-primary">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        Salvar Configurações
+      </button>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

@@ -76,6 +76,8 @@ def create_order_snapshot(order) -> dict:
         "tenant_id": str(order.tenant_id),
         "tracking_code": order.tracking_code or "",
         "pickup_code": order.pickup_code or "",
+        "delivery_status": str(getattr(order, "delivery_status", "") or ""),
+        "order_status": str(getattr(order, "order_status", "") or ""),
         "delivery_attempts": getattr(order, "delivery_attempts", 0),
         "cancel_reason": getattr(order, "cancel_reason", "") or "",
         "return_reason": getattr(order, "return_reason", "") or "",

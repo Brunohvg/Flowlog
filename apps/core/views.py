@@ -13,7 +13,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Avg, Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView
 
@@ -162,6 +163,25 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "pending_count": pending,
             "shipped_count": in_transit,
         }
+        # 3. Distribuição por Entrega
+        delivery_data = active_orders.values("delivery_type").annotate(c=Count("id"))
+        delivery_dist = []
+        for d in delivery_data:
+            d_type = d["delivery_type"]
+            label = dict(DeliveryType.choices).get(d_type, d_type)
+            icon = "truck"
+            if d_type == "motoboy": icon = "bike"
+            elif d_type == "pickup": icon = "store"
+            elif d_type == "mandae": icon = "package"
+
+            delivery_dist.append({
+                "label": label,
+                "count": d["c"],
+                "pct": calc_pct(d["c"], total_active),
+                "icon": icon
+            })
+
+        stats["delivery_distribution"] = sorted(delivery_dist, key=lambda x: x["count"], reverse=True)
         context["stats"] = stats
 
         # 3. Alertas
@@ -656,4 +676,230 @@ def profile(request):
 
     return render(
         request, "profile/profile.html", {"user": user, "user_stats": user_stats}
+    )
+
+
+# ==============================================================================
+# CONFIGURAÇÕES DE INTEGRAÇÕES
+# ==============================================================================
+
+@login_required
+def integrations_settings(request):
+    """Página principal de integrações logísticas."""
+    tenant = request.tenant
+    try:
+        tenant_settings = tenant.settings
+    except (AttributeError, TenantSettings.DoesNotExist):
+        tenant_settings = TenantSettings.objects.create(tenant=tenant)
+
+    return render(
+        request,
+        "settings/integrations.html",
+        {"tenant": tenant, "settings": tenant_settings},
+    )
+
+
+@login_required
+def correios_settings(request):
+    """Configurações da integração Correios."""
+    tenant = request.tenant
+    try:
+        tenant_settings = tenant.settings
+    except (AttributeError, TenantSettings.DoesNotExist):
+        tenant_settings = TenantSettings.objects.create(tenant=tenant)
+
+    if request.method == "POST":
+        tenant_settings.correios_enabled = request.POST.get("correios_enabled") == "1"
+        tenant_settings.correios_usuario = request.POST.get("correios_usuario", "").strip()
+
+        # Só atualiza código de acesso se foi preenchido (não sobrescreve com vazio)
+        codigo_acesso = request.POST.get("correios_codigo_acesso", "").strip()
+        if codigo_acesso:
+            tenant_settings.correios_codigo_acesso = codigo_acesso
+            # Limpa token cacheado para forçar re-autenticação (só se não for token manual novo sendo salvo)
+            if not request.POST.get("correios_token"):
+                tenant_settings.correios_token = ""
+                tenant_settings.correios_token_expira = None
+
+        # Token Manual Opcional
+        token_manual = request.POST.get("correios_token", "").strip()
+        if token_manual:
+             tenant_settings.correios_token = token_manual
+             # Se for manual, pode limpar expiração ou setar algo longo
+             tenant_settings.correios_token_expira = timezone.now() + timedelta(days=365)
+
+        tenant_settings.correios_contrato = request.POST.get("correios_contrato", "").strip()
+        tenant_settings.correios_cartao_postagem = request.POST.get("correios_cartao_postagem", "").strip()
+
+        tenant_settings.save()
+        messages.success(request, "Configurações dos Correios salvas com sucesso!")
+        return redirect("correios_settings")
+
+    return render(
+        request,
+        "settings/correios.html",
+        {"tenant": tenant, "settings": tenant_settings},
+    )
+
+
+@login_required
+def mandae_settings(request):
+    """Configurações da integração Mandaê."""
+    tenant = request.tenant
+    try:
+        tenant_settings = tenant.settings
+    except (AttributeError, TenantSettings.DoesNotExist):
+        tenant_settings = TenantSettings.objects.create(tenant=tenant)
+
+    if request.method == "POST":
+        tenant_settings.mandae_enabled = request.POST.get("mandae_enabled") == "1"
+        tenant_settings.mandae_api_url = request.POST.get("mandae_api_url", "https://api.mandae.com.br/v2/").strip()
+
+        # Só atualiza token se foi preenchido
+        token = request.POST.get("mandae_token", "").strip()
+        if token:
+            tenant_settings.mandae_token = token
+
+        tenant_settings.mandae_customer_id = request.POST.get("mandae_customer_id", "").strip()
+        tenant_settings.mandae_tracking_prefix = request.POST.get("mandae_tracking_prefix", "").strip()
+
+        # Webhook secret
+        webhook_secret = request.POST.get("mandae_webhook_secret", "").strip()
+        if webhook_secret:
+            tenant_settings.mandae_webhook_secret = webhook_secret
+
+        tenant_settings.save()
+        messages.success(request, "Configurações da Mandaê salvas com sucesso!")
+        return redirect("mandae_settings")
+
+    # Gerar URL do webhook para exibição
+    webhook_url = request.build_absolute_uri(reverse("mandae:webhook"))
+
+    return render(
+        request,
+        "settings/mandae.html",
+        {
+            "tenant": tenant,
+            "settings": tenant_settings,
+            "webhook_url": webhook_url,
+        },
+    )
+
+
+@login_required
+def motoboy_settings(request):
+    """Configurações de frete Motoboy."""
+    tenant = request.tenant
+    try:
+        tenant_settings = tenant.settings
+    except (AttributeError, TenantSettings.DoesNotExist):
+        tenant_settings = TenantSettings.objects.create(tenant=tenant)
+
+    if request.method == "POST":
+        from decimal import Decimal, InvalidOperation
+
+        tenant_settings.store_cep = request.POST.get("store_cep", "").strip()
+
+        # Preço por km
+        try:
+            price_per_km = request.POST.get("motoboy_price_per_km", "2.50")
+            price_per_km = price_per_km.replace(",", ".")
+            tenant_settings.motoboy_price_per_km = Decimal(price_per_km)
+        except (InvalidOperation, ValueError):
+            tenant_settings.motoboy_price_per_km = Decimal("2.50")
+
+        # Valor mínimo
+        try:
+            min_price = request.POST.get("motoboy_min_price", "10.00")
+            min_price = min_price.replace(",", ".")
+            tenant_settings.motoboy_min_price = Decimal(min_price)
+        except (InvalidOperation, ValueError):
+            tenant_settings.motoboy_min_price = Decimal("10.00")
+
+        # Valor máximo (opcional)
+        max_price_str = request.POST.get("motoboy_max_price", "").strip()
+        if max_price_str:
+            try:
+                max_price = max_price_str.replace(",", ".")
+                tenant_settings.motoboy_max_price = Decimal(max_price)
+            except (InvalidOperation, ValueError):
+                tenant_settings.motoboy_max_price = None
+        else:
+            tenant_settings.motoboy_max_price = None
+
+        # Raio máximo (opcional)
+        max_radius_str = request.POST.get("motoboy_max_radius", "").strip()
+        if max_radius_str:
+            try:
+                max_radius = max_radius_str.replace(",", ".")
+                tenant_settings.motoboy_max_radius = Decimal(max_radius)
+            except (InvalidOperation, ValueError):
+                tenant_settings.motoboy_max_radius = None
+        else:
+            tenant_settings.motoboy_max_radius = None
+
+        # Tentar geocodificar o CEP automaticamente
+        if tenant_settings.store_cep:
+            try:
+                from apps.integrations.freight.services import ViaCepClient, NominatimClient
+
+                viacep = ViaCepClient()
+                nominatim = NominatimClient()
+                cep_info = viacep.get_cep_info(tenant_settings.store_cep)
+                if cep_info:
+                    address = f"{cep_info.street}, {cep_info.city}, {cep_info.state}, Brasil"
+                    coords = nominatim.geocode_address(address)
+                    if coords:
+                        tenant_settings.store_lat, tenant_settings.store_lng = coords
+            except Exception:
+                pass  # Falha silenciosa no geocoding
+
+        tenant_settings.save()
+        messages.success(request, "Configurações de Motoboy salvas com sucesso!")
+        return redirect("motoboy_settings")
+
+    return render(
+        request,
+        "settings/motoboy.html",
+        {"tenant": tenant, "settings": tenant_settings},
+    )
+
+
+@login_required
+def pagarme_settings(request):
+    """Configurações da integração Pagar.me."""
+    tenant = request.tenant
+    # Tenta obter via relação ou diretamente
+    settings = getattr(tenant, "settings", None)
+
+    if not settings:
+        settings = TenantSettings.objects.filter(tenant=tenant).first()
+        if not settings:
+            settings = TenantSettings.objects.create(tenant=tenant)
+
+    if request.method == "POST":
+        settings.pagarme_enabled = request.POST.get("pagarme_enabled") == "1"
+
+        api_key = request.POST.get("pagarme_api_key")
+        if api_key:
+            settings.pagarme_api_key = api_key
+
+        settings.pagarme_max_installments = int(
+            request.POST.get("pagarme_max_installments", 3)
+        )
+        settings.pagarme_pix_enabled = request.POST.get("pagarme_pix_enabled") == "1"
+
+        settings.save()
+        messages.success(request, "Configurações do Pagar.me salvas!")
+        return redirect("pagarme_settings")
+
+    webhook_url = f"{request.scheme}://{request.get_host()}/pagamentos/webhook/pagarme/"
+
+    return render(
+        request,
+        "settings/pagarme.html",
+        {
+            "settings": settings,
+            "webhook_url": webhook_url,
+        },
     )

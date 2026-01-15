@@ -39,10 +39,16 @@
     }
 
     /* Sidebar */
-    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #94a3b8; border-radius: 10px; margin: 1px 12px; transition: all 0.2s; font-size: 14px; }
-    .nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    /* Link Principal */
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 12px; color: #94a3b8; border-radius: 8px; margin: 1px 10px; transition: all 0.2s; font-size: 13px; font-weight: 500; }
+    .nav-link:hover { background: rgba(255,255,255,0.05); color: #fff; }
     .nav-link.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
     .nav-link i { width: 18px; height: 18px; }
+
+    /* Custom Scrollbar Thin */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #475569; }
 
     /* Cards */
     .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
@@ -167,34 +173,55 @@
         </a>
       </div>
 
-      <nav class="flex-1 py-3">
-        <div class="px-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Menu</div>
+      <nav class="flex-1 py-4 overflow-y-auto min-h-0 space-y-0.5 custom-scrollbar">
+        <div class="px-4 mb-2 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Principal</div>
 
         <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-          <i data-lucide="layout-dashboard"></i> Dashboard
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
         </a>
-        <a href="{% url 'order_list' %}" class="nav-link {% if 'order' in request.resolver_match.url_name and 'create' not in request.resolver_match.url_name %}active{% endif %}">
-          <i data-lucide="shopping-bag"></i> Pedidos
-        </a>
+
         <a href="{% url 'order_create' %}" class="nav-link {% if request.resolver_match.url_name == 'order_create' %}active{% endif %}">
-          <i data-lucide="plus-circle"></i> Novo Pedido
+          <i data-lucide="plus-circle"></i>
+          <span>Novo Pedido</span>
         </a>
+
+        <a href="{% url 'order_list' %}" class="nav-link {% if 'order' in request.resolver_match.url_name and 'create' not in request.resolver_match.url_name %}active{% endif %}">
+          <i data-lucide="shopping-cart"></i>
+          <span>Meus Pedidos</span>
+        </a>
+
         <a href="{% url 'customer_list' %}" class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
-          <i data-lucide="users"></i> Clientes
+          <i data-lucide="users"></i>
+          <span>Clientes</span>
         </a>
 
-        <div class="px-4 mt-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Análises</div>
-        <a href="{% url 'reports' %}" class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
-          <i data-lucide="bar-chart-3"></i> Relatórios
-        </a>
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gestão</div>
+
         <a href="{% url 'payment_link_list' %}" class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}">
-          <i data-lucide="credit-card"></i> Pagamentos
+          <i data-lucide="wallet"></i>
+          <span>Pagamentos</span>
         </a>
 
-        <div class="px-4 mt-4 mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
-        <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
-          <i data-lucide="settings"></i> Configurações
+        <a href="{% url 'reports' %}" class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+          <i data-lucide="bar-chart-3"></i>
+          <span>Relatórios</span>
         </a>
+
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ferramentas</div>
+
+        <a href="{% url 'freight_calculator' %}" class="nav-link {% if request.resolver_match.url_name == 'freight_calculator' %}active{% endif %}">
+          <i data-lucide="wrench"></i>
+          <span>Calcular Frete</span>
+        </a>
+
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
+
+        <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' or 'settings' in request.path %}active{% endif %}">
+          <i data-lucide="settings"></i>
+          <span>Configurações</span>
+        </a>
+
       </nav>
 
       <div class="p-3 border-t border-white/10">

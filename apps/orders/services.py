@@ -669,21 +669,27 @@ class OrderStatusService:
         if order.order_status in [OrderStatus.CANCELLED, OrderStatus.RETURNED]:
             if notification_type not in ["cancelled", "returned"]:
                 raise ValueError("Não pode enviar para cancelado/devolvido.")
-        tasks = {
-            "created": send_order_created_whatsapp,
-            "confirmed": send_order_confirmed_whatsapp,
-            "payment": send_payment_received_whatsapp,
-            "shipped": send_order_shipped_whatsapp,
-            "delivered": send_order_delivered_whatsapp,
-            "ready_pickup": send_order_ready_for_pickup_whatsapp,
-            "picked_up": send_order_picked_up_whatsapp,
-            "cancelled": send_order_cancelled_whatsapp,
-            "returned": send_order_returned_whatsapp,
+
+        # Mapeamento para métodos do WhatsAppNotificationService
+        method_map = {
+            "created": "send_order_created",
+            "confirmed": "send_order_confirmed",
+            "payment": "send_payment_received",
+            "shipped": "send_order_shipped",
+            "delivered": "send_order_delivered",
+            "ready_pickup": "send_order_ready_for_pickup",
+            "picked_up": "send_order_picked_up",
+            "cancelled": "send_order_cancelled",
+            "returned": "send_order_returned",
         }
-        task = tasks.get(notification_type)
-        if not task:
+
+        method = method_map.get(notification_type)
+        if not method:
             raise ValueError(f"Tipo inválido: {notification_type}")
-        _send_whatsapp(task, str(order.id))
+
+        # Usa o mecanismo robusto de SNAPSHOT (mesmo para reenvio)
+        _send_whatsapp_with_snapshot(order, method)
+
         OrderActivity.log(
             order=order,
             activity_type=OrderActivity.ActivityType.NOTIFICATION_SENT,

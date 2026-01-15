@@ -1,0 +1,85 @@
+{% extends "base/base.html" %}
+
+{% block title %}Integrações - Flowlog{% endblock %}
+
+{% block page_title %}Integrações{% endblock %}
+{% block page_subtitle %}Configure suas integrações logísticas{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="card p-6">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+        <i data-lucide="plug" class="w-6 h-6 text-indigo-600"></i>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Integrações Logísticas</h2>
+        <p class="text-sm text-slate-500">Configure transportadoras e opções de frete</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid de Integrações -->
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+    <!-- Correios -->
+    <a href="{% url 'correios_settings' %}" class="card p-6 hover:shadow-lg transition-shadow group">
+      <div class="flex items-center justify-between mb-4">
+        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="mail" class="w-6 h-6 text-amber-600"></i>
+        </div>
+        {% if settings.correios_enabled %}
+        <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Ativo</span>
+        {% else %}
+        <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-semibold rounded-full">Inativo</span>
+        {% endif %}
+      </div>
+      <h3 class="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">Correios</h3>
+      <p class="text-sm text-slate-500 mt-1">SEDEX, PAC e rastreamento</p>
+    </a>
+
+    <!-- Mandaê -->
+    <a href="{% url 'mandae_settings' %}" class="card p-6 hover:shadow-lg transition-shadow group">
+      <div class="flex items-center justify-between mb-4">
+        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="package" class="w-6 h-6 text-purple-600"></i>
+        </div>
+        {% if settings.mandae_enabled %}
+        <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Ativo</span>
+        {% else %}
+        <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-semibold rounded-full">Inativo</span>
+        {% endif %}
+      </div>
+      <h3 class="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">Mandaê</h3>
+      <p class="text-sm text-slate-500 mt-1">Envios via Mandaê com webhook</p>
+    </a>
+
+    <!-- Motoboy -->
+    <a href="{% url 'motoboy_settings' %}" class="card p-6 hover:shadow-lg transition-shadow group">
+      <div class="flex items-center justify-between mb-4">
+        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+          <i data-lucide="bike" class="w-6 h-6 text-blue-600"></i>
+        </div>
+        {% if settings.store_cep %}
+        <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Configurado</span>
+        {% else %}
+        <span class="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-semibold rounded-full">Pendente</span>
+        {% endif %}
+      </div>
+      <h3 class="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">Motoboy</h3>
+      <p class="text-sm text-slate-500 mt-1">Frete por distância</p>
+    </a>
+
+  </div>
+
+  <!-- Link para voltar -->
+  <div class="text-center">
+    <a href="{% url 'settings' %}" class="text-sm text-slate-500 hover:text-indigo-600">
+      ← Voltar para Configurações
+    </a>
+  </div>
+
+</div>
+{% endblock %}

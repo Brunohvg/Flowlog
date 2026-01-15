@@ -1,0 +1,162 @@
+{% extends "base/base.html" %}
+
+{% block title %}Pagar.me - Integrações - Flowlog{% endblock %}
+
+{% block page_title %}Pagar.me{% endblock %}
+{% block page_subtitle %}Configure a integração com a Pagar.me{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-slate-500">
+    <a href="{% url 'settings' %}" class="hover:text-indigo-600">Configurações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <a href="{% url 'integrations_settings' %}" class="hover:text-indigo-600">Integrações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-slate-800 font-medium">Pagar.me</span>
+  </nav>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Status -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="credit-card" class="w-6 h-6 text-emerald-600"></i>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Integração Pagar.me</h3>
+            <p class="text-sm text-slate-500">Receba pagamentos via Cartão e PIX</p>
+          </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="pagarme_enabled" value="1" class="sr-only peer" {% if settings.pagarme_enabled %}checked{% endif %}>
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Credenciais -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Chaves de API</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Obtenha sua <b>Chave Secreta</b> no dashboard do <a href="https://dashboard.pagar.me" target="_blank" class="text-indigo-600 hover:underline">Pagar.me</a>
+        </p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">API Key Secreta (sk_...)</label>
+          <input
+            type="password"
+            name="pagarme_api_key"
+            class="form-input"
+            value="{{ settings.pagarme_api_key|default:'' }}"
+            placeholder="sk_test_..."
+          >
+          <p class="text-[11px] text-slate-400 mt-1.5">Sua chave é armazenada de forma segura.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Opções de Pagamento -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100 flex items-center gap-2">
+        <i data-lucide="settings-2" class="w-5 h-5 text-slate-400"></i>
+        <h3 class="font-semibold text-slate-800">Opções de Checkout</h3>
+      </div>
+      <div class="p-6 space-y-6">
+        <div>
+          <label class="form-label">Parcelamento Máximo</label>
+          <select name="pagarme_max_installments" class="form-select">
+            <option value="1" {% if settings.pagarme_max_installments == 1 %}selected{% endif %}>1x (Sem juros)</option>
+            <option value="2" {% if settings.pagarme_max_installments == 2 %}selected{% endif %}>Até 2x</option>
+            <option value="3" {% if settings.pagarme_max_installments == 3 or not settings.pagarme_max_installments %}selected{% endif %}>Até 3x</option>
+            <option value="4" {% if settings.pagarme_max_installments == 4 %}selected{% endif %}>Até 4x</option>
+            <option value="6" {% if settings.pagarme_max_installments == 6 %}selected{% endif %}>Até 6x</option>
+            <option value="10" {% if settings.pagarme_max_installments == 10 %}selected{% endif %}>Até 10x</option>
+            <option value="12" {% if settings.pagarme_max_installments == 12 %}selected{% endif %}>Até 12x</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div>
+            <h4 class="font-medium text-slate-800">Habilitar PIX</h4>
+            <p class="text-xs text-slate-500">Gerar QR Code automaticamente no checkout</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="pagarme_pix_enabled" value="1" class="sr-only peer" {% if settings.pagarme_pix_enabled %}checked{% endif %}>
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Webhook -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100 flex items-center gap-2">
+        <i data-lucide="webhook" class="w-5 h-5 text-slate-400"></i>
+        <h3 class="font-semibold text-slate-800">Configuração de Webhook</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-800 leading-relaxed">
+          <p class="font-bold mb-1">IMPORTANTE:</p>
+          Configure esta URL no seu painel Pagar.me para receber notificações de pagamentos confirmados.
+        </div>
+        <div>
+          <label class="form-label">URL para Notificações</label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="webhookUrl"
+              class="form-input bg-slate-50 font-mono text-xs"
+              value="{{ webhook_url }}"
+              readonly
+            >
+            <button type="button" onclick="copyWebhookUrl()" class="px-3 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 shadow-sm">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="flex items-center justify-between pt-4">
+      <a href="{% url 'integrations_settings' %}" class="btn btn-secondary">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Voltar
+      </a>
+      <button type="submit" class="btn btn-primary px-8">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        Salvar Configurações
+      </button>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyWebhookUrl() {
+  const input = document.getElementById('webhookUrl');
+  input.select();
+  document.execCommand('copy');
+
+  // Feedback simples
+  const btn = event.currentTarget;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>';
+  lucide.createIcons();
+  setTimeout(() => {
+    btn.innerHTML = originalHtml;
+    lucide.createIcons();
+  }, 2000);
+}
+</script>
+{% endblock %}

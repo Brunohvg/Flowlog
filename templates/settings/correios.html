@@ -1,0 +1,167 @@
+{% extends "base/base.html" %}
+
+{% block title %}Correios - Integrações - Flowlog{% endblock %}
+
+{% block page_title %}Correios{% endblock %}
+{% block page_subtitle %}Configure a integração com os Correios{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-slate-500">
+    <a href="{% url 'settings' %}" class="hover:text-indigo-600">Configurações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <a href="{% url 'integrations_settings' %}" class="hover:text-indigo-600">Integrações</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-slate-800 font-medium">Correios</span>
+  </nav>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Status -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="mail" class="w-6 h-6 text-amber-600"></i>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Integração Correios</h3>
+            <p class="text-sm text-slate-500">API oficial dos Correios</p>
+          </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="correios_enabled" value="1" class="sr-only peer" {% if settings.correios_enabled %}checked{% endif %}>
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Credenciais -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Credenciais da API</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Obtenha no portal <a href="https://api.correios.com.br" target="_blank" class="text-indigo-600 hover:underline">Meu Correios</a>
+        </p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">Usuário (Meu Correios)</label>
+          <input
+            type="text"
+            name="correios_usuario"
+            class="form-input"
+            value="{{ settings.correios_usuario }}"
+            placeholder="seu.usuario"
+          >
+        </div>
+        <div>
+          <label class="form-label">Código de Acesso</label>
+          <input
+            type="password"
+            name="correios_codigo_acesso"
+            class="form-input"
+            placeholder="{% if settings.correios_codigo_acesso %}••••••••{% else %}Código de acesso da API{% endif %}"
+          >
+          <p class="text-xs text-slate-500 mt-1">
+            Deixe em branco para manter o código atual
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token Manual (Avançado) -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Token Manual (Avançado)</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Cole aqui seu token apenas se a autenticação automática falhar (Erro 403).
+        </p>
+      </div>
+      <div class="p-6">
+        <label class="form-label">Token CWS/API</label>
+        <textarea
+          name="correios_token"
+          class="form-textarea font-mono text-xs"
+          placeholder="Cole aqui seu token (começa com eyJ... ou cws-...)"
+          rows="3"
+        >{{ settings.correios_token|default:'' }}</textarea>
+        <p class="text-xs text-slate-500 mt-2">
+          Ao salvar um token manual, a renovação automática será desativada temporariamente.
+        </p>
+      </div>
+    </div>
+
+    <!-- Contrato (Opcional) -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800">Contrato (Opcional)</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Para APIs que exigem contrato comercial
+        </p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="form-label">Número do Contrato</label>
+            <input
+              type="text"
+              name="correios_contrato"
+              class="form-input"
+              value="{{ settings.correios_contrato }}"
+              placeholder="9999999999"
+            >
+          </div>
+          <div>
+            <label class="form-label">Cartão de Postagem</label>
+            <input
+              type="text"
+              name="correios_cartao_postagem"
+              class="form-input"
+              value="{{ settings.correios_cartao_postagem }}"
+              placeholder="9999999999"
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status do Token -->
+    {% if settings.correios_token %}
+    <div class="card p-4 bg-emerald-50 border-emerald-200">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+          <div>
+            <p class="text-sm font-medium text-emerald-800">Token Ativo</p>
+            {% if settings.correios_token_expira %}
+            <p class="text-xs text-emerald-600">Expira em: {{ settings.correios_token_expira|date:"d/m/Y H:i" }}</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-xs text-emerald-600 font-mono bg-emerald-100 px-2 py-1 rounded">
+            {{ settings.correios_token|truncatechars:20 }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações -->
+    <div class="flex items-center justify-between pt-4">
+      <a href="{% url 'integrations_settings' %}" class="btn btn-secondary">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Voltar
+      </a>
+      <button type="submit" class="btn btn-primary">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        Salvar Configurações
+      </button>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

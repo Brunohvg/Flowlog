@@ -59,6 +59,133 @@ class TenantSettings(BaseModel):
         help_text="Habilitar PIX como forma de pagamento (requer liberação na Pagar.me)",
     )
 
+    # ==================== CORREIOS ====================
+    # API usa Basic Auth (usuario:codigo_acesso) para obter token JWT
+    # Token é cacheado até expiração (campo expiraEm na resposta)
+    correios_enabled = models.BooleanField("Correios Ativo", default=False)
+    correios_usuario = models.CharField(
+        "Usuário (Meu Correios)",
+        max_length=50,
+        blank=True,
+        help_text="Seu usuário do portal Meu Correios",
+    )
+    correios_codigo_acesso = models.CharField(
+        "Código de Acesso",
+        max_length=100,
+        blank=True,
+        help_text="Código de acesso gerado no portal Meu Correios",
+    )
+    correios_contrato = models.CharField(
+        "Número do Contrato",
+        max_length=20,
+        blank=True,
+        help_text="Opcional: para APIs que exigem contrato",
+    )
+    correios_cartao_postagem = models.CharField(
+        "Cartão de Postagem",
+        max_length=20,
+        blank=True,
+        help_text="Opcional: para APIs que exigem cartão",
+    )
+    # Token cacheado (preenchido automaticamente)
+    correios_token = models.TextField(
+        "Token (automático)",
+        blank=True,
+        editable=False,
+    )
+    correios_token_expira = models.DateTimeField(
+        "Expiração do Token",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    # ==================== MANDAÊ ====================
+    mandae_enabled = models.BooleanField("Mandaê Ativo", default=False)
+    mandae_api_url = models.URLField(
+        "URL da API Mandaê",
+        blank=True,
+        default="https://api.mandae.com.br/v2/",
+    )
+    mandae_token = models.CharField(
+        "Token Mandaê",
+        max_length=100,
+        blank=True,
+        help_text="Token de autenticação da API",
+    )
+    mandae_customer_id = models.CharField(
+        "Customer ID Mandaê",
+        max_length=100,
+        blank=True,
+        help_text="ID do cliente na Mandaê",
+    )
+    mandae_tracking_prefix = models.CharField(
+        "Prefixo de Rastreio",
+        max_length=10,
+        blank=True,
+        help_text="Ex: ATSNR",
+    )
+    mandae_webhook_secret = models.CharField(
+        "Webhook Secret",
+        max_length=100,
+        blank=True,
+        help_text="Chave para validar webhooks recebidos",
+    )
+
+    # ==================== MOTOBOY / FRETE ====================
+    store_cep = models.CharField(
+        "CEP da Loja",
+        max_length=9,
+        blank=True,
+        help_text="CEP de origem para cálculos de frete",
+    )
+    store_lat = models.DecimalField(
+        "Latitude da Loja",
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Preenchido automaticamente a partir do CEP",
+    )
+    store_lng = models.DecimalField(
+        "Longitude da Loja",
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Preenchido automaticamente a partir do CEP",
+    )
+    motoboy_price_per_km = models.DecimalField(
+        "Preço por Km (Motoboy)",
+        max_digits=6,
+        decimal_places=2,
+        default=2.50,
+        help_text="Valor cobrado por quilômetro",
+    )
+    motoboy_min_price = models.DecimalField(
+        "Valor Mínimo Motoboy",
+        max_digits=8,
+        decimal_places=2,
+        default=10.00,
+        help_text="Valor mínimo cobrado",
+    )
+    motoboy_max_price = models.DecimalField(
+        "Valor Máximo Motoboy",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Deixe vazio para não ter limite",
+    )
+    motoboy_max_radius = models.DecimalField(
+        "Raio Máximo (km)",
+        max_digits=6,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Distância máxima atendida. Deixe vazio para sem limite.",
+    )
+
     # ==================== WHATSAPP / EVOLUTION API ====================
     # URL e API Key Global são do settings.py (apenas para criar instância)
     # Cada tenant tem seu próprio token de instância (gerado ao criar)
@@ -298,7 +425,7 @@ class TenantSettings(BaseModel):
 
     def __str__(self):
         return f"Configurações - {self.tenant.name}"
-    
+
     @property
     def is_whatsapp_configured(self):
         """Verifica se WhatsApp está configurado."""
@@ -309,7 +436,7 @@ class TenantSettings(BaseModel):
             and self.evolution_instance
             and self.evolution_instance_token
         )
-    
+
     @property
     def is_whatsapp_ready(self):
         """Verifica se WhatsApp está pronto para enviar (configurado + habilitado + conectado)."""
@@ -318,20 +445,20 @@ class TenantSettings(BaseModel):
             and self.whatsapp_enabled
             and self.whatsapp_connected
         )
-    
+
     def can_send_notification(self, notification_type: str) -> bool:
         """
         Verifica se pode enviar um tipo específico de notificação.
-        
+
         Args:
             notification_type: Tipo da notificação (ex: 'order_created', 'payment_received')
-        
+
         Returns:
             bool: True se pode enviar
         """
         if not self.whatsapp_enabled:
             return False
-        
+
         # Mapeia tipo para campo
         field_map = {
             'order_created': 'notify_order_created',
@@ -349,11 +476,11 @@ class TenantSettings(BaseModel):
             'cancelled': 'notify_order_cancelled',
             'returned': 'notify_order_returned',
         }
-        
+
         field_name = field_map.get(notification_type)
         if not field_name:
             return True  # Tipo desconhecido, permite por padrão
-        
+
         return getattr(self, field_name, True)
 
 

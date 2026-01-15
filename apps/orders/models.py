@@ -57,6 +57,7 @@ class DeliveryType(models.TextChoices):
     MOTOBOY = "motoboy", "Motoboy"
     SEDEX = "sedex", "SEDEX"
     PAC = "pac", "PAC"
+    MANDAE = "mandae", "Mandaê"
 
     @classmethod
     def requires_address(cls, delivery_type):
@@ -64,11 +65,15 @@ class DeliveryType(models.TextChoices):
 
     @classmethod
     def requires_tracking(cls, delivery_type):
-        return delivery_type in [cls.SEDEX, cls.PAC]
+        return delivery_type in [cls.SEDEX, cls.PAC, cls.MANDAE]
 
     @classmethod
     def is_correios(cls, delivery_type):
         return delivery_type in [cls.SEDEX, cls.PAC]
+
+    @classmethod
+    def is_mandae(cls, delivery_type):
+        return delivery_type == cls.MANDAE
 
     @classmethod
     def is_delivery(cls, delivery_type):
@@ -347,20 +352,35 @@ class Order(TenantModel):
         super().save(*args, **kwargs)
 
     def _generate_code(self):
-        """Gera código único do pedido usando timestamp + random."""
+        """
+        Gera código único curto (PED-XXXXX).
+        Usa charset legível (sem 0/O, 1/I) para evitar confusão.
+        Se houver muitas colistões, aumenta o tamanho automaticamente.
+        """
+        import random
         import time
-        chars = string.ascii_uppercase + string.digits
-        max_attempts = 100
-        for _ in range(max_attempts):
-            # Timestamp em microssegundos (base 36 para encurtar) + 3 chars random
-            ts = int(time.time() * 1000000)
-            random_part = "".join(random.choices(chars, k=3))
-            code = f"PED-{ts}-{random_part}"
-            if not self.__class__._default_manager.filter(code=code).exists():
+        import string
+
+        # Charset excluindo caracteres ambíguos (0, O, 1, I)
+        chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        prefix = "PED"
+        base_length = 5
+        max_attempts = 50
+
+        for attempt in range(max_attempts):
+            # Aumenta tamanho se tiver muitas colisões (embora improvável com 33MI combinações)
+            current_length = base_length + (1 if attempt > 30 else 0)
+
+            suffix = "".join(random.choices(chars, k=current_length))
+            code = f"{prefix}-{suffix}"
+
+            # Verifica unicidade (scoped by tenant via manager padrão?)
+            # O campo code é unique=True globalmente no model, então usamos o manager default
+            if not self.__class__.objects.filter(code=code).exists():
                 return code
-        raise ValueError(
-            "Não foi possível gerar código único para o pedido após 100 tentativas"
-        )
+
+        # Fallback final: Timestamp para garantir não travar
+        return f"{prefix}-{int(time.time())}"
 
     def generate_pickup_code(self):
         """Gera código de retirada único de 4 dígitos."""
@@ -495,7 +515,12 @@ class Order(TenantModel):
 
     @property
     def tracking_url(self):
-        if self.tracking_code and self.is_correios:
+        """URL de rastreamento baseada no tipo de entrega."""
+        if not self.tracking_code:
+            return None
+        if self.delivery_type == DeliveryType.MANDAE:
+            return f"https://rastreamento.mandae.com.br/{self.tracking_code}"
+        if self.is_correios:
             return f"https://rastreamento.correios.com.br/app/index.php?objetos={self.tracking_code}"
         return None
 

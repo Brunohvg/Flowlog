@@ -93,4 +93,10 @@ urlpatterns = [
 
     # Pagamentos (Pagar.me)
     path("pagamentos/", include("apps.payments.urls")),
+
+    # Ferramentas (Frete)
+    path("ferramentas/", include("apps.integrations.freight.urls")),
+
+    # Integrações Logísticas
+    path("integrations/mandae/", include("apps.integrations.mandae.urls")),
 ]

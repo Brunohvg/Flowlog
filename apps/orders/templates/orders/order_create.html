@@ -117,6 +117,7 @@
                             <option value="motoboy" {% if request.POST.delivery_type == 'motoboy' %}selected{% endif %}>🏍️ Motoboy</option>
                             <option value="sedex" {% if request.POST.delivery_type == 'sedex' %}selected{% endif %}>⚡ SEDEX (Correios)</option>
                             <option value="pac" {% if request.POST.delivery_type == 'pac' %}selected{% endif %}>📦 PAC (Correios)</option>
+                            <option value="mandae" {% if request.POST.delivery_type == 'mandae' %}selected{% endif %}>🟦 Mandaê</option>
                             <option value="pickup" {% if request.POST.delivery_type == 'pickup' %}selected{% endif %}>🏬 Retirada na Loja</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
@@ -131,7 +132,7 @@
                     <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"></i>
                     <div>
                         <p class="text-sm font-bold text-amber-800">Atenção</p>
-                        <p class="text-xs text-amber-700 mt-0.5">O código de rastreio dos Correios será solicitado posteriormente, ao alterar o status para "Enviado".</p>
+                        <p class="text-xs text-amber-700 mt-0.5">O código de rastreio (Correios ou Mandaê) será solicitado posteriormente, ao alterar o status para "Enviado".</p>
                     </div>
                 </div>
             </div>
@@ -331,8 +332,8 @@
     addressSection.style.display = type === 'pickup' ? 'none' : 'block';
     // Motoboy: só mostra para motoboy
     motoboySection.style.display = type === 'motoboy' ? 'block' : 'none';
-    // Correios info
-    if(type === 'sedex' || type === 'pac') {
+    // Correios/Mandae info
+    if(type === 'sedex' || type === 'pac' || type === 'mandae') {
         correiosInfo.classList.remove('hidden');
     } else {
         correiosInfo.classList.add('hidden');

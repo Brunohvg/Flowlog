@@ -77,7 +77,7 @@
             <textarea name="delivery_address" rows="3" class="form-textarea" placeholder="Rua, Número, Bairro, Cidade/UF - CEP">{{ order.delivery_address }}</textarea>
           </div>
 
-          {% if order.is_correios or order.delivery_status == 'shipped' %}
+          {% if order.requires_tracking or order.delivery_status == 'shipped' %}
           <div>
             <label class="form-label">Código de Rastreio</label>
             <input type="text" name="tracking_code" value="{{ order.tracking_code|default:'' }}" class="form-input uppercase font-mono" placeholder="AA123456789BR">
