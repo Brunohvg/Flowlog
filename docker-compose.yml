@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   migrate:
-    image: brunobh51/flowlog:v1.8.1
+    image: brunobh51/flowlog:v10
     command: >
       sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py shell -c \"from django.contrib.auth import get_user_model; import os; User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL'); p=os.getenv('DJANGO_SUPERUSER_PASSWORD'); (e and p and not User.objects.filter(email=e).exists()) and User.objects.create_superuser(email=e, password=p) or print('superuser ok')\""
     environment:
@@ -36,7 +36,7 @@ services:
           memory: 512M
 
   flowlog:
-    image: brunobh51/flowlog:v1.8.1
+    image: brunobh51/flowlog:v10
     command: >
       gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60 --access-logfile - --error-logfile -
     environment:
@@ -63,8 +63,21 @@ services:
     networks:
       - traefik_public
       - app_network
+    # CORREÇÃO: Healthcheck movido para o nível do serviço (fora de deploy)
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/healthcheck/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       replicas: 1
+      # CORREÇÃO: Policy on-failure para garantir restart se crashar
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
       placement:
         constraints:
           - node.role == manager
@@ -79,16 +92,10 @@ services:
         limits:
           cpus: "1.0"
           memory: 768M
-      healthcheck:
-        test: [ "CMD", "curl", "-f", "http://localhost:8000/healthcheck/" ]
-        interval: 30s
-        timeout: 5s
-        retries: 3
-        start_period: 20s
 
   worker:
-    image: brunobh51/flowlog:v1.8.1
-    # Adicionado ignore-result para economizar Redis (Opcional, mas recomendado)
+    image: brunobh51/flowlog:v10
+    # CORREÇÃO: Removido ignore-result do comentário e garantido filas corretas
     command: celery -A config worker -l info -Q default,whatsapp --concurrency=2
     environment:
       TZ: America/Sao_Paulo
@@ -105,17 +112,22 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      # CORREÇÃO: C_FORCE_ROOT para evitar problemas de permissão se rodar como root (embora Dockerfile use django-user)
+      C_FORCE_ROOT: "true"
     networks:
       - app_network
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
       resources:
         limits:
           cpus: "1"
           memory: 1024M
 
   beat:
-    image: brunobh51/flowlog:v1.8.1
+    image: brunobh51/flowlog:v10
     command: celery -A config beat -l info --schedule=/tmp/celerybeat-schedule
     environment:
       TZ: America/Sao_Paulo
@@ -130,18 +142,20 @@ services:
       DB_PORT: ${DB_PORT}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-    # Volumes removidos para evitar conflito de permissão com django-user
     networks:
       - app_network
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
       resources:
         limits:
           cpus: "0.5"
           memory: 512M
+
   redis:
     image: redis:7-alpine
-    # CORREÇÃO: Política de memória allkeys-lru e limite ajustado para 256mb
     command: redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
     environment:
       TZ: America/Sao_Paulo
@@ -149,8 +163,15 @@ services:
       - redis_data:/data
     networks:
       - app_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
       resources:
         limits:
           cpus: "0.5"

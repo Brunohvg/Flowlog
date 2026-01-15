@@ -173,13 +173,16 @@
         </a>
       </div>
 
-      <nav class="flex-1 py-4 overflow-y-auto min-h-0 space-y-0.5 custom-scrollbar">
-        <div class="px-4 mb-2 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Principal</div>
+      <nav class="flex-1 py-4 overflow-y-auto min-h-0 space-y-1 custom-scrollbar">
 
-        <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-          <i data-lucide="layout-dashboard"></i>
-          <span>Dashboard</span>
-        </a>
+        <div class="px-3 mb-2">
+            <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+            </a>
+        </div>
+
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vendas</div>
 
         <a href="{% url 'order_create' %}" class="nav-link {% if request.resolver_match.url_name == 'order_create' %}active{% endif %}">
           <i data-lucide="plus-circle"></i>
@@ -187,8 +190,8 @@
         </a>
 
         <a href="{% url 'order_list' %}" class="nav-link {% if 'order' in request.resolver_match.url_name and 'create' not in request.resolver_match.url_name %}active{% endif %}">
-          <i data-lucide="shopping-cart"></i>
-          <span>Meus Pedidos</span>
+          <i data-lucide="package"></i>
+          <span>Pedidos</span>
         </a>
 
         <a href="{% url 'customer_list' %}" class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
@@ -196,26 +199,24 @@
           <span>Clientes</span>
         </a>
 
-        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gestão</div>
+        <a href="{% url 'freight_calculator' %}" class="nav-link {% if request.resolver_match.url_name == 'freight_calculator' %}active{% endif %}">
+          <i data-lucide="truck"></i>
+          <span>Calc. Frete</span>
+        </a>
+
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Financeiro</div>
 
         <a href="{% url 'payment_link_list' %}" class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}">
           <i data-lucide="wallet"></i>
           <span>Pagamentos</span>
         </a>
 
+        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
+
         <a href="{% url 'reports' %}" class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
           <i data-lucide="bar-chart-3"></i>
           <span>Relatórios</span>
         </a>
-
-        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ferramentas</div>
-
-        <a href="{% url 'freight_calculator' %}" class="nav-link {% if request.resolver_match.url_name == 'freight_calculator' %}active{% endif %}">
-          <i data-lucide="wrench"></i>
-          <span>Calcular Frete</span>
-        </a>
-
-        <div class="px-4 mb-2 mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sistema</div>
 
         <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' or 'settings' in request.path %}active{% endif %}">
           <i data-lucide="settings"></i>
