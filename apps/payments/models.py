@@ -224,12 +224,12 @@ class PaymentLink(BaseModel):
 
         link.save()
 
-        # Atualiza pedido vinculado com lock se possível
+        # Atualiza pedido vinculado via Service (Garante status, logs e notificações)
         if link.order:
-            from apps.orders.models import PaymentStatus, Order
-            order = Order.objects.select_for_update().get(id=link.order_id)
-            order.payment_status = PaymentStatus.PAID
-            order.save(update_fields=["payment_status", "updated_at"])
+            from apps.orders.services import OrderStatusService
+            # Usa o criador do link ou o vendedor do pedido como autor da ação
+            actor = link.created_by or link.order.seller
+            OrderStatusService().mark_as_paid(order=link.order, actor=actor)
 
     def mark_as_failed(self, webhook_data=None):
         """Marca como falhou"""

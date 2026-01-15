@@ -255,6 +255,8 @@ class OrderService:
             delivery_type=order.delivery_type,
             delivery_status=DeliveryStatus.PENDING,
             delivery_address=order.delivery_address,
+            is_priority=order.is_priority,
+            sale_date=timezone.now().date(),
             notes=f"Cópia de {order.code}",
         )
 
@@ -267,6 +269,43 @@ class OrderService:
 
         _send_whatsapp_with_snapshot(new_order, "send_order_created")
         return new_order
+
+    @db_transaction.atomic
+    def update_order(self, *, order: Order, actor, data):
+        """Atualização centralizada com lock e logging."""
+        if order.tenant_id != actor.tenant_id:
+            raise ValueError("Usuário não pertence ao tenant.")
+
+        order = Order.objects.select_for_update().get(id=order.id)
+
+        # Atualiza campos permitidos
+        if "total_value" in data:
+            order.total_value = data["total_value"]
+        if "delivery_address" in data:
+            order.delivery_address = data["delivery_address"]
+        if "notes" in data:
+            order.notes = data["notes"]
+        if "internal_notes" in data:
+            order.internal_notes = data["internal_notes"]
+        if "is_priority" in data:
+            order.is_priority = data["is_priority"]
+
+        # Campos motoboy (só se for entrega motoboy)
+        if order.delivery_type == DeliveryType.MOTOBOY:
+            if "motoboy_fee" in data:
+                order.motoboy_fee = data["motoboy_fee"]
+            if "motoboy_paid" in data:
+                order.motoboy_paid = data["motoboy_paid"]
+
+        order.save()
+
+        OrderActivity.log(
+            order=order,
+            activity_type=OrderActivity.ActivityType.EDITED,
+            description="Pedido editado",
+            user=actor,
+        )
+        return order
 
 
 class OrderStatusService:

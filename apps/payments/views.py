@@ -389,11 +389,8 @@ def pagarme_webhook(request):
         if event_type in ("charge.paid", "order.paid", "paymentlink.paid"):
             if payment_link.status != PaymentLink.Status.PAID:
                 # Chama método do model que salva os dados do Payer
+                # O model agora usa OrderStatusService que já dispara a notificação
                 payment_link.mark_as_paid(webhook_data=payload)
-                # Notificação com delay seguro
-                transaction.on_commit(
-                    lambda: _send_payment_confirmation_whatsapp(payment_link)
-                )
 
         elif event_type == "payment-link.expired":
             if payment_link.status == PaymentLink.Status.PENDING:

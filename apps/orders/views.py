@@ -159,30 +159,27 @@ def order_edit(request, order_id):
         motoboy_paid = request.POST.get("motoboy_paid") == "on"
 
         try:
+            update_data = {
+                "delivery_address": delivery_address,
+                "notes": notes,
+                "internal_notes": internal_notes,
+                "is_priority": is_priority,
+            }
             if total_value_raw:
-                order.total_value = parse_brazilian_decimal(total_value_raw)
-            order.delivery_address = delivery_address
-            order.notes = notes
-            order.internal_notes = internal_notes
-            order.is_priority = is_priority
+                update_data["total_value"] = parse_brazilian_decimal(total_value_raw)
 
-            # Salvar campos motoboy (só se for entrega motoboy)
+            # Campos motoboy
             if order.delivery_type == "motoboy":
+                update_data["motoboy_paid"] = motoboy_paid
                 if motoboy_fee_raw:
-                    order.motoboy_fee = parse_brazilian_decimal(motoboy_fee_raw)
+                    update_data["motoboy_fee"] = parse_brazilian_decimal(motoboy_fee_raw)
                 else:
-                    order.motoboy_fee = None
-                order.motoboy_paid = motoboy_paid
+                    update_data["motoboy_fee"] = None
 
-            order.save()
-
-            from apps.orders.models import OrderActivity
-
-            OrderActivity.log(
+            OrderService().update_order(
                 order=order,
-                activity_type=OrderActivity.ActivityType.EDITED,
-                description="Pedido editado",
-                user=request.user,
+                actor=request.user,
+                data=update_data
             )
 
             messages.success(request, f"Pedido {order.code} atualizado!")
