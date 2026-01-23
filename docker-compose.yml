@@ -26,6 +26,7 @@ services:
       - .:/app # Hot Reload
     ports:
       - "8000:8000"
+    restart: on-failure
     depends_on:
       - db
       - redis
@@ -42,7 +43,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   # --------------------------------------------------------------------------
   # 3. REDIS
@@ -50,7 +51,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   # --------------------------------------------------------------------------
   # 4. CELERY WORKER
@@ -71,6 +72,7 @@ services:
       - .env
     volumes:
       - .:/app
+    restart: on-failure
     depends_on:
       - db
       - redis
