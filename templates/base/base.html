@@ -7,8 +7,9 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  {% block extra_head %}{% endblock %}
 
   <script>
     tailwind.config = {
@@ -39,7 +40,6 @@
     }
 
     /* Sidebar */
-    /* Link Principal */
     .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 12px; color: #94a3b8; border-radius: 8px; margin: 1px 10px; transition: all 0.2s; font-size: 13px; font-weight: 500; }
     .nav-link:hover { background: rgba(255,255,255,0.05); color: #fff; }
     .nav-link.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
@@ -53,7 +53,7 @@
     /* Cards */
     .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
 
-    /* Form Elements - IMPORTANTE */
+    /* Form Elements */
     .form-input {
       display: block;
       width: 100%;
@@ -132,18 +132,10 @@
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 20px; }
 
     /* Table */
-    .data-table { width: 100%; }
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
     .data-table th { padding: 14px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; background: #f8fafc; text-align: left; border-bottom: 1px solid #e2e8f0; }
     .data-table td { padding: 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     .data-table tbody tr:hover { background: #f8fafc; }
-
-    /* Stat Card */
-    .stat-card { padding: 20px; }
-    .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-
-    /* Overlay */
-    .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; display: none; }
-    .sidebar-overlay.show { display: block; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -155,7 +147,7 @@
 <body class="bg-slate-100">
 
   <div id="overlay" class="sidebar-overlay lg:hidden" onclick="toggleSidebar()"></div>
-
+  {% block layout %}
   <div class="page-container">
 
     <!-- Sidebar -->
@@ -226,6 +218,7 @@
       </nav>
 
       <div class="p-3 border-t border-white/10">
+        {% if request.user.is_authenticated %}
         <div class="flex items-center gap-2 p-2 rounded-xl bg-white/5">
           <div class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {{ request.user.first_name|slice:":1"|default:request.user.email|slice:":1"|upper }}
@@ -241,6 +234,7 @@
             </button>
           </form>
         </div>
+        {% endif %}
       </div>
 
     </aside>
@@ -259,9 +253,11 @@
             <p class="text-sm text-slate-500 hidden sm:block">{% block page_subtitle %}{% endblock %}</p>
           </div>
 
-          <a href="{% url 'profile' %}" class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+          {% if request.user.is_authenticated %}
+          <div class="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {{ request.user.first_name|slice:":1"|default:request.user.email|slice:":1"|upper }}
-          </a>
+          </div>
+          {% endif %}
         </div>
       </header>
 
@@ -283,6 +279,7 @@
     </main>
 
   </div>
+  {% endblock %}
 
   <script>
     lucide.createIcons();

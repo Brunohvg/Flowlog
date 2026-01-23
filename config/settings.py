@@ -57,10 +57,7 @@ _allowed_hosts = config("ALLOWED_HOSTS", default="", cast=Csv())
 if DEBUG:
     ALLOWED_HOSTS = _allowed_hosts if _allowed_hosts else ["localhost", "127.0.0.1"]
 else:
-    if not _allowed_hosts or "*" in _allowed_hosts:
-        ALLOWED_HOSTS = ["localhost"]
-    else:
-        ALLOWED_HOSTS = _allowed_hosts
+    ALLOWED_HOSTS = list(_allowed_hosts) + ["localhost", "127.0.0.1"]
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS", default="http://localhost,http://127.0.0.1", cast=Csv()
