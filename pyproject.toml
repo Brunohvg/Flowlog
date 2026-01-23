@@ -24,6 +24,7 @@ dependencies = [
     "django-celery-results>=2.6.0",
     "uv>=0.9.21",
     "django-cors-headers>=4.9.0",
+    "sentry-sdk[django]>=1.40.0",
 ]
 
 # ===============================

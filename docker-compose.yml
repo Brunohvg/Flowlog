@@ -1,1 +1,79 @@
-ao
+version: "3.8"
+
+services:
+  # --------------------------------------------------------------------------
+  # 1. WEB APPLICATION (Dev Mode)
+  # --------------------------------------------------------------------------
+  flowlog:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - SECRET_KEY=dev-secret-key
+      - DEBUG=True
+      - ALLOWED_HOSTS=*
+      - SENTRY_DSN=${SENTRY_DSN}
+      - DB_NAME=flowlog
+      - DB_USER=flowlog
+      - DB_PASSWORD=flowlog
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      # Add other envs as needed or load from .env file
+    env_file:
+      - .env
+    volumes:
+      - .:/app # Hot Reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  # --------------------------------------------------------------------------
+  # 2. DATABASE (Postgres)
+  # --------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=flowlog
+      - POSTGRES_USER=flowlog
+      - POSTGRES_PASSWORD=flowlog
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # --------------------------------------------------------------------------
+  # 3. REDIS
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # --------------------------------------------------------------------------
+  # 4. CELERY WORKER
+  # --------------------------------------------------------------------------
+  worker:
+    build: .
+    command: celery -A config worker -l info -Q default,whatsapp --concurrency=2
+    environment:
+      - DEBUG=True
+      - DB_NAME=flowlog
+      - DB_USER=flowlog
+      - DB_PASSWORD=flowlog
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:

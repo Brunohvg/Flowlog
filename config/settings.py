@@ -10,10 +10,29 @@ from decouple import Csv, config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ==============================================================================
-# SEGURANÇA
+# SEGURANÇA & OBSERVABILIDADE
 # ==============================================================================
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me")
 DEBUG = config("DEBUG", default=False, cast=bool)
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+
+SENTRY_DSN = config("SENTRY_DSN", default=None)
+
+if SENTRY_DSN and not DEBUG:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=0.1,  # Capture 10% of transactions for performance monitoring
+        send_default_pii=True,
+    )
 
 # Lógica de Hosts Permitidos
 _allowed_hosts = config("ALLOWED_HOSTS", default="", cast=Csv())
