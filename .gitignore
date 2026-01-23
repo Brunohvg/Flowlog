@@ -21,3 +21,8 @@ media/
 .logs/
 *.logs
 *.log
+
+.agent
+
+# Debug scripts
+debug_*.py
