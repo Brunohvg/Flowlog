@@ -1,0 +1,148 @@
+version: "3.8"
+
+services:
+  # --------------------------------------------------------------------------
+  # 1. MIGRATE (One-off job)
+  # --------------------------------------------------------------------------
+  migrate:
+    image: brunobh51/flowlog:latest
+    command: python manage.py migrate --noinput
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    networks:
+      - app_network
+    deploy:
+      replicas: 0 # Just for manual execution or automated via deploy script
+      restart_policy:
+        condition: none
+
+  # --------------------------------------------------------------------------
+  # 2. WEB APPLICATION (Gunicorn)
+  # --------------------------------------------------------------------------
+  flowlog:
+    image: brunobh51/flowlog:latest
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      - SITE_URL=${SITE_URL}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    networks:
+      - traefik_public
+      - app_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik_public"
+        - "traefik.http.routers.flowlog.rule=Host(`flowlog.lojabibelo.com.br`)" # TODO: Make this dynamic?
+        - "traefik.http.routers.flowlog.entrypoints=websecure"
+        - "traefik.http.routers.flowlog.tls.certresolver=le"
+        - "traefik.http.services.flowlog.loadbalancer.server.port=8000"
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --------------------------------------------------------------------------
+  # 3. CELERY WORKER
+  # --------------------------------------------------------------------------
+  worker:
+    image: brunobh51/flowlog:latest
+    command: celery -A config worker -l info -Q default,whatsapp --concurrency=2
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+  # --------------------------------------------------------------------------
+  # 4. CELERY BEAT
+  # --------------------------------------------------------------------------
+  beat:
+    image: brunobh51/flowlog:latest
+    command: celery -A config beat -l info --schedule=/tmp/celerybeat-schedule
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # --------------------------------------------------------------------------
+  # 5. REDIS
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:
+
+networks:
+  traefik_public:
+    external: true
+  app_network:
+    external: true # In Swarm, it's good practice to create this manually or let the stack manage it
