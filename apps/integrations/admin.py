@@ -126,7 +126,8 @@ class NotificationLogAdmin(admin.ModelAdmin):
         }
         color = colors.get(obj.status, "#6b7280")
         return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
             color,
             obj.get_status_display(),
         )
@@ -158,7 +159,7 @@ class NotificationLogAdmin(admin.ModelAdmin):
                 '<pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 11px;">{}</pre>',
                 json_str,
             )
-        except:
+        except Exception:
             return str(obj.api_response)
 
     formatted_api_response.short_description = "Resposta da API (Formatada)"
@@ -254,7 +255,8 @@ class APIRequestLogAdmin(admin.ModelAdmin):
             text = f"{obj.status_code} Erro"
 
         return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
             color,
             text,
         )
@@ -293,10 +295,11 @@ class APIRequestLogAdmin(admin.ModelAdmin):
         try:
             json_str = json.dumps(data, indent=2, ensure_ascii=False)
             return format_html(
-                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 11px; white-space: pre-wrap;">{}</pre>',
+                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; '
+                'font-size: 11px; white-space: pre-wrap;">{}</pre>',
                 json_str,
             )
-        except:
+        except Exception:
             return str(data)
 
     def formatted_request_body(self, obj):

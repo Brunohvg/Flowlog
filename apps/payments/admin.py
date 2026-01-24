@@ -160,7 +160,8 @@ class PaymentLinkAdmin(admin.ModelAdmin):
             json_str = json.dumps(obj.webhook_data, indent=2, ensure_ascii=False)
             # Usa tag <pre> para manter a formatação
             return format_html(
-                '<pre style="font-size: 12px; background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{}</pre>',
+                '<pre style="font-size: 12px; background-color: #f5f5f5; padding: 10px; '
+                'border-radius: 4px; overflow-x: auto;">{}</pre>',
                 json_str,
             )
         except Exception:

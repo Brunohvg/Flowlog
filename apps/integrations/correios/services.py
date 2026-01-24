@@ -369,7 +369,7 @@ class CorreiosPricingClient:
             preco_final = dados_preco.get("pcFinal", "0").replace(",", ".")
             try:
                 valor = float(preco_final)
-            except:
+            except (ValueError, TypeError):
                 valor = 0.0
 
             msg_erro_preco = dados_preco.get("msgErro", "")
@@ -378,7 +378,7 @@ class CorreiosPricingClient:
             prazo_dias = dados_prazo.get("prazoEntrega", "0")
             try:
                 dias = int(prazo_dias)
-            except:
+            except (ValueError, TypeError):
                 dias = 0
 
             msg_erro_prazo = dados_prazo.get("msgErro", "")

@@ -62,7 +62,7 @@ class PagarmeService:
             # Logs para debug
             try:
                 error_text = e.response.json()
-            except:
+            except Exception:
                 error_text = e.response.text[:200]
 
             logger.error("Pagar.me Error [%s]: %s", status_code, error_text)

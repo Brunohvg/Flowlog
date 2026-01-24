@@ -225,7 +225,10 @@ class OrderAdmin(admin.ModelAdmin):
             "gray": "#f3f4f6; color: #1f2937",  # Gray
             "purple": "#f3e8ff; color: #6b21a8",  # Purple
         }
-        style = f"background-color: {colors.get(color, colors['gray'])}; padding: 3px 8px; border-radius: 10px; font-weight: bold; font-size: 11px;"
+        style = (
+            f"background-color: {colors.get(color, colors['gray'])}; "
+            f"padding: 3px 8px; border-radius: 10px; font-weight: bold; font-size: 11px;"
+        )
         return format_html('<span style="{}">{}</span>', style, text)
 
     def status_badge(self, obj):

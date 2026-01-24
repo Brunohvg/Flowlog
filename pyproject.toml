@@ -25,6 +25,7 @@ dependencies = [
     "uv>=0.9.21",
     "django-cors-headers>=4.9.0",
     "sentry-sdk[django]>=1.40.0",
+    "dj-database-url>=3.1.0",
 ]
 
 # ===============================
@@ -57,8 +58,11 @@ target-version = ["py312"]
 profile = "black"
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py312"
+exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "DJ"]
 ignore = ["DJ001"]
 

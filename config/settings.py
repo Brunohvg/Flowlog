@@ -5,6 +5,7 @@ Production-ready for Docker Swarm.
 
 from pathlib import Path
 
+import dj_database_url
 import sentry_sdk
 from decouple import Csv, config
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -129,24 +130,18 @@ TEMPLATES = [
 # DATABASE
 # ==============================================================================
 USE_SQLITE = config("USE_SQLITE", default=False, cast=bool)
+DATABASES = {
+    "default": dj_database_url.config(
+        default=f"postgres://{config('DB_USER', default='flowlog')}:{config('DB_PASSWORD', default='')}@{config('DB_HOST', default='localhost')}:{config('DB_PORT', default='5432')}/{config('DB_NAME', default='flowlog')}",
+        conn_max_age=600,
+        ssl_require=not DEBUG,
+    )
+}
 
 if USE_SQLITE:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": config("DB_NAME", default="flowlog"),
-            "USER": config("DB_USER", default="flowlog"),
-            "PASSWORD": config("DB_PASSWORD", default=""),
-            "HOST": config("DB_HOST", default="localhost"),
-            "PORT": config("DB_PORT", default="5432"),
-        }
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

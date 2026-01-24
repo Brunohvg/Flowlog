@@ -213,7 +213,8 @@ class WhatsAppNotificationService:
     def send_order_created(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, "msg_order_created", None) or (
-            "Olá {nome}! 🎉\n\nSeu pedido *{codigo}* foi recebido!\nValor: R$ {valor}\n\nAcompanhe em: {link_rastreio}\n\n_{loja}_"
+            "Olá {nome}! 🎉\n\nSeu pedido *{codigo}* foi recebido!\n"
+            "Valor: R$ {valor}\n\nAcompanhe em: {link_rastreio}\n\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
@@ -306,7 +307,8 @@ class WhatsAppNotificationService:
             else ""
         )
         template = getattr(self.settings, "msg_order_shipped", None) or (
-            "Olá {nome}! 📦\n\nSeu pedido *{codigo}* foi enviado!\n\n{rastreio_info}Acompanhe em: {link_rastreio}\n\n_{loja}_"
+            "Olá {nome}! 📦\n\nSeu pedido *{codigo}* foi enviado!\n\n"
+            "{rastreio_info}Acompanhe em: {link_rastreio}\n\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
@@ -335,7 +337,8 @@ class WhatsAppNotificationService:
     def send_delivery_failed(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, "msg_delivery_failed", None) or (
-            "Olá {nome}! ⚠️\n\nTentamos entregar o pedido *{codigo}* mas não conseguimos.\nTentativa: {tentativa}\n\n_{loja}_"
+            "Olá {nome}! ⚠️\n\nTentamos entregar o pedido *{codigo}* mas não conseguimos.\n"
+            "Tentativa: {tentativa}\n\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
@@ -351,7 +354,9 @@ class WhatsAppNotificationService:
     def send_order_ready_for_pickup(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
         template = getattr(self.settings, "msg_order_ready_for_pickup", None) or (
-            "Olá {nome}! 🏬\n\nSeu pedido *{codigo}* está pronto!\nValor: R$ {valor}\n\n🔑 *Código: {pickup_code}*\n\n📍 {endereco}\n⏰ Prazo: 48h\n\n_{loja}_"
+            "Olá {nome}! 🏬\n\nSeu pedido *{codigo}* está pronto!\n"
+            "Valor: R$ {valor}\n\n🔑 *Código: {pickup_code}*\n\n📍 {endereco}\n"
+            "⏰ Prazo: 48h\n\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
@@ -394,7 +399,8 @@ class WhatsAppNotificationService:
             f"Motivo: {data['cancel_reason']}\n\n" if data["cancel_reason"] else ""
         )
         template = getattr(self.settings, "msg_order_cancelled", None) or (
-            "Olá {nome}!\n\nSeu pedido *{codigo}* foi cancelado.\n{motivo_info}Em caso de dúvidas, entre em contato.\n_{loja}_"
+            "Olá {nome}!\n\nSeu pedido *{codigo}* foi cancelado.\n"
+            "{motivo_info}Em caso de dúvidas, entre em contato.\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
