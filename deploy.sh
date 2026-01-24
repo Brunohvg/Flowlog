@@ -35,7 +35,7 @@ echo -e "\n${BLUE}[2/5] Rodando análise estática...${NC}"
 uv run ruff check .
 
 echo -e "\n${BLUE}[3/5] Rodando testes automatizados...${NC}"
-uv run pytest
+USE_SQLITE=True DEBUG=True uv run pytest
 
 # 4. Definir Versão
 echo -e "\n${BLUE}Qual a TAG desta versão? (ex: v1.1.0)${NC}"
