@@ -5,7 +5,8 @@ services:
   # 1. WEB APPLICATION (Dev Mode)
   # --------------------------------------------------------------------------
   flowlog:
-    build: .
+    image: brunobh51/flowlog:v1.10.0
+    user: root # Necessário para permissões de volumes (static/media)
     command: python manage.py runserver 0.0.0.0:8000
     environment:
       - SECRET_KEY=dev-secret-key
@@ -57,7 +58,8 @@ services:
   # 4. CELERY WORKER
   # --------------------------------------------------------------------------
   worker:
-    build: .
+    image: brunobh51/flowlog:v1.10.0
+    user: root
     command: celery -A config worker -l info -Q default,whatsapp --concurrency=2
     environment:
       - DEBUG=True
