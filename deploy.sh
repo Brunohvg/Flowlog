@@ -26,14 +26,20 @@ if [ -z "$VERSION" ]; then
     echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
     echo -e "Sugestão: v1.1.0 ou v1.2.0"
 
-    # Loop para garantir que a versão seja preenchida
+    # Loop para garantir que a versão seja preenchida lendo do terminal real
     while [ -z "$VERSION" ]; do
         echo -n "TAG: "
-        read -r VERSION
+        if read -r VERSION < /dev/tty; then
+            # Remover espaços em branco acidentais
+            VERSION=$(echo "$VERSION" | tr -d '[:space:]')
+        else
+            # Fallback se /dev/tty falhar
+             read -r VERSION
+             VERSION=$(echo "$VERSION" | tr -d '[:space:]')
+        fi
+
         if [ -z "$VERSION" ]; then
              echo -e "${RED}Erro: A versão não pode ser vazia!${NC}"
-             # Pequeno sleep para evitar loop infinito em ambientes sem TTY
-             sleep 1
         fi
     done
 fi
