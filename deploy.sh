@@ -19,29 +19,21 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== INICIANDO DEPLOY AUTOMATIZADO ===${NC}"
 
-# 1. Definir Versão (Movido para o início para evitar problemas de TTY)
-VERSION=$1
-if [ -z "$VERSION" ]; then
+# 1. Definir Versão
+if [ -n "$1" ]; then
+    VERSION=$1
+else
     CURRENT_VERSION=$(grep -m 1 "version =" pyproject.toml | cut -d '"' -f 2)
     echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
-    echo -e "Sugestão: v1.1.0 ou v1.2.0"
+    echo -n "DIGITE A TAG AGORA (ex: v1.11): "
+    read -r VERSION
+    VERSION=$(echo "$VERSION" | xargs)
+fi
 
-    # Loop para garantir que a versão seja preenchida lendo do terminal real
-    while [ -z "$VERSION" ]; do
-        echo -n "TAG: "
-        if read -r VERSION < /dev/tty; then
-            # Remover espaços em branco acidentais
-            VERSION=$(echo "$VERSION" | tr -d '[:space:]')
-        else
-            # Fallback se /dev/tty falhar
-             read -r VERSION
-             VERSION=$(echo "$VERSION" | tr -d '[:space:]')
-        fi
-
-        if [ -z "$VERSION" ]; then
-             echo -e "${RED}Erro: A versão não pode ser vazia!${NC}"
-        fi
-    done
+if [ -z "$VERSION" ]; then
+    echo -e "\n${RED}Erro: A versão não pode ser vazia!${NC}"
+    echo -e "Você também pode rodar: ./deploy.sh v1.11"
+    exit 1
 fi
 
 echo -e "${BLUE}Versão definida como: $VERSION${NC}"
