@@ -25,17 +25,9 @@ RUN uv pip install -r requirements.txt
 
 # Copy entrypoint script and make it executable
 COPY docker-entrypoint.sh /usr/local/bin/
+# Set permissions (Keep as root for volume compatibility like v1.9)
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Copy project files
 COPY . .
-
-# Create non-root user
-RUN adduser --disabled-password --no-create-home django-user && \
-    chown -R django-user:django-user /app
-
-# Switch to non-root user
-USER django-user
 
 # Expose port
 EXPOSE 8000
