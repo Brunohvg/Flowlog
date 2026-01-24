@@ -16,7 +16,9 @@ class Tenant(BaseModel):
     slug = models.SlugField("Slug", unique=True)
     contact_email = models.EmailField("E-mail de contato")
     contact_phone = models.CharField("Telefone de contato", max_length=20, blank=True)
-    address = models.TextField("Endereço", blank=True, help_text="Endereço para retiradas")
+    address = models.TextField(
+        "Endereço", blank=True, help_text="Endereço para retiradas"
+    )
     is_active = models.BooleanField("Ativo", default=True)
 
     class Meta:
@@ -219,19 +221,45 @@ class TenantSettings(BaseModel):
     # ==================== CONTROLE GRANULAR DE NOTIFICAÇÕES ====================
     # Cada tipo de mensagem pode ser ativado/desativado individualmente
     notify_order_created = models.BooleanField("Notificar: Pedido Criado", default=True)
-    notify_order_confirmed = models.BooleanField("Notificar: Pedido Confirmado", default=False)
-    notify_payment_link = models.BooleanField("Notificar: Link de Pagamento", default=True)
-    notify_payment_received = models.BooleanField("Notificar: Pagamento Recebido", default=True)
-    notify_payment_failed = models.BooleanField("Notificar: Pagamento Falhou", default=True)
-    notify_payment_refunded = models.BooleanField("Notificar: Pagamento Estornado", default=True)
-    notify_order_shipped = models.BooleanField("Notificar: Pedido Enviado", default=True)
-    notify_order_delivered = models.BooleanField("Notificar: Pedido Entregue", default=True)
-    notify_delivery_failed = models.BooleanField("Notificar: Tentativa de Entrega Falha", default=True)
-    notify_order_ready_for_pickup = models.BooleanField("Notificar: Pronto para Retirada", default=True)
-    notify_order_picked_up = models.BooleanField("Notificar: Pedido Retirado", default=False)
-    notify_order_expired = models.BooleanField("Notificar: Pedido Expirado", default=True)
-    notify_order_cancelled = models.BooleanField("Notificar: Pedido Cancelado", default=True)
-    notify_order_returned = models.BooleanField("Notificar: Pedido Devolvido", default=True)
+    notify_order_confirmed = models.BooleanField(
+        "Notificar: Pedido Confirmado", default=False
+    )
+    notify_payment_link = models.BooleanField(
+        "Notificar: Link de Pagamento", default=True
+    )
+    notify_payment_received = models.BooleanField(
+        "Notificar: Pagamento Recebido", default=True
+    )
+    notify_payment_failed = models.BooleanField(
+        "Notificar: Pagamento Falhou", default=True
+    )
+    notify_payment_refunded = models.BooleanField(
+        "Notificar: Pagamento Estornado", default=True
+    )
+    notify_order_shipped = models.BooleanField(
+        "Notificar: Pedido Enviado", default=True
+    )
+    notify_order_delivered = models.BooleanField(
+        "Notificar: Pedido Entregue", default=True
+    )
+    notify_delivery_failed = models.BooleanField(
+        "Notificar: Tentativa de Entrega Falha", default=True
+    )
+    notify_order_ready_for_pickup = models.BooleanField(
+        "Notificar: Pronto para Retirada", default=True
+    )
+    notify_order_picked_up = models.BooleanField(
+        "Notificar: Pedido Retirado", default=False
+    )
+    notify_order_expired = models.BooleanField(
+        "Notificar: Pedido Expirado", default=True
+    )
+    notify_order_cancelled = models.BooleanField(
+        "Notificar: Pedido Cancelado", default=True
+    )
+    notify_order_returned = models.BooleanField(
+        "Notificar: Pedido Devolvido", default=True
+    )
 
     # ==================== MENSAGENS - PEDIDO ====================
     msg_order_created = models.TextField(
@@ -430,9 +458,10 @@ class TenantSettings(BaseModel):
     def is_whatsapp_configured(self):
         """Verifica se WhatsApp está configurado."""
         from django.conf import settings
+
         # Precisa ter: URL global + instância + token da instância
         return bool(
-            getattr(settings, 'EVOLUTION_API_URL', '')
+            getattr(settings, "EVOLUTION_API_URL", "")
             and self.evolution_instance
             and self.evolution_instance_token
         )
@@ -461,20 +490,20 @@ class TenantSettings(BaseModel):
 
         # Mapeia tipo para campo
         field_map = {
-            'order_created': 'notify_order_created',
-            'order_confirmed': 'notify_order_confirmed',
-            'payment_link': 'notify_payment_link',
-            'payment_received': 'notify_payment_received',
-            'payment_failed': 'notify_payment_failed',
-            'payment_refunded': 'notify_payment_refunded',
-            'order_shipped': 'notify_order_shipped',
-            'order_delivered': 'notify_order_delivered',
-            'delivery_failed': 'notify_delivery_failed',
-            'ready_for_pickup': 'notify_order_ready_for_pickup',
-            'picked_up': 'notify_order_picked_up',
-            'expired': 'notify_order_expired',
-            'cancelled': 'notify_order_cancelled',
-            'returned': 'notify_order_returned',
+            "order_created": "notify_order_created",
+            "order_confirmed": "notify_order_confirmed",
+            "payment_link": "notify_payment_link",
+            "payment_received": "notify_payment_received",
+            "payment_failed": "notify_payment_failed",
+            "payment_refunded": "notify_payment_refunded",
+            "order_shipped": "notify_order_shipped",
+            "order_delivered": "notify_order_delivered",
+            "delivery_failed": "notify_delivery_failed",
+            "ready_for_pickup": "notify_order_ready_for_pickup",
+            "picked_up": "notify_order_picked_up",
+            "expired": "notify_order_expired",
+            "cancelled": "notify_order_cancelled",
+            "returned": "notify_order_returned",
         }
 
         field_name = field_map.get(notification_type)

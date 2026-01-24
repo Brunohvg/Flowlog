@@ -17,15 +17,6 @@ from django.utils import timezone
 
 from apps.integrations.whatsapp.tasks import (  # Tasks legadas
     create_order_snapshot,
-    send_order_cancelled_whatsapp,
-    send_order_confirmed_whatsapp,
-    send_order_created_whatsapp,
-    send_order_delivered_whatsapp,
-    send_order_picked_up_whatsapp,
-    send_order_ready_for_pickup_whatsapp,
-    send_order_returned_whatsapp,
-    send_order_shipped_whatsapp,
-    send_payment_received_whatsapp,
     send_whatsapp_notification,
 )
 from apps.orders.models import (
@@ -163,7 +154,6 @@ def _send_whatsapp(task, order_id: str):
 
 
 class OrderService:
-
     @db_transaction.atomic
     def create_order(self, *, tenant, seller, data):
         if seller.tenant_id != tenant.id:
@@ -309,7 +299,6 @@ class OrderService:
 
 
 class OrderStatusService:
-
     @db_transaction.atomic
     def mark_as_paid(self, *, order: Order, actor):
         if order.tenant_id != actor.tenant_id:

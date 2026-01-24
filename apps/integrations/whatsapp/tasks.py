@@ -11,14 +11,10 @@ Arquitetura:
 import json
 import logging
 import time
-import requests
 
+import requests
 from celery import shared_task
 from django.apps import apps
-from django.core.serializers.json import (
-    DjangoJSONEncoder,  # Essencial para serializar Decimal/Date
-)
-from django.db import transaction
 
 from apps.integrations.whatsapp.services import WhatsAppNotificationService
 
@@ -127,28 +123,6 @@ def _process_with_snapshot(snapshot: dict, method: str):
         raise e
 
 
-def _process_legacy(self, order_id: str, method: str):
-    """
-    Processamento legado (baseado em ID).
-    Mantido para compatibilidade com tasks antigas que ainda possam estar na fila.
-    """
-    try:
-        order = _get_order(order_id)
-        service = WhatsAppNotificationService(order.tenant)
-        func = getattr(service, method, None)
-
-        if func:
-            return func(order)
-
-        return {"success": False, "error": f"Method {method} not found"}
-
-    except OrderNotFoundError:
-        logger.warning("[WhatsApp] Order %s não encontrado (Legacy)", order_id)
-        return {"success": False, "error": "Order not found"}
-    except Exception as e:
-        logger.exception("[WhatsApp] Falha legacy order=%s method=%s", order_id, method)
-        raise e
-
 
 # ==============================================================================
 # TASKS PRINCIPAIS (Snapshot - Recomendadas)
@@ -173,73 +147,8 @@ def send_whatsapp_notification(self, snapshot_json: str, method: str):
 
 
 # ==============================================================================
-# TASKS LEGADAS (Compatibilidade)
+# TASKS ESPECÍFICAS
 # ==============================================================================
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_created_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_created")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_confirmed_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_confirmed")
-
-
-@shared_task(**TASK_CONFIG)
-def send_payment_received_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_payment_received")
-
-
-@shared_task(**TASK_CONFIG)
-def send_payment_failed_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_payment_failed")
-
-
-@shared_task(**TASK_CONFIG)
-def send_payment_refunded_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_payment_refunded")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_shipped_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_shipped")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_delivered_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_delivered")
-
-
-@shared_task(**TASK_CONFIG)
-def send_delivery_failed_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_delivery_failed")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_ready_for_pickup_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_ready_for_pickup")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_picked_up_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_picked_up")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_expired_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_expired")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_cancelled_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_cancelled")
-
-
-@shared_task(**TASK_CONFIG)
-def send_order_returned_whatsapp(self, order_id):
-    return _process_legacy(self, order_id, "send_order_returned")
 
 
 @shared_task(**TASK_CONFIG)
@@ -293,13 +202,7 @@ def expire_pending_pickups(self):
 
     for order in orders:
         try:
-            # 1. Cria snapshot (congela dados antes da expiração)
-            snapshot = create_order_snapshot(order)
-
-            # 2. Serializa com Encoder Seguro (evita erro com Decimal/Date)
-            snapshot_json = json.dumps(snapshot, cls=DjangoJSONEncoder)
-
-            # 3. Executa a expiração no banco (o service já dispara o WhatsApp)
+            # 1. Executa a expiração no banco (o service já dispara o WhatsApp com SNAPSHOT interno)
             service.expire_pickup_order(order=order)
             count += 1
 

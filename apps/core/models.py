@@ -35,7 +35,11 @@ class TenantModel(BaseModel):
         # se o check for explicitamente necessário ou se estivermos em debug.
         # Na prática, em produção, isso evita 1 query SELECT extra para cada UPDATE.
         if not self._state.adding and kwargs.pop("check_tenant", False):
-            original_tenant_id = self.__class__.objects.filter(pk=self.pk).values_list("tenant_id", flat=True).first()
+            original_tenant_id = (
+                self.__class__.objects.filter(pk=self.pk)
+                .values_list("tenant_id", flat=True)
+                .first()
+            )
             if original_tenant_id and original_tenant_id != self.tenant_id:
                 raise ValidationError("Não é permitido alterar o tenant.")
 

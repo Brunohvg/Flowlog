@@ -12,10 +12,9 @@ Endpoints:
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum, Count, Q
+from django.db.models import Q, Sum
 from django.utils import timezone
-
-from rest_framework import viewsets, status, permissions
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,29 +23,35 @@ from apps.orders.models import Customer, Order, OrderStatus, PaymentStatus
 from apps.orders.services import OrderService, OrderStatusService
 from apps.payments.models import PaymentLink
 from apps.payments.services import (
+    PagarmeError,
     create_payment_link_for_order,
     create_standalone_payment_link,
-    PagarmeError,
 )
 
 from .serializers import (
-    CustomerSerializer, CustomerListSerializer, CustomerCreateSerializer,
-    OrderSerializer, OrderListSerializer, OrderCreateSerializer, OrderStatusUpdateSerializer,
-    PaymentLinkSerializer, PaymentLinkCreateSerializer,
+    CustomerCreateSerializer,
+    CustomerListSerializer,
+    CustomerSerializer,
     DashboardStatsSerializer,
+    OrderCreateSerializer,
+    OrderListSerializer,
+    OrderSerializer,
+    OrderStatusUpdateSerializer,
+    PaymentLinkCreateSerializer,
+    PaymentLinkSerializer,
 )
-
 
 # ==============================================================================
 # MIXINS
 # ==============================================================================
+
 
 class TenantMixin:
     """Mixin para filtrar por tenant"""
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if hasattr(self.request, 'tenant'):
+        if hasattr(self.request, "tenant"):
             return qs.filter(tenant=self.request.tenant)
         return qs.none()
 
@@ -54,6 +59,7 @@ class TenantMixin:
 # ==============================================================================
 # CUSTOMER
 # ==============================================================================
+
 
 class CustomerViewSet(TenantMixin, viewsets.ModelViewSet):
     """
@@ -84,9 +90,9 @@ class CustomerViewSet(TenantMixin, viewsets.ModelViewSet):
         search = self.request.query_params.get("search")
         if search:
             qs = qs.filter(
-                Q(name__icontains=search) |
-                Q(phone__icontains=search) |
-                Q(email__icontains=search)
+                Q(name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(email__icontains=search)
             )
 
         return qs.order_by("-created_at")
@@ -98,6 +104,7 @@ class CustomerViewSet(TenantMixin, viewsets.ModelViewSet):
 # ==============================================================================
 # ORDER
 # ==============================================================================
+
 
 class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
     """
@@ -166,7 +173,9 @@ class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
                 tenant=request.tenant,
                 seller=request.user,
                 data={
-                    "customer_id": str(data.get("customer_id")) if data.get("customer_id") else None,
+                    "customer_id": str(data.get("customer_id"))
+                    if data.get("customer_id")
+                    else None,
                     "customer_name": data.get("customer_name", ""),
                     "customer_phone": data.get("customer_phone", ""),
                     "customer_email": data.get("customer_email", ""),
@@ -178,16 +187,10 @@ class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
                 },
             )
 
-            return Response(
-                OrderSerializer(order).data,
-                status=status.HTTP_201_CREATED
-            )
+            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["patch"])
     def status(self, request, pk=None):
@@ -203,15 +206,21 @@ class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
         try:
             # Transições disparadas via Service para garantir side-effects (Logs, WhatsApp)
             if data.get("order_status") == OrderStatus.CANCELLED:
-                order = service.cancel_order(order=order, actor=actor, reason=data.get("cancel_reason", ""))
+                order = service.cancel_order(
+                    order=order, actor=actor, reason=data.get("cancel_reason", "")
+                )
             elif data.get("order_status") == OrderStatus.RETURNED:
-                order = service.return_order(order=order, actor=actor, reason=data.get("return_reason", ""))
+                order = service.return_order(
+                    order=order, actor=actor, reason=data.get("return_reason", "")
+                )
 
             if data.get("payment_status") == PaymentStatus.PAID:
                 order = service.mark_as_paid(order=order, actor=actor)
 
             if data.get("delivery_status") == DeliveryStatus.SHIPPED:
-                order = service.mark_as_shipped(order=order, actor=actor, tracking_code=data.get("tracking_code"))
+                order = service.mark_as_shipped(
+                    order=order, actor=actor, tracking_code=data.get("tracking_code")
+                )
             elif data.get("delivery_status") == DeliveryStatus.DELIVERED:
                 order = service.mark_as_delivered(order=order, actor=actor)
             elif data.get("delivery_status") == DeliveryStatus.READY_FOR_PICKUP:
@@ -219,10 +228,16 @@ class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
             elif data.get("delivery_status") == DeliveryStatus.PICKED_UP:
                 order = service.mark_as_picked_up(order=order, actor=actor)
             elif data.get("delivery_status") == DeliveryStatus.FAILED_ATTEMPT:
-                order = service.mark_failed_attempt(order=order, actor=actor, reason="Tentativa via API")
+                order = service.mark_failed_attempt(
+                    order=order, actor=actor, reason="Tentativa via API"
+                )
 
             # Se nenhum status de fluxo principal mudou, mas forneceu tracking code
-            if "tracking_code" in data and order.delivery_status == DeliveryStatus.SHIPPED and data["tracking_code"] != order.tracking_code:
+            if (
+                "tracking_code" in data
+                and order.delivery_status == DeliveryStatus.SHIPPED
+                and data["tracking_code"] != order.tracking_code
+            ):
                 order.tracking_code = data["tracking_code"]
                 order.save(update_fields=["tracking_code", "updated_at"])
 
@@ -247,27 +262,27 @@ class OrderViewSet(TenantMixin, viewsets.ModelViewSet):
 
             # DISPARO DE NOTIFICAÇÃO (Adicionado para consistência com Interface Web)
             from apps.integrations.whatsapp.tasks import send_payment_link_whatsapp
-            transaction.on_commit(lambda: send_payment_link_whatsapp.apply_async(
-                args=[str(order.id), str(payment_link.id)],
-                expires=300,
-                ignore_result=True,
-            ))
+
+            transaction.on_commit(
+                lambda: send_payment_link_whatsapp.apply_async(
+                    args=[str(order.id), str(payment_link.id)],
+                    expires=300,
+                    ignore_result=True,
+                )
+            )
 
             return Response(
-                PaymentLinkSerializer(payment_link).data,
-                status=status.HTTP_201_CREATED
+                PaymentLinkSerializer(payment_link).data, status=status.HTTP_201_CREATED
             )
 
         except PagarmeError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ==============================================================================
 # PAYMENT LINK
 # ==============================================================================
+
 
 class PaymentLinkViewSet(TenantMixin, viewsets.ModelViewSet):
     """
@@ -307,7 +322,9 @@ class PaymentLinkViewSet(TenantMixin, viewsets.ModelViewSet):
         try:
             if data.get("order_id"):
                 # Link para pedido existente
-                order = Order.objects.for_tenant(request.tenant).get(id=data["order_id"])
+                order = Order.objects.for_tenant(request.tenant).get(
+                    id=data["order_id"]
+                )
                 payment_link = create_payment_link_for_order(
                     order=order,
                     installments=data.get("installments", 1),
@@ -327,25 +344,21 @@ class PaymentLinkViewSet(TenantMixin, viewsets.ModelViewSet):
                 )
 
             return Response(
-                PaymentLinkSerializer(payment_link).data,
-                status=status.HTTP_201_CREATED
+                PaymentLinkSerializer(payment_link).data, status=status.HTTP_201_CREATED
             )
 
         except Order.DoesNotExist:
             return Response(
-                {"error": "Pedido não encontrado"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Pedido não encontrado"}, status=status.HTTP_404_NOT_FOUND
             )
         except PagarmeError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ==============================================================================
 # DASHBOARD
 # ==============================================================================
+
 
 class DashboardView(APIView):
     """
@@ -372,22 +385,26 @@ class DashboardView(APIView):
         revenue_today = orders_qs.filter(
             sale_date=today,
             payment_status=PaymentStatus.PAID,
-        ).exclude(
-            order_status=OrderStatus.CANCELLED
-        ).aggregate(total=Sum("total_value"))["total"] or Decimal("0")
+        ).exclude(order_status=OrderStatus.CANCELLED).aggregate(
+            total=Sum("total_value")
+        )["total"] or Decimal("0")
 
         revenue_month = orders_qs.filter(
             sale_date__gte=month_start,
             payment_status=PaymentStatus.PAID,
-        ).exclude(
-            order_status=OrderStatus.CANCELLED
-        ).aggregate(total=Sum("total_value"))["total"] or Decimal("0")
+        ).exclude(order_status=OrderStatus.CANCELLED).aggregate(
+            total=Sum("total_value")
+        )["total"] or Decimal("0")
 
         # Ticket médio
-        paid_orders = orders_qs.filter(
-            sale_date__gte=month_start,
-            payment_status=PaymentStatus.PAID,
-        ).exclude(order_status=OrderStatus.CANCELLED).count()
+        paid_orders = (
+            orders_qs.filter(
+                sale_date__gte=month_start,
+                payment_status=PaymentStatus.PAID,
+            )
+            .exclude(order_status=OrderStatus.CANCELLED)
+            .count()
+        )
 
         ticket_medio = revenue_month / paid_orders if paid_orders > 0 else Decimal("0")
 

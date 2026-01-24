@@ -3,20 +3,19 @@ Views de Pedidos.
 """
 
 from django_filters.rest_framework import DjangoFilterBackend
-
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.api.mixins import TenantViewSetMixin
 from apps.orders.models import Order
 from apps.orders.services import OrderService
-from apps.api.mixins import TenantViewSetMixin
 
 from .filters import OrderFilter
 from .serializers import (
-    OrderSerializer,
-    OrderListSerializer,
     OrderCreateSerializer,
+    OrderListSerializer,
+    OrderSerializer,
     OrderStatusSerializer,
 )
 
@@ -24,7 +23,7 @@ from .serializers import (
 class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     """
     CRUD de Pedidos.
-    
+
     Filtros via query params (django-filter):
     - ?status=pending
     - ?payment=paid
@@ -34,11 +33,11 @@ class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     - ?search=FL-001
     - ?min_value=100&max_value=500
     """
-    
+
     queryset = Order.objects.select_related("customer", "seller")
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
-    
+
     def get_serializer_class(self):
         if self.action == "list":
             return OrderListSerializer
@@ -47,23 +46,25 @@ class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         if self.action == "update_status":
             return OrderStatusSerializer
         return OrderSerializer
-    
+
     def get_queryset(self):
         return super().get_queryset().order_by("-created_at")
-    
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         data = serializer.validated_data
         service = OrderService()
-        
+
         try:
             order = service.create_order(
                 tenant=request.tenant,
                 seller=request.user,
                 data={
-                    "customer_id": str(data["customer_id"]) if data.get("customer_id") else None,
+                    "customer_id": str(data["customer_id"])
+                    if data.get("customer_id")
+                    else None,
                     "customer_name": data.get("customer_name", ""),
                     "customer_phone": data.get("customer_phone", ""),
                     "customer_email": data.get("customer_email", ""),
@@ -77,19 +78,25 @@ class OrderViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     @action(detail=True, methods=["patch"], url_path="status")
     def update_status(self, request, pk=None):
         """PATCH /orders/{id}/status/"""
         order = self.get_object()
         serializer = OrderStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         data = serializer.validated_data
-        
-        for field in ["order_status", "payment_status", "delivery_status", "tracking_code", "cancel_reason"]:
+
+        for field in [
+            "order_status",
+            "payment_status",
+            "delivery_status",
+            "tracking_code",
+            "cancel_reason",
+        ]:
             if field in data:
                 setattr(order, field, data[field])
-        
+
         order.save()
         return Response(OrderSerializer(order).data)

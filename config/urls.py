@@ -43,17 +43,14 @@ urlpatterns = [
     # Healthcheck
     # ==========================================
     path("healthcheck/", healthcheck, name="healthcheck"),
-
     # ==========================================
     # API REST
     # ==========================================
     path("api/", include("apps.api.urls")),
-
     # ==========================================
     # Admin
     # ==========================================
     path(ADMIN_PATH, admin.site.urls),
-
     # ==========================================
     # Autenticação
     # ==========================================
@@ -63,40 +60,30 @@ urlpatterns = [
         name="login",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-
     # ==========================================
     # Dashboard (raiz)
     # ==========================================
     path("", DashboardView.as_view(), name="dashboard"),
-
     # ==========================================
     # Apps - Rotas delegadas
     # ==========================================
-
     # Core: relatórios, configurações, perfil
     path("", include("apps.core.urls")),
-
     # Pedidos
     path("pedidos/", include("apps.orders.urls")),
-
     # Clientes
     path("clientes/", include("apps.orders.customer_urls")),
-
     # Tracking público
     path("rastreio/", include("apps.orders.tracking_urls")),
-
     # WhatsApp
     path(
         "configuracoes/whatsapp/",
         include("apps.integrations.whatsapp.urls"),
     ),
-
     # Pagamentos (Pagar.me)
     path("pagamentos/", include("apps.payments.urls")),
-
     # Ferramentas (Frete)
     path("ferramentas/", include("apps.integrations.freight.urls")),
-
     # Integrações Logísticas
     path("integrations/mandae/", include("apps.integrations.mandae.urls")),
 ]

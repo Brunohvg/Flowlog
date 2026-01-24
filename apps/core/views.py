@@ -13,7 +13,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Avg, Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -170,18 +170,25 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             d_type = d["delivery_type"]
             label = dict(DeliveryType.choices).get(d_type, d_type)
             icon = "truck"
-            if d_type == "motoboy": icon = "bike"
-            elif d_type == "pickup": icon = "store"
-            elif d_type == "mandae": icon = "package"
+            if d_type == "motoboy":
+                icon = "bike"
+            elif d_type == "pickup":
+                icon = "store"
+            elif d_type == "mandae":
+                icon = "package"
 
-            delivery_dist.append({
-                "label": label,
-                "count": d["c"],
-                "pct": calc_pct(d["c"], total_active),
-                "icon": icon
-            })
+            delivery_dist.append(
+                {
+                    "label": label,
+                    "count": d["c"],
+                    "pct": calc_pct(d["c"], total_active),
+                    "icon": icon,
+                }
+            )
 
-        stats["delivery_distribution"] = sorted(delivery_dist, key=lambda x: x["count"], reverse=True)
+        stats["delivery_distribution"] = sorted(
+            delivery_dist, key=lambda x: x["count"], reverse=True
+        )
         context["stats"] = stats
 
         # 3. Alertas
@@ -683,6 +690,7 @@ def profile(request):
 # CONFIGURAÇÕES DE INTEGRAÇÕES
 # ==============================================================================
 
+
 @login_required
 def integrations_settings(request):
     """Página principal de integrações logísticas."""
@@ -710,7 +718,9 @@ def correios_settings(request):
 
     if request.method == "POST":
         tenant_settings.correios_enabled = request.POST.get("correios_enabled") == "1"
-        tenant_settings.correios_usuario = request.POST.get("correios_usuario", "").strip()
+        tenant_settings.correios_usuario = request.POST.get(
+            "correios_usuario", ""
+        ).strip()
 
         # Só atualiza código de acesso se foi preenchido (não sobrescreve com vazio)
         codigo_acesso = request.POST.get("correios_codigo_acesso", "").strip()
@@ -724,12 +734,16 @@ def correios_settings(request):
         # Token Manual Opcional
         token_manual = request.POST.get("correios_token", "").strip()
         if token_manual:
-             tenant_settings.correios_token = token_manual
-             # Se for manual, pode limpar expiração ou setar algo longo
-             tenant_settings.correios_token_expira = timezone.now() + timedelta(days=365)
+            tenant_settings.correios_token = token_manual
+            # Se for manual, pode limpar expiração ou setar algo longo
+            tenant_settings.correios_token_expira = timezone.now() + timedelta(days=365)
 
-        tenant_settings.correios_contrato = request.POST.get("correios_contrato", "").strip()
-        tenant_settings.correios_cartao_postagem = request.POST.get("correios_cartao_postagem", "").strip()
+        tenant_settings.correios_contrato = request.POST.get(
+            "correios_contrato", ""
+        ).strip()
+        tenant_settings.correios_cartao_postagem = request.POST.get(
+            "correios_cartao_postagem", ""
+        ).strip()
 
         tenant_settings.save()
         messages.success(request, "Configurações dos Correios salvas com sucesso!")
@@ -753,15 +767,21 @@ def mandae_settings(request):
 
     if request.method == "POST":
         tenant_settings.mandae_enabled = request.POST.get("mandae_enabled") == "1"
-        tenant_settings.mandae_api_url = request.POST.get("mandae_api_url", "https://api.mandae.com.br/v2/").strip()
+        tenant_settings.mandae_api_url = request.POST.get(
+            "mandae_api_url", "https://api.mandae.com.br/v2/"
+        ).strip()
 
         # Só atualiza token se foi preenchido
         token = request.POST.get("mandae_token", "").strip()
         if token:
             tenant_settings.mandae_token = token
 
-        tenant_settings.mandae_customer_id = request.POST.get("mandae_customer_id", "").strip()
-        tenant_settings.mandae_tracking_prefix = request.POST.get("mandae_tracking_prefix", "").strip()
+        tenant_settings.mandae_customer_id = request.POST.get(
+            "mandae_customer_id", ""
+        ).strip()
+        tenant_settings.mandae_tracking_prefix = request.POST.get(
+            "mandae_tracking_prefix", ""
+        ).strip()
 
         # Webhook secret
         webhook_secret = request.POST.get("mandae_webhook_secret", "").strip()
@@ -841,13 +861,18 @@ def motoboy_settings(request):
         # Tentar geocodificar o CEP automaticamente
         if tenant_settings.store_cep:
             try:
-                from apps.integrations.freight.services import ViaCepClient, NominatimClient
+                from apps.integrations.freight.services import (
+                    NominatimClient,
+                    ViaCepClient,
+                )
 
                 viacep = ViaCepClient()
                 nominatim = NominatimClient()
                 cep_info = viacep.get_cep_info(tenant_settings.store_cep)
                 if cep_info:
-                    address = f"{cep_info.street}, {cep_info.city}, {cep_info.state}, Brasil"
+                    address = (
+                        f"{cep_info.street}, {cep_info.city}, {cep_info.state}, Brasil"
+                    )
                     coords = nominatim.geocode_address(address)
                     if coords:
                         tenant_settings.store_lat, tenant_settings.store_lng = coords

@@ -7,17 +7,14 @@ from datetime import timedelta
 from django.db import models, transaction as db_transaction
 from django.utils import timezone
 
-from apps.core.models import BaseModel
+from apps.core.managers import TenantManager
+from apps.core.models import TenantModel
 
 
-class PaymentLink(BaseModel):
+class PaymentLink(TenantModel):
     """Link de pagamento Pagar.me"""
 
-    tenant = models.ForeignKey(
-        "tenants.Tenant",
-        on_delete=models.CASCADE,
-        related_name="payment_links",
-    )
+    objects = TenantManager()
 
     # Vínculo opcional com pedido
     order = models.ForeignKey(
@@ -175,7 +172,7 @@ class PaymentLink(BaseModel):
         # Seleciona com lock
         link = self.__class__.objects.select_for_update().get(pk=self.pk)
         if link.status == self.Status.PAID:
-            return # Já processado
+            return  # Já processado
 
         link.status = self.Status.PAID
         link.paid_at = timezone.now()
@@ -215,8 +212,12 @@ class PaymentLink(BaseModel):
                         link.payer_address_zip = address.get("zip_code", "")[:10]
                         link.payer_address_street = address.get("street", "")[:200]
                         link.payer_address_number = address.get("number", "")[:20]
-                        link.payer_address_complement = address.get("complement", "")[:100]
-                        link.payer_address_neighborhood = address.get("neighborhood", "")[:100]
+                        link.payer_address_complement = address.get("complement", "")[
+                            :100
+                        ]
+                        link.payer_address_neighborhood = address.get(
+                            "neighborhood", ""
+                        )[:100]
                         link.payer_address_city = address.get("city", "")[:100]
                         link.payer_address_state = address.get("state", "")[:2]
             except Exception:
@@ -227,6 +228,7 @@ class PaymentLink(BaseModel):
         # Atualiza pedido vinculado via Service (Garante status, logs e notificações)
         if link.order:
             from apps.orders.services import OrderStatusService
+
             # Usa o criador do link ou o vendedor do pedido como autor da ação
             actor = link.created_by or link.order.seller
             OrderStatusService().mark_as_paid(order=link.order, actor=actor)

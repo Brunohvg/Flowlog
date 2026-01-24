@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 class DashboardSerializer(serializers.Serializer):
     """Estatísticas do dashboard."""
-    
+
     orders_today = serializers.IntegerField()
     orders_pending = serializers.IntegerField()
     orders_month = serializers.IntegerField()

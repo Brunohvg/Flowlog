@@ -39,10 +39,14 @@ def freight_calculate_api(request):
     settings = getattr(request.tenant, "settings", None)
 
     if not settings:
-        return JsonResponse({"success": False, "error": "Configurações não encontradas"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "Configurações não encontradas"}, status=400
+        )
 
     if not settings.store_cep:
-        return JsonResponse({"success": False, "error": "CEP da loja não configurado"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "CEP da loja não configurado"}, status=400
+        )
 
     try:
         data = json.loads(request.body) if request.body else {}
@@ -53,18 +57,22 @@ def freight_calculate_api(request):
         peso = request.POST.get("peso", 0.3)
 
     if not cep_destino:
-        return JsonResponse({"success": False, "error": "CEP de destino obrigatório"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "CEP de destino obrigatório"}, status=400
+        )
 
     # Converter peso
     try:
-        peso = float(str(peso).replace(',', '.'))
+        peso = float(str(peso).replace(",", "."))
     except (ValueError, TypeError):
         peso = 0.3
 
     # Limpar CEP
     cep_clean = "".join(filter(str.isdigit, cep_destino))
     if len(cep_clean) != 8:
-        return JsonResponse({"success": False, "error": "CEP inválido (deve ter 8 dígitos)"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "CEP inválido (deve ter 8 dígitos)"}, status=400
+        )
 
     try:
         calculator = FreightCalculator(settings)
@@ -81,23 +89,29 @@ def freight_calculate_api(request):
 
         # Formatar resultados Correios
         for freight in result.get("correios", []):
-            response_data["correios"].append({
-                "service": freight.service_name,
-                "code": freight.service_code,
-                "price": str(freight.price) if not freight.error else None,
-                "delivery_days": freight.delivery_days if not freight.error else None,
-                "error": freight.error,
-            })
+            response_data["correios"].append(
+                {
+                    "service": freight.service_name,
+                    "code": freight.service_code,
+                    "price": str(freight.price) if not freight.error else None,
+                    "delivery_days": freight.delivery_days
+                    if not freight.error
+                    else None,
+                    "error": freight.error,
+                }
+            )
 
         # Mandaê
         response_data["mandae"] = []
         for rate in result.get("mandae", []):
-            response_data["mandae"].append({
-                "service": rate.get("name"),
-                "price": str(rate.get("price")),
-                "delivery_days": rate.get("days"),
-                "error": None,
-            })
+            response_data["mandae"].append(
+                {
+                    "service": rate.get("name"),
+                    "price": str(rate.get("price")),
+                    "delivery_days": rate.get("days"),
+                    "error": None,
+                }
+            )
 
         # Motoboy
         motoboy_result = result.get("motoboy")
@@ -138,4 +152,6 @@ def freight_calculate_api(request):
 
     except Exception as e:
         logger.exception("Erro ao calcular frete")
-        return JsonResponse({"success": False, "error": f"Erro interno: {e}"}, status=500)
+        return JsonResponse(
+            {"success": False, "error": f"Erro interno: {e}"}, status=500
+        )

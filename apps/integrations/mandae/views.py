@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from apps.tenants.models import Tenant, TenantSettings
+from apps.tenants.models import TenantSettings
 
 from .services import MandaeWebhookValidator, process_mandae_webhook
 
@@ -43,7 +43,7 @@ def mandae_webhook(request):
             return JsonResponse({"error": "Missing tracking code"}, status=400)
 
         # Buscar o pedido para identificar o tenant
-        from apps.orders.models import Order, DeliveryType
+        from apps.orders.models import DeliveryType, Order
 
         try:
             order = Order.objects.select_related("tenant").get(
@@ -57,16 +57,22 @@ def mandae_webhook(request):
             tenant = None
             prefix = tracking_code[:5] if len(tracking_code) >= 5 else tracking_code
 
-            settings_with_prefix = TenantSettings.objects.filter(
-                mandae_tracking_prefix=prefix,
-                mandae_enabled=True,
-            ).select_related("tenant").first()
+            settings_with_prefix = (
+                TenantSettings.objects.filter(
+                    mandae_tracking_prefix=prefix,
+                    mandae_enabled=True,
+                )
+                .select_related("tenant")
+                .first()
+            )
 
             if settings_with_prefix:
                 tenant = settings_with_prefix.tenant
 
             if not tenant:
-                logger.warning("Webhook Mandaê: tenant não identificado para %s", tracking_code)
+                logger.warning(
+                    "Webhook Mandaê: tenant não identificado para %s", tracking_code
+                )
                 # Retorna 200 para não reenviar (pode ser tracking de outro sistema)
                 return JsonResponse({"status": "ignored", "reason": "unknown_tracking"})
 
@@ -92,16 +98,20 @@ def mandae_webhook(request):
         result = process_mandae_webhook(payload, tenant)
 
         if result["processed"]:
-            return JsonResponse({
-                "status": "processed",
-                "order": result["order_code"],
-                "new_status": result["new_status"],
-            })
+            return JsonResponse(
+                {
+                    "status": "processed",
+                    "order": result["order_code"],
+                    "new_status": result["new_status"],
+                }
+            )
         else:
-            return JsonResponse({
-                "status": "ignored",
-                "reason": result["message"],
-            })
+            return JsonResponse(
+                {
+                    "status": "ignored",
+                    "reason": result["message"],
+                }
+            )
 
     except Exception as e:
         logger.exception("Erro ao processar webhook Mandaê: %s", e)

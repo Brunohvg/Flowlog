@@ -43,7 +43,7 @@ class UserManager(BaseUserManager):
 class User(AbstractUser, BaseModel):
     """
     Usuário do sistema.
-    
+
     Regras de integridade:
     - Superusers podem existir sem tenant (administradores do sistema)
     - Sellers DEVEM ter um tenant associado
@@ -92,23 +92,25 @@ class User(AbstractUser, BaseModel):
 
     def __str__(self):
         return self.email
-    
+
     def clean(self):
         """
         Validação de integridade: usuários não-superuser DEVEM ter tenant.
         """
         super().clean()
-        
+
         # Superusers podem existir sem tenant (são admins do sistema)
         if self.is_superuser:
             return
-        
+
         # Usuários normais (admin de tenant ou seller) DEVEM ter tenant
         if not self.tenant_id:
-            raise ValidationError({
-                'tenant': 'Usuários não-superuser devem estar associados a uma empresa.'
-            })
-    
+            raise ValidationError(
+                {
+                    "tenant": "Usuários não-superuser devem estar associados a uma empresa."
+                }
+            )
+
     def save(self, *args, **kwargs):
         # Executa validação antes de salvar
         self.full_clean()
@@ -121,7 +123,7 @@ class User(AbstractUser, BaseModel):
     @property
     def is_seller(self):
         return self.role == self.Role.SELLER
-    
+
     @property
     def can_access_admin(self):
         """Pode acessar área administrativa do tenant."""

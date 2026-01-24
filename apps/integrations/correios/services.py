@@ -65,7 +65,9 @@ class CorreiosAuthClient:
         encoded = base64.b64encode(credentials.encode()).decode()
         return f"Basic {encoded}"
 
-    def get_token(self, contrato: str = "", cartao: str = "") -> Optional[CorreiosToken]:
+    def get_token(
+        self, contrato: str = "", cartao: str = ""
+    ) -> Optional[CorreiosToken]:
         """
         Obtém token de autenticação dos Correios.
 
@@ -142,10 +144,12 @@ class CorreiosTrackingClient:
     def __init__(self, token: str):
         self.token = token
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+            }
+        )
 
     def get_tracking(self, tracking_code: str) -> Optional[list[CorreiosTrackingEvent]]:
         """
@@ -197,14 +201,16 @@ class CorreiosTrackingClient:
                 endereco = unidade.get("endereco", {})
                 location = f"{endereco.get('cidade', '')}/{endereco.get('uf', '')}"
 
-                result.append(CorreiosTrackingEvent(
-                    status=evento.get("codigo", ""),
-                    description=evento.get("descricao", ""),
-                    location=location.strip("/"),
-                    occurred_at=occurred_at,
-                    tipo=evento.get("tipo", ""),
-                    raw_data=evento,
-                ))
+                result.append(
+                    CorreiosTrackingEvent(
+                        status=evento.get("codigo", ""),
+                        description=evento.get("descricao", ""),
+                        location=location.strip("/"),
+                        occurred_at=occurred_at,
+                        tipo=evento.get("tipo", ""),
+                        raw_data=evento,
+                    )
+                )
 
             return result
 
@@ -231,11 +237,13 @@ class CorreiosPricingClient:
         self.contrato = contrato
         self.cartao = cartao
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
 
     def _consultar_preco(self, payload: dict) -> list:
         try:
@@ -270,7 +278,7 @@ class CorreiosPricingClient:
         largura: int = 20,
         altura: int = 20,
         produtos: list = None,
-        formato: int = 1
+        formato: int = 1,
     ) -> dict:
         """
         Calcula preços e prazos em lote.
@@ -296,12 +304,14 @@ class CorreiosPricingClient:
                 "nuRequisicao": i,
                 "cepOrigem": cep_origem,
                 "cepDestino": cep_destino,
-                "psObjeto": str(peso_gramas), # User code sends float, API often takes string. Let's force proper type. User sample had 25000 int.
+                "psObjeto": str(
+                    peso_gramas
+                ),  # User code sends float, API often takes string. Let's force proper type. User sample had 25000 int.
                 "comprimento": str(int(comprimento)),
                 "largura": str(int(largura)),
                 "altura": str(int(altura)),
                 "nuFormato": formato,
-                "tpObjeto": "2", # 2 = Caixa/Pacote
+                "tpObjeto": "2",  # 2 = Caixa/Pacote
             }
 
             if self.contrato and self.cartao:
@@ -310,10 +320,7 @@ class CorreiosPricingClient:
 
             parametros_preco.append(item)
 
-        payload_preco = {
-            "idLote": id_lote,
-            "parametrosProduto": parametros_preco
-        }
+        payload_preco = {"idLote": id_lote, "parametrosProduto": parametros_preco}
 
         # ----- Monta params PRAZO -----
         parametros_prazo = []
@@ -329,10 +336,7 @@ class CorreiosPricingClient:
 
             parametros_prazo.append(item_prazo)
 
-        payload_prazo = {
-            "idLote": id_lote,
-            "parametrosPrazo": parametros_prazo
-        }
+        payload_prazo = {"idLote": id_lote, "parametrosPrazo": parametros_prazo}
 
         # ----- Chama APIs -----
         # Executar em sequencia (poderia ser paralelo, mas vamos manter simples/seguro)
@@ -381,13 +385,10 @@ class CorreiosPricingClient:
 
             error = msg_erro_preco or msg_erro_prazo
 
-            retorno[produto] = {
-                "price": valor,
-                "days": dias,
-                "error": error
-            }
+            retorno[produto] = {"price": valor, "days": dias, "error": error}
 
         return retorno
+
 
 class CorreiosStatusMapper:
     """Mapeia códigos de evento dos Correios para status do Flowlog."""
@@ -397,24 +398,20 @@ class CorreiosStatusMapper:
         # Postado/Coletado
         "PO": ("shipped", True),  # Postado
         "RO": ("shipped", True),  # Objeto recebido dos correios
-
         # Em trânsito
         "DO": ("shipped", False),  # Objeto em trânsito
-        "PAR": ("shipped", False), # Objeto em transferência
+        "PAR": ("shipped", False),  # Objeto em transferência
         "OEC": ("shipped", True),  # Objeto saiu para entrega
-
         # Entregue
         "BDE": ("delivered", True),  # Entregue ao destinatário
         "BDI": ("delivered", True),  # Entregue ao destinatário
-
         # Problemas
         "BDR": ("failed_attempt", True),  # Tentativa de entrega não realizada
         "LDI": ("failed_attempt", True),  # Objeto aguardando retirada
         "OEC-FAILED": ("failed_attempt", True),  # Não foi possível entregar
-
         # Devolução
         "BLQ": ("pending", True),  # Objeto bloqueado
-        "FC": ("pending", True),   # Devolvido ao remetente
+        "FC": ("pending", True),  # Devolvido ao remetente
     }
 
     @classmethod
@@ -433,7 +430,9 @@ class CorreiosStatusMapper:
         return codigo.upper() in ["BDE", "BDI"]
 
 
-def get_correios_client(tenant_settings) -> Optional[tuple[CorreiosAuthClient, CorreiosTrackingClient]]:
+def get_correios_client(
+    tenant_settings,
+) -> Optional[tuple[CorreiosAuthClient, CorreiosTrackingClient]]:
     """
     Obtém clientes de autenticação e rastreamento configurados.
 
@@ -445,7 +444,10 @@ def get_correios_client(tenant_settings) -> Optional[tuple[CorreiosAuthClient, C
     if not tenant_settings.correios_enabled:
         return None
 
-    if not tenant_settings.correios_usuario or not tenant_settings.correios_codigo_acesso:
+    if (
+        not tenant_settings.correios_usuario
+        or not tenant_settings.correios_codigo_acesso
+    ):
         logger.warning("Correios não configurado completamente")
         return None
 
@@ -456,8 +458,12 @@ def get_correios_client(tenant_settings) -> Optional[tuple[CorreiosAuthClient, C
         is_manual_cws = tenant_settings.correios_token.startswith("cws-")
 
         if is_manual_cws:
-             token = tenant_settings.correios_token
-        elif tenant_settings.correios_token_expira and tenant_settings.correios_token_expira > timezone.now() + timedelta(minutes=5):
+            token = tenant_settings.correios_token
+        elif (
+            tenant_settings.correios_token_expira
+            and tenant_settings.correios_token_expira
+            > timezone.now() + timedelta(minutes=5)
+        ):
             token = tenant_settings.correios_token
 
     if not token:
@@ -557,10 +563,18 @@ def process_correios_tracking(order) -> dict:
     order.last_tracking_status = latest_event.status
     order.last_tracking_check = timezone.now()
     order.tracking_check_count += 1
-    order.save(update_fields=["last_tracking_status", "last_tracking_check", "tracking_check_count"])
+    order.save(
+        update_fields=[
+            "last_tracking_status",
+            "last_tracking_check",
+            "tracking_check_count",
+        ]
+    )
 
     # Mapear status
-    new_delivery_status, should_notify = CorreiosStatusMapper.map_status(latest_event.status)
+    new_delivery_status, should_notify = CorreiosStatusMapper.map_status(
+        latest_event.status
+    )
     result["new_status"] = new_delivery_status
 
     # Verificar se precisa atualizar
@@ -576,8 +590,14 @@ def process_correios_tracking(order) -> dict:
     current_order = status_order.get(current_status, 0)
     new_order = status_order.get(new_delivery_status, 0)
 
-    if new_order > current_order or new_delivery_status == DeliveryStatus.FAILED_ATTEMPT:
-        if new_delivery_status == DeliveryStatus.SHIPPED and current_status == DeliveryStatus.PENDING:
+    if (
+        new_order > current_order
+        or new_delivery_status == DeliveryStatus.FAILED_ATTEMPT
+    ):
+        if (
+            new_delivery_status == DeliveryStatus.SHIPPED
+            and current_status == DeliveryStatus.PENDING
+        ):
             OrderStatusService.mark_as_shipped(order, notify=should_notify)
         elif new_delivery_status == DeliveryStatus.DELIVERED:
             OrderStatusService.mark_as_delivered(order, notify=should_notify)
@@ -589,7 +609,9 @@ def process_correios_tracking(order) -> dict:
 
     logger.info(
         "Rastreio Correios processado: pedido=%s, status=%s, eventos=%d",
-        order.code, latest_event.status, len(events)
+        order.code,
+        latest_event.status,
+        len(events),
     )
 
     return result

@@ -5,7 +5,11 @@ Production-ready for Docker Swarm.
 
 from pathlib import Path
 
+import sentry_sdk
 from decouple import Csv, config
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -32,11 +36,6 @@ if not DEBUG:
     # Proxies (Docker/Nginx/Traefik)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.redis import RedisIntegration
 
 SENTRY_DSN = config("SENTRY_DSN", default=None)
 
@@ -219,6 +218,7 @@ if CELERY_BROKER_URL:
     }
 
     from celery.schedules import crontab
+
     CELERY_BEAT_SCHEDULE = {
         "cleanup-celery-results": {
             "task": "apps.core.tasks.cleanup_celery_results",

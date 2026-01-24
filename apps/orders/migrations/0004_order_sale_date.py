@@ -2,7 +2,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         # Se usou o nome longo no passo 2, ajuste a dependência abaixo!
         # Se usou o nome curto sugerido, deixe como está:

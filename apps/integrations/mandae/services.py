@@ -39,25 +39,20 @@ class MandaeStatusMapper:
         "COLETADO": ("shipped", True),
         "COLETA_SOLICITADA": ("pending", False),
         "COLETA_AGENDADA": ("pending", False),
-
         # Trânsito
         "EM_TRANSITO": ("shipped", False),
         "RECEBIDO_CROSS_DOCKING": ("shipped", False),
         "SAIU_PARA_ENTREGA": ("shipped", True),
-
         # Entrega
         "ENTREGUE": ("delivered", True),
-
         # Problemas
         "TENTATIVA_FALHA": ("failed_attempt", True),
         "ENDERECO_NAO_LOCALIZADO": ("failed_attempt", True),
         "DESTINATARIO_AUSENTE": ("failed_attempt", True),
         "RECUSADO": ("failed_attempt", True),
-
         # Devolução
         "DEVOLVIDO": ("pending", True),  # Requer ação manual
         "EM_DEVOLUCAO": ("shipped", True),
-
         # Cancelamento
         "CANCELADO": ("pending", False),
     }
@@ -119,10 +114,12 @@ class MandaeClient:
         self.token = token
         self.customer_id = customer_id
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+        )
 
     def get_tracking(self, tracking_code: str) -> Optional[list[MandaeTrackingEvent]]:
         """
@@ -144,13 +141,15 @@ class MandaeClient:
 
             events = []
             for event in data.get("events", []):
-                events.append(MandaeTrackingEvent(
-                    status=event.get("status", ""),
-                    description=event.get("description", ""),
-                    location=event.get("location"),
-                    occurred_at=event.get("occurredAt", ""),
-                    raw_data=event,
-                ))
+                events.append(
+                    MandaeTrackingEvent(
+                        status=event.get("status", ""),
+                        description=event.get("description", ""),
+                        location=event.get("location"),
+                        occurred_at=event.get("occurredAt", ""),
+                        raw_data=event,
+                    )
+                )
 
             return events
 
@@ -267,7 +266,7 @@ def process_mandae_webhook(payload: dict, tenant) -> dict:
     Returns:
         Dict com resultado do processamento
     """
-    from apps.orders.models import Order, DeliveryStatus, DeliveryType
+    from apps.orders.models import DeliveryStatus, DeliveryType, Order
     from apps.orders.services import OrderStatusService
 
     result = {
@@ -281,7 +280,6 @@ def process_mandae_webhook(payload: dict, tenant) -> dict:
         # Extrair dados do webhook
         tracking_code = payload.get("trackingCode") or payload.get("tracking_code")
         mandae_status = payload.get("status", "")
-        event_data = payload.get("event", {})
 
         if not tracking_code:
             result["message"] = "Código de rastreio não informado"
@@ -301,7 +299,9 @@ def process_mandae_webhook(payload: dict, tenant) -> dict:
         result["order_code"] = order.code
 
         # Mapear status
-        new_delivery_status, should_notify = MandaeStatusMapper.map_status(mandae_status)
+        new_delivery_status, should_notify = MandaeStatusMapper.map_status(
+            mandae_status
+        )
         result["new_status"] = new_delivery_status
 
         # Atualizar status de rastreio
@@ -323,9 +323,15 @@ def process_mandae_webhook(payload: dict, tenant) -> dict:
         current_order = status_order.get(current_status, 0)
         new_order = status_order.get(new_delivery_status, 0)
 
-        if new_order > current_order or new_delivery_status == DeliveryStatus.FAILED_ATTEMPT:
+        if (
+            new_order > current_order
+            or new_delivery_status == DeliveryStatus.FAILED_ATTEMPT
+        ):
             # Usar OrderStatusService para manter consistência
-            if new_delivery_status == DeliveryStatus.SHIPPED and current_status == DeliveryStatus.PENDING:
+            if (
+                new_delivery_status == DeliveryStatus.SHIPPED
+                and current_status == DeliveryStatus.PENDING
+            ):
                 OrderStatusService.mark_as_shipped(order, notify=should_notify)
             elif new_delivery_status == DeliveryStatus.DELIVERED:
                 OrderStatusService.mark_as_delivered(order, notify=should_notify)
@@ -337,7 +343,9 @@ def process_mandae_webhook(payload: dict, tenant) -> dict:
 
         logger.info(
             "Webhook Mandaê processado: pedido=%s, status=%s->%s",
-            order.code, mandae_status, new_delivery_status
+            order.code,
+            mandae_status,
+            new_delivery_status,
         )
 
     except Exception as e:

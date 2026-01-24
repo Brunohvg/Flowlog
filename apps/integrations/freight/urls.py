@@ -8,5 +8,7 @@ from apps.integrations.freight import views
 
 urlpatterns = [
     path("calcular-frete/", views.freight_calculator, name="freight_calculator"),
-    path("api/calcular-frete/", views.freight_calculate_api, name="freight_calculate_api"),
+    path(
+        "api/calcular-frete/", views.freight_calculate_api, name="freight_calculate_api"
+    ),
 ]

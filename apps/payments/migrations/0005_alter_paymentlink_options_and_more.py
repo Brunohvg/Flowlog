@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         # CORREÇÃO: Apontar para o arquivo correto de orders
         ("orders", "0006_rename_indices"),

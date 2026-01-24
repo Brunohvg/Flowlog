@@ -10,8 +10,12 @@ from typing import Optional
 
 import requests
 from django.core.cache import cache
+
 # Importação condicional para evitar ciclo se houver
-from apps.integrations.correios.services import get_correios_client, CorreiosPricingClient
+from apps.integrations.correios.services import (
+    CorreiosPricingClient,
+    get_correios_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FreightResult:
     """Resultado de um cálculo de frete."""
+
     service_name: str
     service_code: str
     price: Decimal
@@ -29,6 +34,7 @@ class FreightResult:
 @dataclass
 class CepInfo:
     """Informações de um CEP."""
+
     cep: str
     street: str
     neighborhood: str
@@ -74,10 +80,7 @@ class ViaCepClient:
     def _try_viacep(self, cep: str) -> Optional[CepInfo]:
         """Tenta consultar no ViaCEP."""
         try:
-            response = requests.get(
-                f"{self.VIACEP_URL}/{cep}/json/",
-                timeout=5
-            )
+            response = requests.get(f"{self.VIACEP_URL}/{cep}/json/", timeout=5)
             response.raise_for_status()
             data = response.json()
 
@@ -98,10 +101,7 @@ class ViaCepClient:
     def _try_brasilapi(self, cep: str) -> Optional[CepInfo]:
         """Fallback para BrasilAPI."""
         try:
-            response = requests.get(
-                f"{self.BRASILAPI_URL}/{cep}",
-                timeout=5
-            )
+            response = requests.get(f"{self.BRASILAPI_URL}/{cep}", timeout=5)
             response.raise_for_status()
             data = response.json()
 
@@ -130,6 +130,7 @@ class NominatimClient:
     def geocode_address(self, address: str) -> Optional[tuple[Decimal, Decimal]]:
         """Converte endereço em coordenadas lat/lng com fallback."""
         import hashlib
+
         address_hash = hashlib.md5(address.encode()).hexdigest()[:16]
         cache_key = f"geo_{address_hash}"
 
@@ -242,9 +243,9 @@ class CorreiosClient:
     # Baseado em faixas de CEP
     PRICE_TABLE = {
         # (min_cep, max_cep): (sedex_base, pac_base, sedex_days, pac_days)
-        (10000000, 19999999): (35.0, 22.0, 2, 6),   # SP Capital
-        (20000000, 29999999): (38.0, 24.0, 2, 7),   # RJ
-        (30000000, 39999999): (36.0, 23.0, 2, 6),   # MG
+        (10000000, 19999999): (35.0, 22.0, 2, 6),  # SP Capital
+        (20000000, 29999999): (38.0, 24.0, 2, 7),  # RJ
+        (30000000, 39999999): (36.0, 23.0, 2, 6),  # MG
         (40000000, 49999999): (45.0, 28.0, 4, 10),  # BA
         (50000000, 56999999): (48.0, 30.0, 5, 12),  # PE
         (57000000, 57999999): (50.0, 32.0, 5, 12),  # AL
@@ -254,18 +255,18 @@ class CorreiosClient:
         (64000000, 64999999): (55.0, 36.0, 7, 15),  # PI
         (65000000, 65999999): (55.0, 36.0, 7, 15),  # MA
         (66000000, 68899999): (58.0, 38.0, 8, 18),  # PA
-        (69000000, 69299999): (60.0, 40.0, 10, 20), # AM
-        (69300000, 69399999): (65.0, 45.0, 12, 25), # RR
-        (69400000, 69899999): (60.0, 40.0, 10, 20), # AM
-        (69900000, 69999999): (62.0, 42.0, 10, 22), # AC
-        (70000000, 73699999): (42.0, 26.0, 3, 8),   # DF
+        (69000000, 69299999): (60.0, 40.0, 10, 20),  # AM
+        (69300000, 69399999): (65.0, 45.0, 12, 25),  # RR
+        (69400000, 69899999): (60.0, 40.0, 10, 20),  # AM
+        (69900000, 69999999): (62.0, 42.0, 10, 22),  # AC
+        (70000000, 73699999): (42.0, 26.0, 3, 8),  # DF
         (74000000, 76799999): (45.0, 28.0, 4, 10),  # GO
         (76800000, 76999999): (55.0, 36.0, 6, 14),  # RO
         (77000000, 77999999): (50.0, 32.0, 5, 12),  # TO
         (78000000, 78899999): (48.0, 30.0, 5, 12),  # MT
         (79000000, 79999999): (45.0, 28.0, 4, 10),  # MS
-        (80000000, 87999999): (40.0, 25.0, 3, 8),   # PR
-        (88000000, 89999999): (42.0, 26.0, 3, 8),   # SC
+        (80000000, 87999999): (40.0, 25.0, 3, 8),  # PR
+        (88000000, 89999999): (42.0, 26.0, 3, 8),  # SC
         (90000000, 99999999): (45.0, 28.0, 4, 10),  # RS
     }
 
@@ -369,9 +370,9 @@ class FreightCalculator:
         self.viacep = ViaCepClient()
         self.nominatim = NominatimClient()
         self.correios = CorreiosClient(
-            usuario=getattr(tenant_settings, 'correios_usuario', ''),
-            senha=getattr(tenant_settings, 'correios_codigo_acesso', ''),
-            contrato=getattr(tenant_settings, 'correios_contrato', ''),
+            usuario=getattr(tenant_settings, "correios_usuario", ""),
+            senha=getattr(tenant_settings, "correios_codigo_acesso", ""),
+            contrato=getattr(tenant_settings, "correios_contrato", ""),
         )
 
     def calculate_all(self, cep_destino: str, peso: float = 0.3) -> dict:
@@ -415,16 +416,20 @@ class FreightCalculator:
                 )
 
         # Calcular Mandaê
-        if getattr(self.settings, "mandae_enabled", False) and getattr(self.settings, "mandae_token", None):
+        if getattr(self.settings, "mandae_enabled", False) and getattr(
+            self.settings, "mandae_token", None
+        ):
             from apps.integrations.mandae.services import MandaeClient
 
             mandae_client = MandaeClient(
                 api_url=self.settings.mandae_api_url,
                 token=self.settings.mandae_token,
-                customer_id=self.settings.mandae_customer_id
+                customer_id=self.settings.mandae_customer_id,
             )
 
-            mandae_rates = mandae_client.get_rates(cep_destino, [{"weight": peso, "quantity": 1}])
+            mandae_rates = mandae_client.get_rates(
+                cep_destino, [{"weight": peso, "quantity": 1}]
+            )
             if mandae_rates:
                 result["mandae"] = mandae_rates
 
@@ -448,22 +453,19 @@ class FreightCalculator:
 
             pricing_client = CorreiosPricingClient(
                 token=token,
-                contrato=getattr(self.settings, 'correios_contrato', ''),
-                cartao=getattr(self.settings, 'correios_cartao_postagem', '')
+                contrato=getattr(self.settings, "correios_contrato", ""),
+                cartao=getattr(self.settings, "correios_cartao_postagem", ""),
             )
 
             # Converter KG -> Gramas (API exige gramas e user passou 25000=25kg no exemplo)
             peso_gramas = int(peso_kg * 1000)
-            if peso_gramas < 300: # Mínimo 300g (regra correios)
+            if peso_gramas < 300:  # Mínimo 300g (regra correios)
                 peso_gramas = 300
 
             results = []
 
             # Serviços padrão
-            services_map = {
-                '03220': 'SEDEX',
-                '03298': 'PAC'
-            }
+            services_map = {"03220": "SEDEX", "03298": "PAC"}
             codes = list(services_map.keys())
 
             # Chama API Batch
@@ -471,7 +473,7 @@ class FreightCalculator:
                 cep_origem=self.settings.store_cep,
                 cep_destino=cep_destino,
                 peso_gramas=peso_gramas,
-                produtos=codes
+                produtos=codes,
             )
 
             # Processa resultados
@@ -491,13 +493,15 @@ class FreightCalculator:
 
                 service_name = services_map.get(code, code)
 
-                results.append(FreightResult(
-                    service_name=service_name,
-                    service_code=code,
-                    price=price,
-                    delivery_days=days,
-                    error=error
-                ))
+                results.append(
+                    FreightResult(
+                        service_name=service_name,
+                        service_code=code,
+                        price=price,
+                        delivery_days=days,
+                        error=error,
+                    )
+                )
                 valid_results_count += 1
 
             # Se não obteve nenhum resultado válido, retorna None para ativar o Fallback (Tabela)
@@ -550,7 +554,7 @@ class FreightCalculator:
         distance_adjusted = distance * Decimal("1.3")
 
         # Verificar raio máximo (se configurado)
-        max_radius = getattr(self.settings, 'motoboy_max_radius', None)
+        max_radius = getattr(self.settings, "motoboy_max_radius", None)
         if max_radius and distance_adjusted > max_radius:
             # Fora do raio de atendimento
             return {

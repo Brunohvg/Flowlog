@@ -9,6 +9,7 @@ import uuid
 from decimal import Decimal
 
 from django.core.cache import cache
+
 from apps.integrations.models import NotificationLog
 from apps.integrations.whatsapp.client import EvolutionClient
 
@@ -16,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class WhatsAppNotificationService:
-
     def __init__(self, tenant):
         self.tenant = tenant
         self.settings = getattr(tenant, "settings", None)
@@ -36,6 +36,11 @@ class WhatsAppNotificationService:
                     api_key=self.settings.evolution_instance_token,
                     instance=self.settings.evolution_instance,
                 )
+
+    @property
+    def is_ready(self):
+        """Verifica se o serviço está configurado e pronto para envio."""
+        return bool(self.client)
 
     def _can_send(self, notification_type: str = None):
         if not self.settings or not self.settings.whatsapp_enabled or not self.client:
@@ -145,7 +150,10 @@ class WhatsAppNotificationService:
         # Chave: notif:idemp:{tenant}:{order_id}:{type}
         idemp_key = f"notif:idemp:{self.tenant.id}:{order.id if order else 'standalone'}:{notification_type}"
         if not cache.add(idemp_key, "locked", timeout=600):
-            logger.warning("[WhatsApp] Idempotência: Notificação duplicada bloqueada para %s", idemp_key)
+            logger.warning(
+                "[WhatsApp] Idempotência: Notificação duplicada bloqueada para %s",
+                idemp_key,
+            )
             return {"success": False, "error": "duplicate_idempotency"}
 
         log = None
@@ -292,7 +300,7 @@ class WhatsAppNotificationService:
 
     def send_order_shipped(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
-        rastreio = (
+        rastreio_label = (
             f"Código de rastreio: *{data['tracking_code']}*\n\n"
             if data["tracking_code"]
             else ""
@@ -302,7 +310,12 @@ class WhatsAppNotificationService:
         )
         return self._send(
             data["customer_phone"],
-            self._format_message_from_data(template, data, rastreio_info=rastreio),
+            self._format_message_from_data(
+                template,
+                data,
+                rastreio=data["tracking_code"],
+                rastreio_info=rastreio_label,
+            ),
             "order_shipped",
             data["order_obj"],
         )
@@ -377,26 +390,40 @@ class WhatsAppNotificationService:
 
     def send_order_cancelled(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
-        motivo = f"Motivo: {data['cancel_reason']}\n\n" if data["cancel_reason"] else ""
+        motivo_label = (
+            f"Motivo: {data['cancel_reason']}\n\n" if data["cancel_reason"] else ""
+        )
         template = getattr(self.settings, "msg_order_cancelled", None) or (
             "Olá {nome}!\n\nSeu pedido *{codigo}* foi cancelado.\n{motivo_info}Em caso de dúvidas, entre em contato.\n_{loja}_"
         )
         return self._send(
             data["customer_phone"],
-            self._format_message_from_data(template, data, motivo_info=motivo),
+            self._format_message_from_data(
+                template,
+                data,
+                motivo=data["cancel_reason"],
+                motivo_info=motivo_label,
+            ),
             "cancelled",
             data["order_obj"],
         )
 
     def send_order_returned(self, order_or_snapshot):
         data = self._extract_data(order_or_snapshot)
-        motivo = f"Motivo: {data['return_reason']}\n\n" if data["return_reason"] else ""
+        motivo_label = (
+            f"Motivo: {data['return_reason']}\n\n" if data["return_reason"] else ""
+        )
         template = getattr(self.settings, "msg_order_returned", None) or (
             "Olá {nome}!\n\nDevolução do pedido *{codigo}* registrada.\n{motivo_info}_{loja}_"
         )
         return self._send(
             data["customer_phone"],
-            self._format_message_from_data(template, data, motivo_info=motivo),
+            self._format_message_from_data(
+                template,
+                data,
+                motivo=data["return_reason"],
+                motivo_info=motivo_label,
+            ),
             "returned",
             data["order_obj"],
         )

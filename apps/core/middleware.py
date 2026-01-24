@@ -2,8 +2,8 @@
 Middleware para isolamento multi-tenant.
 """
 
+from .context import clear_current_tenant, set_current_tenant
 
-from .context import set_current_tenant, clear_current_tenant
 
 class TenantMiddleware:
     """Injeta tenant no request e no contexto global."""

@@ -359,7 +359,6 @@ class Order(TenantModel):
         """
         import random
         import time
-        import string
 
         # Charset excluindo caracteres ambíguos (0, O, 1, I)
         chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"

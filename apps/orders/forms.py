@@ -3,7 +3,6 @@ Forms do app orders - Flowlog.
 """
 
 import re
-from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django import forms
@@ -14,21 +13,21 @@ from apps.orders.models import DeliveryType
 
 class BrazilianDecimalField(forms.DecimalField):
     """Campo decimal que aceita formato brasileiro (vírgula como separador)."""
-    
+
     def to_python(self, value):
         if value in self.empty_values:
             return None
-        
+
         # Remove pontos de milhar e troca vírgula por ponto
         if isinstance(value, str):
             value = value.strip()
             # Remove R$ se presente
-            value = re.sub(r'^R\$\s*', '', value)
+            value = re.sub(r"^R\$\s*", "", value)
             # Remove pontos de milhar (1.234,56 -> 1234,56)
-            value = value.replace('.', '')
+            value = value.replace(".", "")
             # Troca vírgula por ponto (1234,56 -> 1234.56)
-            value = value.replace(',', '.')
-        
+            value = value.replace(",", ".")
+
         try:
             return Decimal(value)
         except (InvalidOperation, ValueError):
@@ -37,7 +36,7 @@ class BrazilianDecimalField(forms.DecimalField):
 
 class OrderCreateForm(forms.Form):
     """Formulário para criar pedido."""
-    
+
     customer_name = forms.CharField(
         label="Nome do Cliente",
         max_length=200,
@@ -50,7 +49,7 @@ class OrderCreateForm(forms.Form):
         label="CPF",
         max_length=14,
         required=False,
-        help_text="Usado para acompanhamento do pedido"
+        help_text="Usado para acompanhamento do pedido",
     )
     total_value = BrazilianDecimalField(
         label="Valor Total",
@@ -61,7 +60,7 @@ class OrderCreateForm(forms.Form):
         label="Data da Venda",
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
-        help_text="Deixe em branco para usar a data de hoje"
+        help_text="Deixe em branco para usar a data de hoje",
     )
     delivery_type = forms.ChoiceField(
         label="Tipo de Entrega",
@@ -69,23 +68,19 @@ class OrderCreateForm(forms.Form):
         initial=DeliveryType.MOTOBOY,
     )
     delivery_address = forms.CharField(
-        label="Endereço",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 3})
+        label="Endereço", required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     notes = forms.CharField(
-        label="Observações",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 2})
+        label="Observações", required=False, widget=forms.Textarea(attrs={"rows": 2})
     )
-    
+
     # Campos Motoboy
     motoboy_fee = BrazilianDecimalField(
         label="Valor Motoboy",
         max_digits=10,
         decimal_places=2,
         required=False,
-        help_text="Taxa paga ao motoboy pela entrega"
+        help_text="Taxa paga ao motoboy pela entrega",
     )
     motoboy_paid = forms.BooleanField(
         label="Motoboy já foi pago?",
@@ -127,7 +122,7 @@ class OrderCreateForm(forms.Form):
 
 class OrderShipForm(forms.Form):
     """Formulário para marcar pedido como enviado."""
-    
+
     tracking_code = forms.CharField(
         label="Código de Rastreio",
         max_length=50,
@@ -159,19 +154,17 @@ class OrderShipForm(forms.Form):
 
 class OrderCancelForm(forms.Form):
     """Formulário para cancelar pedido."""
-    
+
     reason = forms.CharField(
         label="Motivo do Cancelamento",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 2})
+        widget=forms.Textarea(attrs={"rows": 2}),
     )
 
 
 class TrackingSearchForm(forms.Form):
     """Formulário para buscar pedido para acompanhamento."""
-    
+
     search = forms.CharField(
-        label="Buscar",
-        max_length=20,
-        help_text="Digite o código do pedido ou CPF"
+        label="Buscar", max_length=20, help_text="Digite o código do pedido ou CPF"
     )

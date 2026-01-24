@@ -28,9 +28,9 @@ def poll_correios_tracking(self, tenant_id: int = None):
     Args:
         tenant_id: ID do tenant específico (opcional). Se None, processa todos.
     """
-    from apps.orders.models import Order, DeliveryStatus, DeliveryType
-    from apps.tenants.models import Tenant
     from apps.integrations.correios.services import process_correios_tracking
+    from apps.orders.models import DeliveryStatus, DeliveryType, Order
+    from apps.tenants.models import Tenant
 
     logger.info("Iniciando polling de rastreio Correios")
 
@@ -53,19 +53,24 @@ def poll_correios_tracking(self, tenant_id: int = None):
             continue
 
         # Buscar pedidos em trânsito dos Correios
-        orders = Order.objects.filter(
-            tenant=tenant,
-            delivery_type__in=[DeliveryType.SEDEX, DeliveryType.PAC],
-            delivery_status__in=[
-                DeliveryStatus.PENDING,
-                DeliveryStatus.SHIPPED,
-                DeliveryStatus.FAILED_ATTEMPT,
-            ],
-        ).exclude(
-            tracking_code="",
-        ).exclude(
-            tracking_code__isnull=True,
-        ).order_by("last_tracking_check")  # Priorizar os não verificados recentemente
+        orders = (
+            Order.objects.filter(
+                tenant=tenant,
+                delivery_type__in=[DeliveryType.SEDEX, DeliveryType.PAC],
+                delivery_status__in=[
+                    DeliveryStatus.PENDING,
+                    DeliveryStatus.SHIPPED,
+                    DeliveryStatus.FAILED_ATTEMPT,
+                ],
+            )
+            .exclude(
+                tracking_code="",
+            )
+            .exclude(
+                tracking_code__isnull=True,
+            )
+            .order_by("last_tracking_check")
+        )  # Priorizar os não verificados recentemente
 
         # Filtrar por frequência de verificação
         # - Shipped recente: a cada 4 horas
@@ -105,19 +110,18 @@ def poll_correios_tracking(self, tenant_id: int = None):
                 if result.get("processed"):
                     total_updated += 1
                     logger.info(
-                        "Pedido %s atualizado: %s",
-                        order.code, result.get("new_status")
+                        "Pedido %s atualizado: %s", order.code, result.get("new_status")
                     )
 
             except Exception as e:
                 logger.exception(
-                    "Erro ao processar rastreio do pedido %s: %s",
-                    order.code, e
+                    "Erro ao processar rastreio do pedido %s: %s", order.code, e
                 )
 
     logger.info(
         "Polling Correios concluído: %d processados, %d atualizados",
-        total_processed, total_updated
+        total_processed,
+        total_updated,
     )
 
     return {
@@ -133,8 +137,8 @@ def refresh_correios_token(tenant_id: int):
 
     Chamada automaticamente quando o token está próximo de expirar.
     """
-    from apps.tenants.models import Tenant
     from apps.integrations.correios.services import get_correios_client
+    from apps.tenants.models import Tenant
 
     try:
         tenant = Tenant.objects.get(id=tenant_id, is_active=True)

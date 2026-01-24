@@ -172,14 +172,14 @@ def order_edit(request, order_id):
             if order.delivery_type == "motoboy":
                 update_data["motoboy_paid"] = motoboy_paid
                 if motoboy_fee_raw:
-                    update_data["motoboy_fee"] = parse_brazilian_decimal(motoboy_fee_raw)
+                    update_data["motoboy_fee"] = parse_brazilian_decimal(
+                        motoboy_fee_raw
+                    )
                 else:
                     update_data["motoboy_fee"] = None
 
             OrderService().update_order(
-                order=order,
-                actor=request.user,
-                data=update_data
+                order=order, actor=request.user, data=update_data
             )
 
             messages.success(request, f"Pedido {order.code} atualizado!")

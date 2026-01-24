@@ -3,23 +3,22 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('tenants', '0007_notify_payment_link'),
+        ("tenants", "0007_notify_payment_link"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tenantsettings',
-            name='notify_payment_failed',
+            model_name="tenantsettings",
+            name="notify_payment_failed",
             field=models.BooleanField(
                 default=True,
-                verbose_name='Notificar: Pagamento Falhou',
+                verbose_name="Notificar: Pagamento Falhou",
             ),
         ),
         migrations.AddField(
-            model_name='tenantsettings',
-            name='msg_payment_failed',
+            model_name="tenantsettings",
+            name="msg_payment_failed",
             field=models.TextField(
                 blank=True,
                 default=(
@@ -28,7 +27,7 @@ class Migration(migrations.Migration):
                     "Por favor, tente novamente ou entre em contato.\n\n"
                     "_{loja}_"
                 ),
-                verbose_name='Mensagem: Pagamento Falhou',
+                verbose_name="Mensagem: Pagamento Falhou",
             ),
         ),
     ]

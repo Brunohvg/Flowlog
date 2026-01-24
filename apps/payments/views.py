@@ -6,6 +6,8 @@ VERSÃO FINAL (produção-safe)
 - Suporte a: paid, failed, expired, canceled, refunded
 """
 
+import hashlib
+import hmac
 import json
 import logging
 from decimal import Decimal, InvalidOperation
@@ -17,8 +19,6 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-import hmac
-import hashlib
 
 from apps.orders.models import Order
 from apps.payments.models import PaymentLink

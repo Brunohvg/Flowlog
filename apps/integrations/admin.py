@@ -275,7 +275,7 @@ class APIRequestLogAdmin(admin.ModelAdmin):
 
         if ms >= 2000:
             style = "color: #ef4444; font-weight: bold;"  # Vermelho (lento)
-            text = f"{ms/1000:.1f}s"
+            text = f"{ms / 1000:.1f}s"
         elif ms >= 800:
             style = "color: #f59e0b; font-weight: bold;"  # Amarelo (atenção)
             text = f"{ms}ms"
