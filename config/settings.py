@@ -140,7 +140,7 @@ DATABASES = {
             f"{config('DB_NAME', default='flowlog')}"
         ),
         conn_max_age=600,
-        ssl_require=not DEBUG,
+        ssl_require=False,
     )
 }
 
