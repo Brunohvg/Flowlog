@@ -132,7 +132,13 @@ TEMPLATES = [
 USE_SQLITE = config("USE_SQLITE", default=False, cast=bool)
 DATABASES = {
     "default": dj_database_url.config(
-        default=f"postgres://{config('DB_USER', default='flowlog')}:{config('DB_PASSWORD', default='')}@{config('DB_HOST', default='localhost')}:{config('DB_PORT', default='5432')}/{config('DB_NAME', default='flowlog')}",
+        default=(
+            f"postgres://{config('DB_USER', default='flowlog')}:"
+            f"{config('DB_PASSWORD', default='')}@"
+            f"{config('DB_HOST', default='localhost')}:"
+            f"{config('DB_PORT', default='5432')}/"
+            f"{config('DB_NAME', default='flowlog')}"
+        ),
         conn_max_age=600,
         ssl_require=not DEBUG,
     )
