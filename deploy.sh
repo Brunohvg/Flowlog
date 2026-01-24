@@ -38,9 +38,12 @@ echo -e "\n${BLUE}[3/5] Rodando testes automatizados...${NC}"
 USE_SQLITE=True DEBUG=True uv run pytest
 
 # 4. Definir Versão
-echo -e "\n${BLUE}Qual a TAG desta versão? (ex: v1.1.0)${NC}"
-echo -n "TAG: "
-read VERSION
+CURRENT_VERSION=$(grep -m 1 "version =" pyproject.toml | cut -d '"' -f 2)
+echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
+echo -e "Sugestão: v1.1.0 ou v1.2.0"
+
+# Usar /dev/tty garante que a leitura venha do terminal mesmo se houver lixo no stdin
+read -r -p "TAG: " VERSION < /dev/tty
 
 if [ -z "$VERSION" ]; then
     echo -e "${RED}Erro: A versão não pode ser vazia!${NC}"
