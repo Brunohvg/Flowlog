@@ -42,22 +42,8 @@ END
 }
 
 # Check if we are using SQLite or Postgres
-if [ "$USE_SQLITE" != "True" ]; then
+if [ "$USE_SQLITE" != "True" ] && [ -n "$DB_HOST" ]; then
     wait_for_db
-fi
-
-# Apply database migrations
-echo "Applying database migrations..."
-python manage.py migrate --noinput
-
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
-
-# Create superuser if configured
-if [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
-    echo "Checking/Creating superuser..."
-    python manage.py shell -c "from django.contrib.auth import get_user_model; import os; User=get_user_model(); e=os.getenv('DJANGO_SUPERUSER_EMAIL'); p=os.getenv('DJANGO_SUPERUSER_PASSWORD'); (e and p and not User.objects.filter(email=e).exists()) and User.objects.create_superuser(email=e, password=p) or print('Superuser check complete')"
 fi
 
 # Execute the main command
