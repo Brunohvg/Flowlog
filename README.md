@@ -73,4 +73,4 @@ uv run coverage report
 
 ## 📄 Licença
 
-Proprietário - Todos os direitos reservados.
+Este projeto está licenciado sob a **Licença MIT** - consulte o arquivo [LICENSE](LICENSE) para detalhes. O uso é livre, desde que mantidos os créditos originais.
