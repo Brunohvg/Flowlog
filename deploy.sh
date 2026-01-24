@@ -19,36 +19,44 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== INICIANDO DEPLOY AUTOMATIZADO ===${NC}"
 
-# 1. Verificar se o Docker está acessível
+# 1. Definir Versão (Movido para o início para evitar problemas de TTY)
+VERSION=$1
+if [ -z "$VERSION" ]; then
+    CURRENT_VERSION=$(grep -m 1 "version =" pyproject.toml | cut -d '"' -f 2)
+    echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
+    echo -e "Sugestão: v1.1.0 ou v1.2.0"
+
+    # Loop para garantir que a versão seja preenchida
+    while [ -z "$VERSION" ]; do
+        echo -n "TAG: "
+        read -r VERSION
+        if [ -z "$VERSION" ]; then
+             echo -e "${RED}Erro: A versão não pode ser vazia!${NC}"
+             # Pequeno sleep para evitar loop infinito em ambientes sem TTY
+             sleep 1
+        fi
+    done
+fi
+
+echo -e "${BLUE}Versão definida como: $VERSION${NC}"
+
+# 2. Verificar se o Docker está acessível
 if ! docker info > /dev/null 2>&1; then
     echo -e "${RED}Erro: O Docker não está rodando ou você não tem permissão.${NC}"
     exit 1
 fi
 
-# 2. Sincronizar dependências (UV)
+# 3. Sincronizar dependências (UV)
 echo -e "\n${BLUE}[1/5] Sincronizando requirements.txt com uv...${NC}"
 uv pip compile pyproject.toml --group infra -o requirements.txt
 echo -e "${GREEN}Dependências sincronizadas!${NC}"
 
-# 3. Rodar Qualidade & Testes
+# 4. Rodar Qualidade & Testes
 echo -e "\n${BLUE}[2/5] Rodando análise estática...${NC}"
 uv run ruff check .
 
 echo -e "\n${BLUE}[3/5] Rodando testes automatizados...${NC}"
 USE_SQLITE=True DEBUG=True uv run pytest
-
-# 4. Definir Versão
-CURRENT_VERSION=$(grep -m 1 "version =" pyproject.toml | cut -d '"' -f 2)
-echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
-echo -e "Sugestão: v1.1.0 ou v1.2.0"
-
-# Usar /dev/tty garante que a leitura venha do terminal mesmo se houver lixo no stdin
-read -r -p "TAG: " VERSION < /dev/tty
-
-if [ -z "$VERSION" ]; then
-    echo -e "${RED}Erro: A versão não pode ser vazia!${NC}"
-    exit 1
-fi
 
 FULL_IMAGE_NAME="$IMAGE_NAME:$VERSION"
 LATEST_IMAGE_NAME="$IMAGE_NAME:latest"
