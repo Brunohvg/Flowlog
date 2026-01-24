@@ -362,7 +362,7 @@ wheels = [
 
 [[package]]
 name = "flowlog"
-version = "0.1.0"
+version = "1.10.2"
 source = { virtual = "." }
 dependencies = [
     { name = "celery" },
