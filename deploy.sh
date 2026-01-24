@@ -26,13 +26,17 @@ else
     CURRENT_VERSION=$(grep -m 1 "version =" pyproject.toml | cut -d '"' -f 2)
     echo -e "\n${BLUE}Qual a TAG desta versão? (Versão atual no pyproject: $CURRENT_VERSION)${NC}"
     echo -n "DIGITE A TAG AGORA (ex: v1.11): "
+
+    # Tentativa de leitura robusta
     read -r VERSION
-    VERSION=$(echo "$VERSION" | xargs)
+
+    # Limpar espaços em branco
+    VERSION=$(echo "$VERSION" | tr -d '[:space:]')
 fi
 
 if [ -z "$VERSION" ]; then
     echo -e "\n${RED}Erro: A versão não pode ser vazia!${NC}"
-    echo -e "Você também pode rodar: ./deploy.sh v1.11"
+    echo -e "Dica: Você pode rodar: ./deploy.sh v1.11 para pular esta pergunta."
     exit 1
 fi
 
